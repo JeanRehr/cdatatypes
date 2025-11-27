@@ -3,4 +3,4 @@
 !/.clang-format
 
 build/*
-!build/.gitignore
+!build/.gitkeep
