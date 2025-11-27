@@ -1,0 +1,36 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/cc",
+      "-c",
+      "-Wextra",
+      "-Wall",
+      "-pedantic",
+      "-std=c23",
+      "-Iinclude",
+      "-o",
+      "a",
+      "arraylist/src/main.c"
+    ],
+    "directory": "/home/jeanr/programming/c/cdatatypes",
+    "file": "/home/jeanr/programming/c/cdatatypes/arraylist/src/main.c",
+    "output": "/home/jeanr/programming/c/cdatatypes/a"
+  },
+  {
+    "arguments": [
+      "/usr/bin/cc",
+      "-c",
+      "-Wextra",
+      "-Wall",
+      "-pedantic",
+      "-std=c23",
+      "-Iinclude",
+      "-o",
+      "a",
+      "allocator/src/allocator.c"
+    ],
+    "directory": "/home/jeanr/programming/c/cdatatypes",
+    "file": "/home/jeanr/programming/c/cdatatypes/allocator/src/allocator.c",
+    "output": "/home/jeanr/programming/c/cdatatypes/a"
+  }
+]

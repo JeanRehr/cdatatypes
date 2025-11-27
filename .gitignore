@@ -1,0 +1,6 @@
+**/.*
+!/.gitignore
+!/.clang-format
+
+build/*
+!build/.gitignore
