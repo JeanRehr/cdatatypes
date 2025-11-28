@@ -69,7 +69,7 @@ struct arraylist_##name { \
  * remove_elements_at() - Removes a number of elements at given index
  * resize() - Changes the size of a vector, adding or removing elements if necessary
  * shrink_to_fit() - Reduces the reserved memory of a vector if necessary to exactly fit the number of elements
- * swap() - Swaps the contents of one vector with another
+ * swap() - Swaps the contents of one vector with another with the same type T
  * }
  */
 #define ARRAYLIST_DECLARE(T, name) \
@@ -126,17 +126,17 @@ struct arraylist_##name arraylist_##name##_init(Allocator *alloc, void (*destruc
 /**
  * @brief Reserves the capacity of an arraylist \
  * @param arraylist Pointer to the arraylist \
- * @param new_capacity New capacity of the arraylist \
+ * @param capacity New capacity of the arraylist \
  * @return 1 if arraylist is null or arraylist's capacity is lesser or equals than new capacity \
  *         0 on success, -1 on reallocation failure \
  * \
  */ \
-int arraylist_##name##_reserve(struct arraylist_##name *arraylist, size_t new_capacity) { \
-    if (!arraylist || new_capacity <= arraylist->capacity) return 1; \
-    T *new_data = arraylist->alloc->realloc(arraylist->data, arraylist->capacity * sizeof(T), new_capacity * sizeof(T), arraylist->alloc->ctx); \
+int arraylist_##name##_reserve(struct arraylist_##name *arraylist, size_t capacity) { \
+    if (!arraylist || capacity <= arraylist->capacity) return 1; \
+    T *new_data = arraylist->alloc->realloc(arraylist->data, arraylist->capacity * sizeof(T), capacity * sizeof(T), arraylist->alloc->ctx); \
     if (!new_data) return -1; \
     arraylist->data = new_data; \
-    arraylist->capacity = new_capacity; \
+    arraylist->capacity = capacity; \
     return 0; \
 } \
 \
