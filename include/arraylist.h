@@ -75,6 +75,7 @@ struct arraylist_##name { \
 #define ARRAYLIST_DECLARE(T, name) \
 struct arraylist_##name arraylist_##name##_init(Allocator *alloc, void (*destructor)(T *)); \
 int arraylist_##name##_reserve(struct arraylist_##name *arraylist, size_t capacity); \
+void arraylist_##name##_shrink(struct arraylist_##name *arraylist, size_t size); \
 int arraylist_##name##_push_back(struct arraylist_##name *arraylist, T value); \
 T* arraylist_##name##_emplace_back_slot(struct arraylist_##name *arraylist); \
 void arraylist_##name##_pop_back(struct arraylist_##name *arraylist); \
@@ -138,6 +139,24 @@ int arraylist_##name##_reserve(struct arraylist_##name *arraylist, size_t capaci
     arraylist->data = new_data; \
     arraylist->capacity = capacity; \
     return 0; \
+} \
+\
+/**
+ * @brief Shrinks the arraylist to size, removing elements if necessary\
+ * @param arraylist Pointer to the arraylist \
+ * @param size New size of the arraylist \
+ * \
+ * Returns early if arraylist is null or arraylist size is <= 0 or if arraylist size is <= size \
+ *         or if provided size is <= 0 \
+ * \
+ */ \
+void arraylist_##name##_shrink(struct arraylist_##name *arraylist, size_t size) { \
+    if (!arraylist || arraylist->size <= 0 || arraylist->size <= size || size <= 0) return; \
+    T *it_atsize = arraylist_##name##_at(arraylist, size); \
+    for (T *it = arraylist_##name##_end(arraylist); it >= it_atsize; --it) { \
+        if (arraylist->destructor) arraylist->destructor(&arraylist->data[arraylist->size - 1]); \
+        --arraylist->size; \
+    } \
 } \
 \
 /**
