@@ -35,6 +35,7 @@ struct arraylist_##name { \
     size_t size; \
     size_t capacity; \
     Allocator *alloc; \
+    void (*destructor)(T *); \
 };
 
 /**
@@ -56,7 +57,7 @@ struct arraylist_##name { \
  * 
  */
 #define ARRAYLIST_DECLARE(T, name) \
-struct arraylist_##name arraylist_##name##_init(Allocator *alloc); \
+struct arraylist_##name arraylist_##name##_init(Allocator *alloc, void (*destructor)(T *)); \
 void arraylist_##name##_deinit(struct arraylist_##name *vec); \
 int arraylist_##name##_push_back(struct arraylist_##name *vec, T value); \
 T arraylist_##name##_pop_back(struct arraylist_##name *vec); \
@@ -87,9 +88,10 @@ void arraylist_##name##_clear(struct arraylist_##name *vec);
  * If memory alloc fails, cap is set to 0 \
  * \
  */ \
-struct arraylist_##name arraylist_##name##_init(Allocator *alloc) { \
+struct arraylist_##name arraylist_##name##_init(Allocator *alloc, void (*destructor)(T *)) { \
     struct arraylist_##name vec = {0}; \
     if (alloc) vec.alloc = alloc; else vec.alloc = allocator_get_default(); \
+    vec.destructor = destructor; \
     vec.size = 0; \
     vec.capacity = 8; \
     vec.data = vec.alloc->malloc(vec.capacity * sizeof(T), vec.alloc->ctx); \
@@ -107,9 +109,16 @@ struct arraylist_##name arraylist_##name##_init(Allocator *alloc) { \
  * Frees the internal data array and resets the fields \
  * Safe to call on nullptr or already deinitialized arraylists \
  * \
+ * @note Will call the destructor on data items if provided \
+ * \
  */ \
 void arraylist_##name##_deinit(struct arraylist_##name *vec) { \
     if (vec && vec->data) { \
+        if (vec->destructor) { \
+            for (size_t i = 0; i < vec->size; ++i) { \
+                vec->destructor(&vec->data[i]); \
+            } \
+        } \
         vec->alloc->free(vec->data, vec->capacity * sizeof(T), vec->alloc->ctx); \
         vec->data = nullptr; \
         vec->size = 0; \
@@ -206,11 +215,20 @@ int arraylist_##name##_reserve(struct arraylist_##name *vec, size_t new_capacity
  * @brief Clears the arraylist's data \
  * @param vec Pointer to the arraylist \
  * \
- * It does not free anything \
+ * It does not free the vec itself, only sets it size to 0 \
+ * \
+ * @note Will call the object's destructor on objects if available \
  * \
  */ \
 void arraylist_##name##_clear(struct arraylist_##name *vec) { \
-    if (vec) vec->size = 0; \
+    if (vec) { \
+        if (vec->destructor) { \
+            for (size_t i = 0; i < vec->size; ++i) { \
+                vec->destructor(&vec->data[i]); \
+            } \
+        vec->size = 0; \
+        } \
+    } \
 } \
 
 #define ARRAYLIST(T, name)\
