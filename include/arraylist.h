@@ -74,21 +74,22 @@ struct arraylist_##name { \
  */
 #define ARRAYLIST_DECLARE(T, name) \
 struct arraylist_##name arraylist_##name##_init(Allocator *alloc, void (*destructor)(T *)); \
-int arraylist_##name##_reserve(struct arraylist_##name *arraylist, size_t capacity); \
-void arraylist_##name##_shrink_size(struct arraylist_##name *arraylist, size_t size); \
-int arraylist_##name##_shrink_to_fit(struct arraylist_##name *arraylist); \
-int arraylist_##name##_push_back(struct arraylist_##name *arraylist, T value); \
-T* arraylist_##name##_emplace_back_slot(struct arraylist_##name *arraylist); \
-void arraylist_##name##_pop_back(struct arraylist_##name *arraylist); \
-T* arraylist_##name##_at(struct arraylist_##name *arraylist, size_t index); \
-T* arraylist_##name##_begin(struct arraylist_##name *arraylist); \
-T* arraylist_##name##_back(struct arraylist_##name *arraylist); \
-T* arraylist_##name##_end(struct arraylist_##name *arraylist); \
-size_t arraylist_##name##_size(const struct arraylist_##name *arraylist); \
-bool arraylist_##name##_is_empty(const struct arraylist_##name *arraylist); \
-size_t arraylist_##name##_capacity(const struct arraylist_##name *arraylist); \
-void arraylist_##name##_clear(struct arraylist_##name *arraylist); \
-void arraylist_##name##_deinit(struct arraylist_##name *arraylist);
+int arraylist_##name##_reserve(struct arraylist_##name *self, size_t capacity); \
+void arraylist_##name##_shrink_size(struct arraylist_##name *self, size_t size); \
+int arraylist_##name##_shrink_to_fit(struct arraylist_##name *self); \
+int arraylist_##name##_push_back(struct arraylist_##name *self, T value); \
+T* arraylist_##name##_emplace_back_slot(struct arraylist_##name *self); \
+void arraylist_##name##_pop_back(struct arraylist_##name *self); \
+T* arraylist_##name##_at(struct arraylist_##name *self, size_t index); \
+T* arraylist_##name##_begin(struct arraylist_##name *self); \
+T* arraylist_##name##_back(struct arraylist_##name *self); \
+T* arraylist_##name##_end(struct arraylist_##name *self); \
+size_t arraylist_##name##_size(const struct arraylist_##name *self); \
+bool arraylist_##name##_is_empty(const struct arraylist_##name *self); \
+size_t arraylist_##name##_capacity(const struct arraylist_##name *self); \
+void arraylist_##name##_swap(struct arraylist_##name *self, struct arraylist_##name *other); \
+void arraylist_##name##_clear(struct arraylist_##name *self); \
+void arraylist_##name##_deinit(struct arraylist_##name *self);
 
 /**
  * @def ARRAYLIST_IMPLEMENT(T, name)
@@ -133,12 +134,12 @@ struct arraylist_##name arraylist_##name##_init(Allocator *alloc, void (*destruc
  *         0 on success, -1 on reallocation failure \
  * \
  */ \
-int arraylist_##name##_reserve(struct arraylist_##name *arraylist, size_t capacity) { \
-    if (!arraylist || capacity <= arraylist->capacity) return 1; \
-    T *new_data = arraylist->alloc->realloc(arraylist->data, arraylist->capacity * sizeof(T), capacity * sizeof(T), arraylist->alloc->ctx); \
+int arraylist_##name##_reserve(struct arraylist_##name *self, size_t capacity) { \
+    if (!self || capacity <= self->capacity) return 1; \
+    T *new_data = self->alloc->realloc(self->data, self->capacity * sizeof(T), capacity * sizeof(T), self->alloc->ctx); \
     if (!new_data) return -1; \
-    arraylist->data = new_data; \
-    arraylist->capacity = capacity; \
+    self->data = new_data; \
+    self->capacity = capacity; \
     return 0; \
 } \
 \
@@ -151,12 +152,12 @@ int arraylist_##name##_reserve(struct arraylist_##name *arraylist, size_t capaci
  *         or if provided size is <= 0 \
  * \
  */ \
-void arraylist_##name##_shrink_size(struct arraylist_##name *arraylist, size_t size) { \
-    if (!arraylist || arraylist->size <= 0 || arraylist->size <= size || size <= 0) return; \
-    T *it_atsize = arraylist_##name##_at(arraylist, size); \
-    for (T *it = arraylist_##name##_end(arraylist); it >= it_atsize; --it) { \
-        if (arraylist->destructor) arraylist->destructor(&arraylist->data[arraylist->size - 1]); \
-        --arraylist->size; \
+void arraylist_##name##_shrink_size(struct arraylist_##name *self, size_t size) { \
+    if (!self || self->size <= 0 || self->size <= size || size <= 0) return; \
+    T *it_atsize = arraylist_##name##_at(self, size); \
+    for (T *it = arraylist_##name##_end(self); it >= it_atsize; --it) { \
+        if (self->destructor) self->destructor(&self->data[self->size - 1]); \
+        --self->size; \
     } \
 } \
 \
@@ -167,18 +168,18 @@ void arraylist_##name##_shrink_size(struct arraylist_##name *arraylist, size_t s
  * Returns early if arraylist is null or arraylist capacity == size \
  * \
  */ \
-int arraylist_##name##_shrink_to_fit(struct arraylist_##name *arraylist) { \
-    if (!arraylist || arraylist->capacity == arraylist->size) return 1; \
-    if (arraylist->size == 0) { \
-        arraylist->alloc->free(arraylist->data, arraylist->capacity * sizeof(T), arraylist->alloc->ctx); \
-        arraylist->data = nullptr; \
-        arraylist->capacity = 0; \
+int arraylist_##name##_shrink_to_fit(struct arraylist_##name *self) { \
+    if (!self || self->capacity == self->size) return 1; \
+    if (self->size == 0) { \
+        self->alloc->free(self->data, self->capacity * sizeof(T), self->alloc->ctx); \
+        self->data = nullptr; \
+        self->capacity = 0; \
         return 0; \
     }\
-    T *new_data = arraylist->alloc->realloc(arraylist->data, arraylist->capacity * sizeof(T), arraylist->size * sizeof(T), arraylist->alloc->ctx); \
+    T *new_data = self->alloc->realloc(self->data, self->capacity * sizeof(T), self->size * sizeof(T), self->alloc->ctx); \
     if (!new_data) return -1; \
-    arraylist->data = new_data; \
-    arraylist->capacity = arraylist->size; \
+    self->data = new_data; \
+    self->capacity = self->size; \
     return 0; \
 }\
 \
@@ -193,16 +194,16 @@ int arraylist_##name##_shrink_to_fit(struct arraylist_##name *arraylist) { \
  * @note Will not construct objects in place, objects must be constructed \
  * \
  */ \
-int arraylist_##name##_push_back(struct arraylist_##name *arraylist, T value) { \
-    if (!arraylist) return -1; \
-    if (arraylist->size >= arraylist->capacity) { \
-        size_t new_capacity = arraylist->capacity * 2; \
-        T *new_data = arraylist->alloc->realloc(arraylist->data, arraylist->capacity * sizeof(T), new_capacity * sizeof(T), arraylist->alloc->ctx); \
+int arraylist_##name##_push_back(struct arraylist_##name *self, T value) { \
+    if (!self) return -1; \
+    if (self->size >= self->capacity) { \
+        size_t new_capacity = self->capacity * 2; \
+        T *new_data = self->alloc->realloc(self->data, self->capacity * sizeof(T), new_capacity * sizeof(T), self->alloc->ctx); \
         if (!new_data) return -1; \
-        arraylist->data = new_data; \
-        arraylist->capacity = new_capacity; \
+        self->data = new_data; \
+        self->capacity = new_capacity; \
     } \
-    arraylist->data[arraylist->size++] = value; \
+    self->data[self->size++] = value; \
     return 0; \
 } \
 \
@@ -219,16 +220,16 @@ int arraylist_##name##_push_back(struct arraylist_##name *arraylist, T value) { 
  * slot->a = 42; // or call a constructor on slot \
  * @endcode \
  */ \
-T* arraylist_##name##_emplace_back_slot(struct arraylist_##name *arraylist) { \
-    if (!arraylist) return nullptr; \
-    if (arraylist->size >= arraylist->capacity) { \
-        size_t new_capacity = arraylist->capacity * 2; \
-        T *new_data = arraylist->alloc->realloc(arraylist->data, arraylist->capacity * sizeof(T), new_capacity * sizeof(T), arraylist->alloc->ctx); \
+T* arraylist_##name##_emplace_back_slot(struct arraylist_##name *self) { \
+    if (!self) return nullptr; \
+    if (self->size >= self->capacity) { \
+        size_t new_capacity = self->capacity * 2; \
+        T *new_data = self->alloc->realloc(self->data, self->capacity * sizeof(T), new_capacity * sizeof(T), self->alloc->ctx); \
         if (!new_data) return nullptr; \
-        arraylist->data = new_data; \
-        arraylist->capacity = new_capacity; \
+        self->data = new_data; \
+        self->capacity = new_capacity; \
     } \
-    return &arraylist->data[arraylist->size++]; \
+    return &self->data[self->size++]; \
 } \
 \
 /**
@@ -240,10 +241,10 @@ T* arraylist_##name##_emplace_back_slot(struct arraylist_##name *arraylist) { \
  * @note The object will be destructed if a destructor is provided durint arraylist init \
  * \
  */ \
-void arraylist_##name##_pop_back(struct arraylist_##name *arraylist) { \
-    if (!arraylist || arraylist->size <= 0) return; \
-    if (arraylist->destructor) arraylist->destructor(&arraylist->data[arraylist->size - 1]); \
-    --arraylist->size; \
+void arraylist_##name##_pop_back(struct arraylist_##name *self) { \
+    if (!self || self->size <= 0) return; \
+    if (self->destructor) self->destructor(&self->data[self->size - 1]); \
+    --self->size; \
 } \
 \
 /**
@@ -253,9 +254,9 @@ void arraylist_##name##_pop_back(struct arraylist_##name *arraylist) { \
  * @return A pointer to the value accessed or null if arraylist=null or index is greater than arraylist size \
  * \
  */ \
-T* arraylist_##name##_at(struct arraylist_##name *arraylist, size_t index) { \
-    if (!arraylist || index >= arraylist->size) return nullptr; \
-    return &arraylist->data[index]; \
+T* arraylist_##name##_at(struct arraylist_##name *self, size_t index) { \
+    if (!self || index >= self->size) return nullptr; \
+    return &self->data[index]; \
 } \
 \
 /**
@@ -263,7 +264,7 @@ T* arraylist_##name##_at(struct arraylist_##name *arraylist, size_t index) { \
  * @details It returns the block of memory allocated, can be used to iterate, \
  *          and where a function accepts a *T \
  * @param arraylist Pointer to the arraylist \
- * @return A pointer to the first value or null if !arraylist or size is less than or equal to 0 \
+ * @return A pointer to the first value or null if !self or size is less than or equal to 0 \
  * \
  * @code \
  * // Prints the contents of an arraylist of T (substitute T for your type) \
@@ -271,9 +272,9 @@ T* arraylist_##name##_at(struct arraylist_##name *arraylist, size_t index) { \
  * @endcode \
  * \
  */ \
-T* arraylist_##name##_begin(struct arraylist_##name *arraylist) { \
-    if (!arraylist || arraylist->size <= 0) return nullptr; \
-    return &arraylist->data[0]; \
+T* arraylist_##name##_begin(struct arraylist_##name *self) { \
+    if (!self || self->size <= 0) return nullptr; \
+    return &self->data[0]; \
 } \
 \
 /**
@@ -281,26 +282,26 @@ T* arraylist_##name##_begin(struct arraylist_##name *arraylist) { \
  * @details Can be used as an Iterator, where a function accepts a *T same as begin, \
  *          but it will not be the end of the arraylist, just the last element, can be dereferenced \
  * @param arraylist Pointer to the arraylist \
- * @return A pointer to the last value or null if !arraylist or size is less than or equal to 0 \
+ * @return A pointer to the last value or null if !self or size is less than or equal to 0 \
  * \
  */ \
-T* arraylist_##name##_back(struct arraylist_##name *arraylist) { \
-    if (!arraylist || arraylist->size <= 0) return nullptr; \
-    return &arraylist->data[arraylist->size - 1]; \
+T* arraylist_##name##_back(struct arraylist_##name *self) { \
+    if (!self || self->size <= 0) return nullptr; \
+    return &self->data[self->size - 1]; \
 } \
 \
 /**
  * @brief Accesses the end of the arraylist \
  * @details Can be used as an Iterator, where a function accepts a *T same as begin \
  * @param arraylist Pointer to the arraylist \
- * @return A pointer to the end or null if !arraylist or size is less than or equal to 0 \
+ * @return A pointer to the end or null if !self or size is less than or equal to 0 \
  * \
  * @warning Dereferencing it leads to undefined behavior \
  * \
  */ \
-T* arraylist_##name##_end(struct arraylist_##name *arraylist) { \
-    if (!arraylist || arraylist->size <= 0) return nullptr; \
-    return &arraylist->data[arraylist->size]; \
+T* arraylist_##name##_end(struct arraylist_##name *self) { \
+    if (!self || self->size <= 0) return nullptr; \
+    return &self->data[self->size]; \
 } \
 \
 /**
@@ -309,8 +310,8 @@ T* arraylist_##name##_end(struct arraylist_##name *arraylist) { \
  * @return The size or 0 if arraylist is null \
  * \
  */ \
-size_t arraylist_##name##_size(const struct arraylist_##name *arraylist) { \
-    return arraylist ? arraylist->size : 0; \
+size_t arraylist_##name##_size(const struct arraylist_##name *self) { \
+    return self ? self->size : 0; \
 } \
 /**
  * @brief Checks if the arraylist is empty \
@@ -318,9 +319,9 @@ size_t arraylist_##name##_size(const struct arraylist_##name *arraylist) { \
  * @return False if arraylist is null or size = 0, otherwise true \
  * \
  */ \
-bool arraylist_##name##_is_empty(const struct arraylist_##name *arraylist) { \
-    if (!arraylist) return false; \
-    return arraylist->size == 0 ? true : false; \
+bool arraylist_##name##_is_empty(const struct arraylist_##name *self) { \
+    if (!self) return false; \
+    return self->size == 0 ? true : false; \
 } \
 \
 /**
@@ -329,8 +330,8 @@ bool arraylist_##name##_is_empty(const struct arraylist_##name *arraylist) { \
  * @return The capacity or 0 if arraylist is null \
  * \
  */ \
-size_t arraylist_##name##_capacity(const struct arraylist_##name *arraylist) { \
-    return arraylist ? arraylist->capacity : 0; \
+size_t arraylist_##name##_capacity(const struct arraylist_##name *self) { \
+    return self ? self->capacity : 0; \
 } \
 \
 /**
@@ -343,13 +344,13 @@ size_t arraylist_##name##_capacity(const struct arraylist_##name *arraylist) { \
  * @note Will call the object's destructor on objects if available \
  * \
  */ \
-void arraylist_##name##_clear(struct arraylist_##name *arraylist) { \
-    if (!arraylist) return; \
-    if (arraylist->destructor) { \
-        for (size_t i = 0; i < arraylist->size; ++i) { \
-            arraylist->destructor(&arraylist->data[i]); \
+void arraylist_##name##_clear(struct arraylist_##name *self) { \
+    if (!self) return; \
+    if (self->destructor) { \
+        for (size_t i = 0; i < self->size; ++i) { \
+            self->destructor(&self->data[i]); \
         } \
-    arraylist->size = 0; \
+    self->size = 0; \
     } \
 } \
 \
@@ -363,17 +364,17 @@ void arraylist_##name##_clear(struct arraylist_##name *arraylist) { \
  * @note Will call the destructor on data items if provided \
  * \
  */ \
-void arraylist_##name##_deinit(struct arraylist_##name *arraylist) { \
-    if (!arraylist || !arraylist->data) return; \
-    if (arraylist->destructor) { \
-        for (size_t i = 0; i < arraylist->size; ++i) { \
-            arraylist->destructor(&arraylist->data[i]); \
+void arraylist_##name##_deinit(struct arraylist_##name *self) { \
+    if (!self || !self->data) return; \
+    if (self->destructor) { \
+        for (size_t i = 0; i < self->size; ++i) { \
+            self->destructor(&self->data[i]); \
         } \
     } \
-    arraylist->alloc->free(arraylist->data, arraylist->capacity * sizeof(T), arraylist->alloc->ctx); \
-    arraylist->data = nullptr; \
-    arraylist->size = 0; \
-    arraylist->capacity = 0; \
+    self->alloc->free(self->data, self->capacity * sizeof(T), self->alloc->ctx); \
+    self->data = nullptr; \
+    self->size = 0; \
+    self->capacity = 0; \
 } \
 
 /**
