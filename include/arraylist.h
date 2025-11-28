@@ -48,7 +48,7 @@ struct arraylist_##name { \
  * - arraylist_##name##_deinit()
  * - arraylist_##name##_push_back()
  * - arraylist_##name##_pop_back()
- * - arraylist_##name##_emplace_back_slot() \
+ * - arraylist_##name##_emplace_back_slot()
  * - arraylist_##name##_at()
  * - arraylist_##name##_size()
  * - arraylist_##name##_capacity()
