@@ -190,6 +190,7 @@ int arraylist_##name##_shrink_to_fit(struct arraylist_##name *self) { \
  * @return -1 on failure 0 on success \
  * \
  * Safe to call on nullptr or already deinitialed arraylists \
+ * Will automatically resize and realocate capacity, doubling it \
  * \
  * @note Will not construct objects in place, objects must be constructed \
  * \
@@ -208,9 +209,11 @@ int arraylist_##name##_push_back(struct arraylist_##name *self, T value) { \
 } \
 \
 /**
- * @brief Returns a slot on the arraylist for an object to be constructed \
+ * @brief Returns a slot at the end of the arraylist for an object to be constructed \
  * @param arraylist Pointer to the arraylist \
  * @return The slot or nullptr if the arraylist isn't initialized or if the reallocation fails\
+ * \
+ * Will automatically resize and realocate capacity, doubling it \
  * \
  * @code \
  * struct Foo { int a; }; \
