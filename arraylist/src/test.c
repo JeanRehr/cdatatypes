@@ -441,9 +441,17 @@ void test_arraylist_size(void) {
 void test_arraylist_is_empty(void) {
     printf("Testing arraylist end function.\n");
     struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
+    assert(arraylist_test_is_empty(&arrlisttest));
+
+    struct test add1;
+    test_ctor(&add1, 10, 0.5, "add1");
+    arraylist_test_push_back(&arrlisttest, add1);
+    assert(!arraylist_test_is_empty(&arrlisttest));
+
+    arraylist_test_pop_back(&arrlisttest);
+    assert(arraylist_test_is_empty(&arrlisttest));
 
     arraylist_test_deinit(&arrlisttest);
-    assert(false);
     printf("arraylist end passed all tests.\n");
 }
 
