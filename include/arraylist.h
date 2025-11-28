@@ -49,6 +49,7 @@ struct arraylist_##name { \
  * - arraylist_##name##_deinit()
  * - arraylist_##name##_push_back()
  * - arraylist_##name##_pop_back()
+ * - arraylist_##name##_emplace_back_slot() \
  * - arraylist_##name##_at()
  * - arraylist_##name##_size()
  * - arraylist_##name##_capacity()
@@ -61,6 +62,7 @@ struct arraylist_##name arraylist_##name##_init(Allocator *alloc, void (*destruc
 void arraylist_##name##_deinit(struct arraylist_##name *vec); \
 int arraylist_##name##_push_back(struct arraylist_##name *vec, T value); \
 void arraylist_##name##_pop_back(struct arraylist_##name *vec); \
+T* arraylist_##name##_emplace_back_slot(struct arraylist_##name *vec); \
 T* arraylist_##name##_at(struct arraylist_##name *vec, size_t index); \
 size_t arraylist_##name##_size(const struct arraylist_##name *vec); \
 size_t arraylist_##name##_capacity(const struct arraylist_##name *vec); \
@@ -164,6 +166,30 @@ void arraylist_##name##_pop_back(struct arraylist_##name *vec) { \
     if (vec->destructor) vec->destructor(&vec->data[--vec->size]); \
     --vec->size; \
 } \
+\
+/**
+ * @brief Returns a slot on the arraylist for an object to be constructed \
+ * @param vec Pointer to the arraylist \
+ * @return The slot or nullptr if the vec isn't initialized or if the reallocation fails\
+ * \
+ * @code \
+ * struct Foo { int a; }; \
+ * // Initialize ... \
+ * struct Foo *slot = arraylist_Foo_emplace_back_slot(&mylist); \
+ * // Now slot is a valid pointer for writing into a new element. For example: \
+ * slot->a = 42; // or call a constructor on slot\
+ * @endcode \
+ */ \
+T* arraylist_##name##_emplace_back_slot(struct arraylist_##name *vec) { \
+    if (!vec) return nullptr; \
+    if (vec->size >= vec->capacity) { \
+        size_t new_capacity = vec->capacity * 2; \
+        T *new_data = vec->alloc->realloc(vec->data, vec->capacity * sizeof(T), new_capacity * sizeof(T), vec->alloc->ctx); \
+        if (!new_data) return nullptr; \
+        vec->data = new_data; \
+        vec->capacity = new_capacity; \
+    } \
+    return &vec->data[vec->size++]; \
 } \
 \
 /**
