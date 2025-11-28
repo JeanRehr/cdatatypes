@@ -334,6 +334,13 @@ size_t arraylist_##name##_capacity(const struct arraylist_##name *self) { \
     return self ? self->capacity : 0; \
 } \
 \
+void arraylist_##name##_swap(struct arraylist_##name *self, struct arraylist_##name *other) { \
+    if (!self || !other) return; \
+    struct arraylist_##name temp = *other; \
+    *other = *self; \
+    *self = temp; \
+} \
+\
 /**
  * @brief Clears the arraylist's data \
  * @param arraylist Pointer to the arraylist \

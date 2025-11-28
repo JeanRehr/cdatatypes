@@ -18,6 +18,7 @@ ARRAYLIST(struct test, test)
 
 int main(void) {
     struct arraylist_test arrtest = arraylist_test_init(nullptr, test_dtor);
+    struct arraylist_test arrtest1 = arraylist_test_init(nullptr, test_dtor);
 
     struct test add1;
     struct test add2;
@@ -54,10 +55,8 @@ int main(void) {
     test_ctor(&add16, 15, 1.0, "add16");
     test_ctor(&add17, 15, 1.0, "add17");
 
-    test_print(&add1);
-
     arraylist_test_reserve(&arrtest, 10);
-    printf("Capacity after reserve 10 arrtest.cap = %lu\n", arrtest.capacity);
+    arraylist_test_reserve(&arrtest1, 20);
 
     arraylist_test_push_back(&arrtest, add1);
     arraylist_test_push_back(&arrtest, add2);
@@ -66,32 +65,46 @@ int main(void) {
     arraylist_test_push_back(&arrtest, add5);
     arraylist_test_push_back(&arrtest, add6);
     arraylist_test_push_back(&arrtest, add7);
-    arraylist_test_push_back(&arrtest, add8);
-    arraylist_test_push_back(&arrtest, add9);
-    arraylist_test_push_back(&arrtest, add10);
-    arraylist_test_push_back(&arrtest, add11);
-    arraylist_test_push_back(&arrtest, add12);
-    arraylist_test_push_back(&arrtest, add13);
-    arraylist_test_push_back(&arrtest, add14);
-    arraylist_test_push_back(&arrtest, add15);
-    arraylist_test_push_back(&arrtest, add16);
-    arraylist_test_push_back(&arrtest, add17);
+    arraylist_test_push_back(&arrtest1, add8);
+    arraylist_test_push_back(&arrtest1, add9);
+    arraylist_test_push_back(&arrtest1, add10);
+    arraylist_test_push_back(&arrtest1, add11);
+    arraylist_test_push_back(&arrtest1, add12);
+    arraylist_test_push_back(&arrtest1, add13);
+    arraylist_test_push_back(&arrtest1, add14);
+    arraylist_test_push_back(&arrtest1, add15);
+    arraylist_test_push_back(&arrtest1, add16);
+    arraylist_test_push_back(&arrtest1, add17);
+
     printf("size after reserve and pushback = %lu\n", arrtest.size);
 
     printf("Capacity after pushback 17 arrtest.cap = %lu\n", arrtest.capacity);
     printf("size after pushback 17 arrtest.size = %lu\n", arrtest.size);
 
-    arraylist_test_shrink_size(&arrtest, 10);
+    printf("print arrtest before swap\n");
+    for (size_t i = 0; i < arraylist_test_size(&arrtest); ++i) {
+        test_print(&arrtest.data[i]);
+    }
 
-    printf("Capacity after shrink to 10 arrtest.cap = %lu\n", arrtest.capacity);
-    printf("Size after shrink to 10 arrtest.size = %lu\n", arrtest.size);
+    printf("print arrtest1 before swap\n");
+    for (size_t i = 0; i < arraylist_test_size(&arrtest1); ++i) {
+        test_print(&arrtest1.data[i]);
+    }
 
-    struct test *ind0 = arraylist_test_at(&arrtest, 0);
+    arraylist_test_swap(&arrtest, &arrtest1);
 
-    test_print(ind0);
+    printf("print arrtest after swap\n");
+    for (size_t i = 0; i < arraylist_test_size(&arrtest); ++i) {
+        test_print(&arrtest.data[i]);
+    }
+
+    printf("print arrtest1 after swap\n");
+    for (size_t i = 0; i < arraylist_test_size(&arrtest1); ++i) {
+        test_print(&arrtest1.data[i]);
+    }
 
     arraylist_test_deinit(&arrtest);
-
+    arraylist_test_deinit(&arrtest1);
     return 0;
 }
 
@@ -105,8 +118,8 @@ void test_ctor(struct test *t, int a, float b, char *objname) {
 }
 
 void test_print(struct test *t) {
-    printf("t->a = %d\n", *t->a);
-    printf("t->b = %f\n", *t->b);
+    //printf("t->a = %d\n", *t->a);
+    //printf("t->b = %f\n", *t->b);
     printf("t->objname = %s\n", t->objname);
 }
 
