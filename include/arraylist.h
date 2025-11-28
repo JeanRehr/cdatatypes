@@ -1,6 +1,9 @@
 /**
  * @file arraylist.h
  * @brief Generic arraylist implementation using macros
+ * @details The arraylist will own and free the memory, as long as the correct destructor for the
+ *          object is provided, and the deinit functions called correctly, once an object is inside
+ *          the arraylist, do not free it, call the functions of the arraylist that frees it
  */
 #ifndef ARRAYLIST_H
 #define ARRAYLIST_H
@@ -272,6 +275,13 @@ void arraylist_##name##_clear(struct arraylist_##name *vec) { \
     } \
 } \
 
+/**
+ * @def ARRAYLIST(T, name)
+ * @brief Helper macro to define, declare and implement all in one \
+ * @param T The type arraylist will hold
+ * @param name The name suffix for the arraylist type
+ *
+ */
 #define ARRAYLIST(T, name)\
 ARRAYLIST_DEFINE(T, name) \
 ARRAYLIST_DECLARE(T, name) \
