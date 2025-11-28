@@ -53,8 +53,9 @@ struct arraylist_##name { \
  * - arraylist_##name##_emplace_back_slot()
  * - arraylist_##name##_pop_back()
  * - arraylist_##name##_at()
- * - arraylist_##name##_front()
+ * - arraylist_##name##_begin()
  * - arraylist_##name##_back()
+ * - arraylist_##name##_end()
  * - arraylist_##name##_size()
  * - arraylist_##name##_is_empty()
  * - arraylist_##name##_capacity()
@@ -69,8 +70,9 @@ int arraylist_##name##_push_back(struct arraylist_##name *arraylist, T value); \
 T* arraylist_##name##_emplace_back_slot(struct arraylist_##name *arraylist); \
 void arraylist_##name##_pop_back(struct arraylist_##name *arraylist); \
 T* arraylist_##name##_at(struct arraylist_##name *arraylist, size_t index); \
-T* arraylist_##name##_front(struct arraylist_##name *arraylist); \
+T* arraylist_##name##_begin(struct arraylist_##name *arraylist); \
 T* arraylist_##name##_back(struct arraylist_##name *arraylist); \
+T* arraylist_##name##_end(struct arraylist_##name *arraylist); \
 size_t arraylist_##name##_size(const struct arraylist_##name *arraylist); \
 bool arraylist_##name##_is_empty(const struct arraylist_##name *arraylist); \
 size_t arraylist_##name##_capacity(const struct arraylist_##name *arraylist); \
@@ -207,17 +209,26 @@ T* arraylist_##name##_at(struct arraylist_##name *arraylist, size_t index) { \
 \
 /**
  * @brief Accesses the first element of the arraylist \
+ * @details It returns the block of memory allocated, can be used to iterate, \
+ *          and where a function accepts a *T \
  * @param arraylist Pointer to the arraylist \
  * @return A pointer to the first value or null if !arraylist or size is less than or equal to 0 \
  * \
+ * @code \
+ * // Prints the contents of an arraylist of T (substitute T for your type) \
+ * for (T *it = arraylist_t_begin(); it != arraylist_t_end(); ++it) { t_print(); } \
+ * @endcode \
+ * \
  */ \
-T* arraylist_##name##_front(struct arraylist_##name *arraylist) { \
+T* arraylist_##name##_begin(struct arraylist_##name *arraylist) { \
     if (!arraylist || arraylist->size <= 0) return nullptr; \
     return &arraylist->data[0]; \
 } \
 \
 /**
  * @brief Accesses the last position of the arraylist \
+ * @details Can be used as an Iterator, where a function accepts a *T same as begin, \
+ *          but it will not be the end of the arraylist, just the last element, can be dereferenced \
  * @param arraylist Pointer to the arraylist \
  * @return A pointer to the last value or null if !arraylist or size is less than or equal to 0 \
  * \
@@ -228,7 +239,21 @@ T* arraylist_##name##_back(struct arraylist_##name *arraylist) { \
 } \
 \
 /**
- * @brief Gets the size of a arraylist \
+ * @brief Accesses the end of the arraylist \
+ * @details Can be used as an Iterator, where a function accepts a *T same as begin \
+ * @param arraylist Pointer to the arraylist \
+ * @return A pointer to the end or null if !arraylist or size is less than or equal to 0 \
+ * \
+ * @warning Dereferencing it leads to undefined behavior \
+ * \
+ */ \
+T* arraylist_##name##_end(struct arraylist_##name *arraylist) { \
+    if (!arraylist || arraylist->size <= 0) return nullptr; \
+    return &arraylist->data[arraylist->size]; \
+} \
+\
+/**
+ * @brief Gets the size of an arraylist \
  * @param arraylist Pointer to the arraylist \
  * @return The size or 0 if arraylist is null \
  * \
