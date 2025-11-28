@@ -60,7 +60,7 @@ struct arraylist_##name { \
 struct arraylist_##name arraylist_##name##_init(Allocator *alloc, void (*destructor)(T *)); \
 void arraylist_##name##_deinit(struct arraylist_##name *vec); \
 int arraylist_##name##_push_back(struct arraylist_##name *vec, T value); \
-T arraylist_##name##_pop_back(struct arraylist_##name *vec); \
+void arraylist_##name##_pop_back(struct arraylist_##name *vec); \
 T* arraylist_##name##_at(struct arraylist_##name *vec, size_t index); \
 size_t arraylist_##name##_size(const struct arraylist_##name *vec); \
 size_t arraylist_##name##_capacity(const struct arraylist_##name *vec); \
@@ -152,14 +152,17 @@ int arraylist_##name##_push_back(struct arraylist_##name *vec, T value) { \
 /**
  * @brief Removes the last added element \
  * @param vec Pointer to the arraylist \
- * @return The value removed \
  * \
- * The function asserts if the vec isn't null and if the size is greater than 0 \
+ * Does nothing on an empty vec \
+ * \
+ * @note The object will be destructed if a destructor is provided durint vec init \
  * \
  */ \
-T arraylist_##name##_pop_back(struct arraylist_##name *vec) { \
-    assert(vec && vec->size > 0); \
-    return vec->data[--vec->size]; \
+void arraylist_##name##_pop_back(struct arraylist_##name *vec) { \
+    if (!vec || vec->size <= 0) return; \
+    if (vec->destructor) vec->destructor(&vec->data[--vec->size]); \
+    --vec->size; \
+} \
 } \
 \
 /**
