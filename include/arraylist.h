@@ -49,6 +49,8 @@ struct arraylist_##name { \
  * Declares the following functions:
  * - arraylist_##name##_init()
  * - arraylist_##name##_reserve()
+ * - arraylist_##name##_shrink_size()
+ * - arraylist_##name##_shrink_to_fit()
  * - arraylist_##name##_push_back()
  * - arraylist_##name##_emplace_back_slot()
  * - arraylist_##name##_pop_back()
@@ -67,15 +69,14 @@ struct arraylist_##name { \
  * remove_at() - Removes at given index
  * insert_elements_at() - Inserts a number of elements at given index
  * remove_elements_at() - Removes a number of elements at given index
- * shrink() - Changes the size of a vector, removing elements if necessary
- * shrink_to_fit() - Reduces the reserved memory of a vector if necessary to exactly fit the number of elements
  * swap() - Swaps the contents of one vector with another with the same type T
  * }
  */
 #define ARRAYLIST_DECLARE(T, name) \
 struct arraylist_##name arraylist_##name##_init(Allocator *alloc, void (*destructor)(T *)); \
 int arraylist_##name##_reserve(struct arraylist_##name *arraylist, size_t capacity); \
-void arraylist_##name##_shrink(struct arraylist_##name *arraylist, size_t size); \
+void arraylist_##name##_shrink_size(struct arraylist_##name *arraylist, size_t size); \
+int arraylist_##name##_shrink_to_fit(struct arraylist_##name *arraylist); \
 int arraylist_##name##_push_back(struct arraylist_##name *arraylist, T value); \
 T* arraylist_##name##_emplace_back_slot(struct arraylist_##name *arraylist); \
 void arraylist_##name##_pop_back(struct arraylist_##name *arraylist); \
@@ -142,7 +143,7 @@ int arraylist_##name##_reserve(struct arraylist_##name *arraylist, size_t capaci
 } \
 \
 /**
- * @brief Shrinks the arraylist to size, removing elements if necessary\
+ * @brief Shrinks the arraylist to size, removing elements if necessary \
  * @param arraylist Pointer to the arraylist \
  * @param size New size of the arraylist \
  * \
@@ -150,7 +151,7 @@ int arraylist_##name##_reserve(struct arraylist_##name *arraylist, size_t capaci
  *         or if provided size is <= 0 \
  * \
  */ \
-void arraylist_##name##_shrink(struct arraylist_##name *arraylist, size_t size) { \
+void arraylist_##name##_shrink_size(struct arraylist_##name *arraylist, size_t size) { \
     if (!arraylist || arraylist->size <= 0 || arraylist->size <= size || size <= 0) return; \
     T *it_atsize = arraylist_##name##_at(arraylist, size); \
     for (T *it = arraylist_##name##_end(arraylist); it >= it_atsize; --it) { \
@@ -158,6 +159,28 @@ void arraylist_##name##_shrink(struct arraylist_##name *arraylist, size_t size) 
         --arraylist->size; \
     } \
 } \
+\
+/**
+ * @brief Shrinks the capacity of the arraylist to fit the size, may reallocate and does not remove elements \
+ * @param arraylist Pointer to the arraylist \
+ * @return 0 if successful, 1 on noop, and -1 on allocation failure\
+ * Returns early if arraylist is null or arraylist capacity == size \
+ * \
+ */ \
+int arraylist_##name##_shrink_to_fit(struct arraylist_##name *arraylist) { \
+    if (!arraylist || arraylist->capacity == arraylist->size) return 1; \
+    if (arraylist->size == 0) { \
+        arraylist->alloc->free(arraylist->data, arraylist->capacity * sizeof(T), arraylist->alloc->ctx); \
+        arraylist->data = nullptr; \
+        arraylist->capacity = 0; \
+        return 0; \
+    }\
+    T *new_data = arraylist->alloc->realloc(arraylist->data, arraylist->capacity * sizeof(T), arraylist->size * sizeof(T), arraylist->alloc->ctx); \
+    if (!new_data) return -1; \
+    arraylist->data = new_data; \
+    arraylist->capacity = arraylist->size; \
+    return 0; \
+}\
 \
 /**
  * @brief Adds a new element to the end of the array \

@@ -79,7 +79,12 @@ int main(void) {
     printf("size after reserve and pushback = %lu\n", arrtest.size);
 
     printf("Capacity after pushback 17 arrtest.cap = %lu\n", arrtest.capacity);
+    printf("size after pushback 17 arrtest.size = %lu\n", arrtest.size);
 
+    arraylist_test_shrink_size(&arrtest, 10);
+
+    printf("Capacity after shrink to 10 arrtest.cap = %lu\n", arrtest.capacity);
+    printf("Size after shrink to 10 arrtest.size = %lu\n", arrtest.size);
 
     struct test *ind0 = arraylist_test_at(&arrtest, 0);
 
