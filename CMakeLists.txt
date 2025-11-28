@@ -50,7 +50,7 @@ else()
     set(BASE_FLAGS "-Wall -Wextra -pedantic")
     set(DEBUG_FLAGS "-g3 -O0 -fno-sanitize=all")
     set(RELEASE_FLAGS "-O3 -DNDEBUG -fno-sanitize=all")
-    set(SAN_FLAGS "-fsanitize=address,undefined -fno-omit-frame-pointer -00")
+    set(SAN_FLAGS "-fsanitize=address,undefined -fno-omit-frame-pointer -O0")
 endif()
 
 # Set flags depending on build type
