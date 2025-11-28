@@ -132,8 +132,9 @@ void arraylist_##name##_deinit(struct arraylist_##name *vec) { \
  * @param T value to be added \
  * @return -1 on failure 0 on success \
  * \
- * Frees the internal data array and resets the fields \
  * Safe to call on nullptr or already deinitialed arraylists \
+ * \
+ * @note Will not construct objects in place, objects must be constructed \
  * \
  */ \
 int arraylist_##name##_push_back(struct arraylist_##name *vec, T value) { \
