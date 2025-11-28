@@ -42,7 +42,7 @@ struct arraylist_##name { \
 
 /**
  * @def ARRAYLIST_DECLARE(T, name)
- * @brief Declares all functions for a arraylist type
+ * @brief Declares all functions for an arraylist type
  * @param T The type arraylist will hold
  * @param name The name suffix for the arraylist type
  *
@@ -62,16 +62,16 @@ struct arraylist_##name { \
  */
 #define ARRAYLIST_DECLARE(T, name) \
 struct arraylist_##name arraylist_##name##_init(Allocator *alloc, void (*destructor)(T *)); \
-void arraylist_##name##_deinit(struct arraylist_##name *vec); \
-int arraylist_##name##_push_back(struct arraylist_##name *vec, T value); \
-void arraylist_##name##_pop_back(struct arraylist_##name *vec); \
-T* arraylist_##name##_emplace_back_slot(struct arraylist_##name *vec); \
-T* arraylist_##name##_at(struct arraylist_##name *vec, size_t index); \
-size_t arraylist_##name##_size(const struct arraylist_##name *vec); \
-bool arraylist_##name##_is_empty(const struct arraylist_##name *vec); \
-size_t arraylist_##name##_capacity(const struct arraylist_##name *vec); \
-int arraylist_##name##_reserve(struct arraylist_##name *vec, size_t new_capacity); \
-void arraylist_##name##_clear(struct arraylist_##name *vec);
+void arraylist_##name##_deinit(struct arraylist_##name *arraylist); \
+int arraylist_##name##_push_back(struct arraylist_##name *arraylist, T value); \
+void arraylist_##name##_pop_back(struct arraylist_##name *arraylist); \
+T* arraylist_##name##_emplace_back_slot(struct arraylist_##name *arraylist); \
+T* arraylist_##name##_at(struct arraylist_##name *arraylist, size_t index); \
+size_t arraylist_##name##_size(const struct arraylist_##name *arraylist); \
+bool arraylist_##name##_is_empty(const struct arraylist_##name *arraylist); \
+size_t arraylist_##name##_capacity(const struct arraylist_##name *arraylist); \
+int arraylist_##name##_reserve(struct arraylist_##name *arraylist, size_t new_capacity); \
+void arraylist_##name##_clear(struct arraylist_##name *arraylist);
 
 /**
  * @def ARRAYLIST_IMPLEMENT(T, name)
@@ -95,22 +95,22 @@ void arraylist_##name##_clear(struct arraylist_##name *vec);
  * \
  */ \
 struct arraylist_##name arraylist_##name##_init(Allocator *alloc, void (*destructor)(T *)) { \
-    struct arraylist_##name vec = {0}; \
-    if (alloc) vec.alloc = alloc; else vec.alloc = allocator_get_default(); \
-    vec.destructor = destructor; \
-    vec.size = 0; \
-    vec.capacity = 8; \
-    vec.data = vec.alloc->malloc(vec.capacity * sizeof(T), vec.alloc->ctx); \
-    if (!vec.data) { \
+    struct arraylist_##name arraylist = {0}; \
+    if (alloc) arraylist.alloc = alloc; else arraylist.alloc = allocator_get_default(); \
+    arraylist.destructor = destructor; \
+    arraylist.size = 0; \
+    arraylist.capacity = 8; \
+    arraylist.data = arraylist.alloc->malloc(arraylist.capacity * sizeof(T), arraylist.alloc->ctx); \
+    if (!arraylist.data) { \
         fprintf(stderr, "Not able to allocate memory."); \
-        vec.capacity = 0; \
+        arraylist.capacity = 0; \
     } \
-    return vec; \
+    return arraylist; \
 } \
 \
 /**
  * @brief Destroys and frees a arraylist \
- * @param vec Pointer to the arraylist to deinit \
+ * @param arraylist Pointer to the arraylist to deinit \
  * \
  * Frees the internal data array and resets the fields \
  * Safe to call on nullptr or already deinitialized arraylists \
@@ -118,23 +118,23 @@ struct arraylist_##name arraylist_##name##_init(Allocator *alloc, void (*destruc
  * @note Will call the destructor on data items if provided \
  * \
  */ \
-void arraylist_##name##_deinit(struct arraylist_##name *vec) { \
-    if (vec && vec->data) { \
-        if (vec->destructor) { \
-            for (size_t i = 0; i < vec->size; ++i) { \
-                vec->destructor(&vec->data[i]); \
+void arraylist_##name##_deinit(struct arraylist_##name *arraylist) { \
+    if (arraylist && arraylist->data) { \
+        if (arraylist->destructor) { \
+            for (size_t i = 0; i < arraylist->size; ++i) { \
+                arraylist->destructor(&arraylist->data[i]); \
             } \
         } \
-        vec->alloc->free(vec->data, vec->capacity * sizeof(T), vec->alloc->ctx); \
-        vec->data = nullptr; \
-        vec->size = 0; \
-        vec->capacity = 0; \
+        arraylist->alloc->free(arraylist->data, arraylist->capacity * sizeof(T), arraylist->alloc->ctx); \
+        arraylist->data = nullptr; \
+        arraylist->size = 0; \
+        arraylist->capacity = 0; \
     } \
 } \
 \
 /**
  * @brief Adds a new element to the end of the array \
- * @param vec Pointer to the arraylist to add a new value \
+ * @param arraylist Pointer to the arraylist to add a new value \
  * @param T value to be added \
  * @return -1 on failure 0 on success \
  * \
@@ -143,134 +143,134 @@ void arraylist_##name##_deinit(struct arraylist_##name *vec) { \
  * @note Will not construct objects in place, objects must be constructed \
  * \
  */ \
-int arraylist_##name##_push_back(struct arraylist_##name *vec, T value) { \
-    if (!vec) return -1; \
-    if (vec->size >= vec->capacity) { \
-        size_t new_capacity = vec->capacity * 2; \
-        T *new_data = vec->alloc->realloc(vec->data, vec->capacity * sizeof(T), new_capacity * sizeof(T), vec->alloc->ctx); \
+int arraylist_##name##_push_back(struct arraylist_##name *arraylist, T value) { \
+    if (!arraylist) return -1; \
+    if (arraylist->size >= arraylist->capacity) { \
+        size_t new_capacity = arraylist->capacity * 2; \
+        T *new_data = arraylist->alloc->realloc(arraylist->data, arraylist->capacity * sizeof(T), new_capacity * sizeof(T), arraylist->alloc->ctx); \
         if (!new_data) return -1; \
-        vec->data = new_data; \
-        vec->capacity = new_capacity; \
+        arraylist->data = new_data; \
+        arraylist->capacity = new_capacity; \
     } \
-    vec->data[vec->size++] = value; \
+    arraylist->data[arraylist->size++] = value; \
     return 0; \
 } \
 \
 /**
  * @brief Removes the last added element \
- * @param vec Pointer to the arraylist \
+ * @param arraylist Pointer to the arraylist \
  * \
- * Does nothing on an empty vec \
+ * Does nothing on an empty arraylist \
  * \
- * @note The object will be destructed if a destructor is provided durint vec init \
+ * @note The object will be destructed if a destructor is provided durint arraylist init \
  * \
  */ \
-void arraylist_##name##_pop_back(struct arraylist_##name *vec) { \
-    if (!vec || vec->size <= 0) return; \
-    if (vec->destructor) vec->destructor(&vec->data[--vec->size]); \
-    --vec->size; \
+void arraylist_##name##_pop_back(struct arraylist_##name *arraylist) { \
+    if (!arraylist || arraylist->size <= 0) return; \
+    if (arraylist->destructor) arraylist->destructor(&arraylist->data[--arraylist->size]); \
+    --arraylist->size; \
 } \
 \
 /**
  * @brief Returns a slot on the arraylist for an object to be constructed \
- * @param vec Pointer to the arraylist \
- * @return The slot or nullptr if the vec isn't initialized or if the reallocation fails\
+ * @param arraylist Pointer to the arraylist \
+ * @return The slot or nullptr if the arraylist isn't initialized or if the reallocation fails\
  * \
  * @code \
  * struct Foo { int a; }; \
  * // Initialize ... \
  * struct Foo *slot = arraylist_Foo_emplace_back_slot(&mylist); \
  * // Now slot is a valid pointer for writing into a new element. For example: \
- * slot->a = 42; // or call a constructor on slot\
+ * slot->a = 42; // or call a constructor on slot \
  * @endcode \
  */ \
-T* arraylist_##name##_emplace_back_slot(struct arraylist_##name *vec) { \
-    if (!vec) return nullptr; \
-    if (vec->size >= vec->capacity) { \
-        size_t new_capacity = vec->capacity * 2; \
-        T *new_data = vec->alloc->realloc(vec->data, vec->capacity * sizeof(T), new_capacity * sizeof(T), vec->alloc->ctx); \
+T* arraylist_##name##_emplace_back_slot(struct arraylist_##name *arraylist) { \
+    if (!arraylist) return nullptr; \
+    if (arraylist->size >= arraylist->capacity) { \
+        size_t new_capacity = arraylist->capacity * 2; \
+        T *new_data = arraylist->alloc->realloc(arraylist->data, arraylist->capacity * sizeof(T), new_capacity * sizeof(T), arraylist->alloc->ctx); \
         if (!new_data) return nullptr; \
-        vec->data = new_data; \
-        vec->capacity = new_capacity; \
+        arraylist->data = new_data; \
+        arraylist->capacity = new_capacity; \
     } \
-    return &vec->data[vec->size++]; \
+    return &arraylist->data[arraylist->size++]; \
 } \
 \
 /**
  * @brief Accesses the position of the arraylist at index \
- * @param vec Pointer to the arraylist \
+ * @param arraylist Pointer to the arraylist \
  * @param index Position to access \
- * @return A pointer to the value accessed or null if vec=null or index is greater than vec size \
+ * @return A pointer to the value accessed or null if arraylist=null or index is greater than arraylist size \
  * \
  */ \
-T* arraylist_##name##_at(struct arraylist_##name *vec, size_t index) { \
-    if (!vec || index >= vec->size) return nullptr; \
-    return &vec->data[index]; \
+T* arraylist_##name##_at(struct arraylist_##name *arraylist, size_t index) { \
+    if (!arraylist || index >= arraylist->size) return nullptr; \
+    return &arraylist->data[index]; \
 } \
 \
 /**
  * @brief Gets the size of a arraylist \
- * @param vec Pointer to the arraylist \
- * @return The size or 0 if vec is null \
+ * @param arraylist Pointer to the arraylist \
+ * @return The size or 0 if arraylist is null \
  * \
  */ \
-size_t arraylist_##name##_size(const struct arraylist_##name *vec) { \
-    return vec ? vec->size : 0; \
+size_t arraylist_##name##_size(const struct arraylist_##name *arraylist) { \
+    return arraylist ? arraylist->size : 0; \
 } \
 /**
  * @brief Checks if the arraylist is empty \
- * @param vec Pointer to the arraylist \
- * @return False if vec is null or size = 0, otherwise true \
+ * @param arraylist Pointer to the arraylist \
+ * @return False if arraylist is null or size = 0, otherwise true \
  * \
  */ \
-bool arraylist_##name##_is_empty(const struct arraylist_##name *vec) { \
-    if (!vec) return false; \
-    return vec->size == 0 ? true : false; \
+bool arraylist_##name##_is_empty(const struct arraylist_##name *arraylist) { \
+    if (!arraylist) return false; \
+    return arraylist->size == 0 ? true : false; \
 } \
 \
 /**
  * @brief Gets the capacity of a arraylist \
- * @param vec Pointer to the arraylist \
- * @return The capacity or 0 if vec is null \
+ * @param arraylist Pointer to the arraylist \
+ * @return The capacity or 0 if arraylist is null \
  * \
  */ \
-size_t arraylist_##name##_capacity(const struct arraylist_##name *vec) { \
-    return vec ? vec->capacity : 0; \
+size_t arraylist_##name##_capacity(const struct arraylist_##name *arraylist) { \
+    return arraylist ? arraylist->capacity : 0; \
 } \
 \
 /**
  * @brief Reserves the capacity of a arraylist \
- * @param vec Pointer to the arraylist \
+ * @param arraylist Pointer to the arraylist \
  * @param new_capacity New capacity of the arraylist \
- * @return 1 if vec is null or vec's capacity is lesser or equals than new capacity \
+ * @return 1 if arraylist is null or arraylist's capacity is lesser or equals than new capacity \
  *         0 on success, -1 on reallocation failure \
  * \
  */ \
-int arraylist_##name##_reserve(struct arraylist_##name *vec, size_t new_capacity) { \
-    if (!vec || new_capacity <= vec->capacity) return 1; \
-    T *new_data = vec->alloc->realloc(vec->data, vec->capacity * sizeof(T), new_capacity * sizeof(T), vec->alloc->ctx); \
+int arraylist_##name##_reserve(struct arraylist_##name *arraylist, size_t new_capacity) { \
+    if (!arraylist || new_capacity <= arraylist->capacity) return 1; \
+    T *new_data = arraylist->alloc->realloc(arraylist->data, arraylist->capacity * sizeof(T), new_capacity * sizeof(T), arraylist->alloc->ctx); \
     if (!new_data) return -1; \
-    vec->data = new_data; \
-    vec->capacity = new_capacity; \
+    arraylist->data = new_data; \
+    arraylist->capacity = new_capacity; \
     return 0; \
 } \
 \
 /**
  * @brief Clears the arraylist's data \
- * @param vec Pointer to the arraylist \
+ * @param arraylist Pointer to the arraylist \
  * \
- * It does not free the vec itself, only sets it size to 0 \
+ * It does not free the arraylist itself and does not alter the capacity, only sets it size to 0 \
  * \
  * @note Will call the object's destructor on objects if available \
  * \
  */ \
-void arraylist_##name##_clear(struct arraylist_##name *vec) { \
-    if (vec) { \
-        if (vec->destructor) { \
-            for (size_t i = 0; i < vec->size; ++i) { \
-                vec->destructor(&vec->data[i]); \
+void arraylist_##name##_clear(struct arraylist_##name *arraylist) { \
+    if (arraylist) { \
+        if (arraylist->destructor) { \
+            for (size_t i = 0; i < arraylist->size; ++i) { \
+                arraylist->destructor(&arraylist->data[i]); \
             } \
-        vec->size = 0; \
+        arraylist->size = 0; \
         } \
     } \
 } \
