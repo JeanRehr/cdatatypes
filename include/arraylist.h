@@ -48,30 +48,30 @@ struct arraylist_##name { \
  *
  * Declares the following functions:
  * - arraylist_##name##_init()
- * - arraylist_##name##_deinit()
+ * - arraylist_##name##_reserve()
  * - arraylist_##name##_push_back()
- * - arraylist_##name##_pop_back()
  * - arraylist_##name##_emplace_back_slot()
+ * - arraylist_##name##_pop_back()
  * - arraylist_##name##_at()
  * - arraylist_##name##_size()
  * - arraylist_##name##_is_empty()
  * - arraylist_##name##_capacity()
- * - arraylist_##name##_reserve()
  * - arraylist_##name##_clear()
+ * - arraylist_##name##_deinit()
  * 
  */
 #define ARRAYLIST_DECLARE(T, name) \
 struct arraylist_##name arraylist_##name##_init(Allocator *alloc, void (*destructor)(T *)); \
-void arraylist_##name##_deinit(struct arraylist_##name *arraylist); \
+int arraylist_##name##_reserve(struct arraylist_##name *arraylist, size_t new_capacity); \
 int arraylist_##name##_push_back(struct arraylist_##name *arraylist, T value); \
-void arraylist_##name##_pop_back(struct arraylist_##name *arraylist); \
 T* arraylist_##name##_emplace_back_slot(struct arraylist_##name *arraylist); \
+void arraylist_##name##_pop_back(struct arraylist_##name *arraylist); \
 T* arraylist_##name##_at(struct arraylist_##name *arraylist, size_t index); \
 size_t arraylist_##name##_size(const struct arraylist_##name *arraylist); \
 bool arraylist_##name##_is_empty(const struct arraylist_##name *arraylist); \
 size_t arraylist_##name##_capacity(const struct arraylist_##name *arraylist); \
-int arraylist_##name##_reserve(struct arraylist_##name *arraylist, size_t new_capacity); \
-void arraylist_##name##_clear(struct arraylist_##name *arraylist);
+void arraylist_##name##_clear(struct arraylist_##name *arraylist); \
+void arraylist_##name##_deinit(struct arraylist_##name *arraylist);
 
 /**
  * @def ARRAYLIST_IMPLEMENT(T, name)
@@ -109,27 +109,20 @@ struct arraylist_##name arraylist_##name##_init(Allocator *alloc, void (*destruc
 } \
 \
 /**
- * @brief Destroys and frees a arraylist \
- * @param arraylist Pointer to the arraylist to deinit \
- * \
- * Frees the internal data array and resets the fields \
- * Safe to call on nullptr or already deinitialized arraylists \
- * \
- * @note Will call the destructor on data items if provided \
+ * @brief Reserves the capacity of a arraylist \
+ * @param arraylist Pointer to the arraylist \
+ * @param new_capacity New capacity of the arraylist \
+ * @return 1 if arraylist is null or arraylist's capacity is lesser or equals than new capacity \
+ *         0 on success, -1 on reallocation failure \
  * \
  */ \
-void arraylist_##name##_deinit(struct arraylist_##name *arraylist) { \
-    if (arraylist && arraylist->data) { \
-        if (arraylist->destructor) { \
-            for (size_t i = 0; i < arraylist->size; ++i) { \
-                arraylist->destructor(&arraylist->data[i]); \
-            } \
-        } \
-        arraylist->alloc->free(arraylist->data, arraylist->capacity * sizeof(T), arraylist->alloc->ctx); \
-        arraylist->data = nullptr; \
-        arraylist->size = 0; \
-        arraylist->capacity = 0; \
-    } \
+int arraylist_##name##_reserve(struct arraylist_##name *arraylist, size_t new_capacity) { \
+    if (!arraylist || new_capacity <= arraylist->capacity) return 1; \
+    T *new_data = arraylist->alloc->realloc(arraylist->data, arraylist->capacity * sizeof(T), new_capacity * sizeof(T), arraylist->alloc->ctx); \
+    if (!new_data) return -1; \
+    arraylist->data = new_data; \
+    arraylist->capacity = new_capacity; \
+    return 0; \
 } \
 \
 /**
@@ -157,21 +150,6 @@ int arraylist_##name##_push_back(struct arraylist_##name *arraylist, T value) { 
 } \
 \
 /**
- * @brief Removes the last added element \
- * @param arraylist Pointer to the arraylist \
- * \
- * Does nothing on an empty arraylist \
- * \
- * @note The object will be destructed if a destructor is provided durint arraylist init \
- * \
- */ \
-void arraylist_##name##_pop_back(struct arraylist_##name *arraylist) { \
-    if (!arraylist || arraylist->size <= 0) return; \
-    if (arraylist->destructor) arraylist->destructor(&arraylist->data[--arraylist->size]); \
-    --arraylist->size; \
-} \
-\
-/**
  * @brief Returns a slot on the arraylist for an object to be constructed \
  * @param arraylist Pointer to the arraylist \
  * @return The slot or nullptr if the arraylist isn't initialized or if the reallocation fails\
@@ -194,6 +172,21 @@ T* arraylist_##name##_emplace_back_slot(struct arraylist_##name *arraylist) { \
         arraylist->capacity = new_capacity; \
     } \
     return &arraylist->data[arraylist->size++]; \
+} \
+\
+/**
+ * @brief Removes the last added element \
+ * @param arraylist Pointer to the arraylist \
+ * \
+ * Does nothing on an empty arraylist \
+ * \
+ * @note The object will be destructed if a destructor is provided durint arraylist init \
+ * \
+ */ \
+void arraylist_##name##_pop_back(struct arraylist_##name *arraylist) { \
+    if (!arraylist || arraylist->size <= 0) return; \
+    if (arraylist->destructor) arraylist->destructor(&arraylist->data[--arraylist->size]); \
+    --arraylist->size; \
 } \
 \
 /**
@@ -239,23 +232,6 @@ size_t arraylist_##name##_capacity(const struct arraylist_##name *arraylist) { \
 } \
 \
 /**
- * @brief Reserves the capacity of a arraylist \
- * @param arraylist Pointer to the arraylist \
- * @param new_capacity New capacity of the arraylist \
- * @return 1 if arraylist is null or arraylist's capacity is lesser or equals than new capacity \
- *         0 on success, -1 on reallocation failure \
- * \
- */ \
-int arraylist_##name##_reserve(struct arraylist_##name *arraylist, size_t new_capacity) { \
-    if (!arraylist || new_capacity <= arraylist->capacity) return 1; \
-    T *new_data = arraylist->alloc->realloc(arraylist->data, arraylist->capacity * sizeof(T), new_capacity * sizeof(T), arraylist->alloc->ctx); \
-    if (!new_data) return -1; \
-    arraylist->data = new_data; \
-    arraylist->capacity = new_capacity; \
-    return 0; \
-} \
-\
-/**
  * @brief Clears the arraylist's data \
  * @param arraylist Pointer to the arraylist \
  * \
@@ -272,6 +248,30 @@ void arraylist_##name##_clear(struct arraylist_##name *arraylist) { \
             } \
         arraylist->size = 0; \
         } \
+    } \
+} \
+\
+/**
+ * @brief Destroys and frees a arraylist \
+ * @param arraylist Pointer to the arraylist to deinit \
+ * \
+ * Frees the internal data array and resets the fields \
+ * Safe to call on nullptr or already deinitialized arraylists \
+ * \
+ * @note Will call the destructor on data items if provided \
+ * \
+ */ \
+void arraylist_##name##_deinit(struct arraylist_##name *arraylist) { \
+    if (arraylist && arraylist->data) { \
+        if (arraylist->destructor) { \
+            for (size_t i = 0; i < arraylist->size; ++i) { \
+                arraylist->destructor(&arraylist->data[i]); \
+            } \
+        } \
+        arraylist->alloc->free(arraylist->data, arraylist->capacity * sizeof(T), arraylist->alloc->ctx); \
+        arraylist->data = nullptr; \
+        arraylist->size = 0; \
+        arraylist->capacity = 0; \
     } \
 } \
 
