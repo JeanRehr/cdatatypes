@@ -296,18 +296,18 @@ size_t arraylist_##name##_capacity(const struct arraylist_##name *arraylist) { \
  * @param arraylist Pointer to the arraylist \
  * \
  * It does not free the arraylist itself and does not alter the capacity, only sets it size to 0 \
+ * Safe to call on nullptr, returns early \
  * \
  * @note Will call the object's destructor on objects if available \
  * \
  */ \
 void arraylist_##name##_clear(struct arraylist_##name *arraylist) { \
-    if (arraylist) { \
-        if (arraylist->destructor) { \
-            for (size_t i = 0; i < arraylist->size; ++i) { \
-                arraylist->destructor(&arraylist->data[i]); \
-            } \
-        arraylist->size = 0; \
+    if (!arraylist) return; \
+    if (arraylist->destructor) { \
+        for (size_t i = 0; i < arraylist->size; ++i) { \
+            arraylist->destructor(&arraylist->data[i]); \
         } \
+    arraylist->size = 0; \
     } \
 } \
 \
@@ -316,23 +316,22 @@ void arraylist_##name##_clear(struct arraylist_##name *arraylist) { \
  * @param arraylist Pointer to the arraylist to deinit \
  * \
  * Frees the internal data array and resets the fields \
- * Safe to call on nullptr or already deinitialized arraylists \
+ * Safe to call on nullptr or already deinitialized arraylists, returns early \
  * \
  * @note Will call the destructor on data items if provided \
  * \
  */ \
 void arraylist_##name##_deinit(struct arraylist_##name *arraylist) { \
-    if (arraylist && arraylist->data) { \
-        if (arraylist->destructor) { \
-            for (size_t i = 0; i < arraylist->size; ++i) { \
-                arraylist->destructor(&arraylist->data[i]); \
-            } \
+    if (!arraylist || !arraylist->data) return; \
+    if (arraylist->destructor) { \
+        for (size_t i = 0; i < arraylist->size; ++i) { \
+            arraylist->destructor(&arraylist->data[i]); \
         } \
-        arraylist->alloc->free(arraylist->data, arraylist->capacity * sizeof(T), arraylist->alloc->ctx); \
-        arraylist->data = nullptr; \
-        arraylist->size = 0; \
-        arraylist->capacity = 0; \
     } \
+    arraylist->alloc->free(arraylist->data, arraylist->capacity * sizeof(T), arraylist->alloc->ctx); \
+    arraylist->data = nullptr; \
+    arraylist->size = 0; \
+    arraylist->capacity = 0; \
 } \
 
 /**
