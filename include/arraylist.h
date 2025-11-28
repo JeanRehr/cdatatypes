@@ -51,6 +51,7 @@ struct arraylist_##name { \
  * - arraylist_##name##_emplace_back_slot()
  * - arraylist_##name##_at()
  * - arraylist_##name##_size()
+ * - arraylist_##name##_is_empty()
  * - arraylist_##name##_capacity()
  * - arraylist_##name##_reserve()
  * - arraylist_##name##_clear()
@@ -64,6 +65,7 @@ void arraylist_##name##_pop_back(struct arraylist_##name *vec); \
 T* arraylist_##name##_emplace_back_slot(struct arraylist_##name *vec); \
 T* arraylist_##name##_at(struct arraylist_##name *vec, size_t index); \
 size_t arraylist_##name##_size(const struct arraylist_##name *vec); \
+bool arraylist_##name##_is_empty(const struct arraylist_##name *vec); \
 size_t arraylist_##name##_capacity(const struct arraylist_##name *vec); \
 int arraylist_##name##_reserve(struct arraylist_##name *vec, size_t new_capacity); \
 void arraylist_##name##_clear(struct arraylist_##name *vec);
@@ -211,6 +213,16 @@ T* arraylist_##name##_at(struct arraylist_##name *vec, size_t index) { \
  */ \
 size_t arraylist_##name##_size(const struct arraylist_##name *vec) { \
     return vec ? vec->size : 0; \
+} \
+/**
+ * @brief Checks if the arraylist is empty \
+ * @param vec Pointer to the arraylist \
+ * @return False if vec is null or size = 0, otherwise true \
+ * \
+ */ \
+bool arraylist_##name##_is_empty(const struct arraylist_##name *vec) { \
+    if (!vec) return false; \
+    return vec->size == 0 ? true : false; \
 } \
 \
 /**
