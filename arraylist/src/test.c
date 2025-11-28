@@ -42,6 +42,19 @@ static void test_arraylist_init_and_deinit(void) {
     printf("arraylist init and deinit functions passed all tests.\n");
 }
 
+static void test_arraylist_reserve(void) {
+    printf("Testing arraylist reserve function.\n");
+    struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
+
+    size_t cap = 10;
+
+    arraylist_test_reserve(&arrlisttest, cap);
+    assert(arraylist_test_capacity(&arrlisttest) == cap);
+
+    arraylist_test_deinit(&arrlisttest);
+    printf("arraylist reserve passed all tests.\n");
+}
+
 
 int main(void) {
     struct arraylist_test arrtest = arraylist_test_init(nullptr, test_dtor);
