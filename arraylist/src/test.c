@@ -422,9 +422,19 @@ void test_arraylist_end(void) {
 void test_arraylist_size(void) {
     printf("Testing arraylist end function.\n");
     struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
+    assert(arraylist_test_size(&arrlisttest) == 0);
+
+    struct test add1;
+    test_ctor(&add1, 10, 0.5, "add1");
+    arraylist_test_push_back(&arrlisttest, add1);
+    assert(arraylist_test_size(&arrlisttest) == 1);
+
+    struct test add2;
+    test_ctor(&add2, 11, 0.6, "add2");
+    arraylist_test_push_back(&arrlisttest, add2);
+    assert(arraylist_test_size(&arrlisttest) == 2);
 
     arraylist_test_deinit(&arrlisttest);
-    assert(false);
     printf("arraylist end passed all tests.\n");
 }
 
