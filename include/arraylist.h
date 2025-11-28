@@ -67,14 +67,14 @@ struct arraylist_##name { \
  * remove_at() - Removes at given index
  * insert_elements_at() - Inserts a number of elements at given index
  * remove_elements_at() - Removes a number of elements at given index
- * resize() - Changes the size of a vector, adding or removing elements if necessary
+ * shrink() - Changes the size of a vector, removing elements if necessary
  * shrink_to_fit() - Reduces the reserved memory of a vector if necessary to exactly fit the number of elements
  * swap() - Swaps the contents of one vector with another with the same type T
  * }
  */
 #define ARRAYLIST_DECLARE(T, name) \
 struct arraylist_##name arraylist_##name##_init(Allocator *alloc, void (*destructor)(T *)); \
-int arraylist_##name##_reserve(struct arraylist_##name *arraylist, size_t new_capacity); \
+int arraylist_##name##_reserve(struct arraylist_##name *arraylist, size_t capacity); \
 int arraylist_##name##_push_back(struct arraylist_##name *arraylist, T value); \
 T* arraylist_##name##_emplace_back_slot(struct arraylist_##name *arraylist); \
 void arraylist_##name##_pop_back(struct arraylist_##name *arraylist); \
@@ -200,8 +200,8 @@ T* arraylist_##name##_emplace_back_slot(struct arraylist_##name *arraylist) { \
  */ \
 void arraylist_##name##_pop_back(struct arraylist_##name *arraylist) { \
     if (!arraylist || arraylist->size <= 0) return; \
-    if (arraylist->destructor) arraylist->destructor(&arraylist->data[--arraylist->size]); \
-    else --arraylist->size; \
+    if (arraylist->destructor) arraylist->destructor(&arraylist->data[arraylist->size - 1]); \
+    --arraylist->size; \
 } \
 \
 /**
