@@ -201,7 +201,7 @@ T* arraylist_##name##_emplace_back_slot(struct arraylist_##name *arraylist) { \
 void arraylist_##name##_pop_back(struct arraylist_##name *arraylist) { \
     if (!arraylist || arraylist->size <= 0) return; \
     if (arraylist->destructor) arraylist->destructor(&arraylist->data[--arraylist->size]); \
-    --arraylist->size; \
+    else --arraylist->size; \
 } \
 \
 /**
