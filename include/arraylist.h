@@ -348,7 +348,7 @@ void arraylist_##name##_swap(struct arraylist_##name *self, struct arraylist_##n
  * @brief Clears the arraylist's data \
  * @param arraylist Pointer to the arraylist \
  * \
- * It does not free the arraylist itself and does not alter the capacity, only sets it size to 0 \
+ * It does not free the arraylist itself and does not alter the capacity, only sets its size to 0 \
  * Safe to call on nullptr, returns early \
  * \
  * @note Will call the object's destructor on objects if available \
