@@ -15,7 +15,7 @@
 
 /**
  * @def ARRAYLIST_DEFINE(T, name)
- * @brief Defines a arraylist structure for a specific type T
+ * @brief Defines an arraylist structure for a specific type T
  * @param T The type arraylist will hold
  * @param name The name suffix for the arraylist type
  *
@@ -25,7 +25,7 @@
  * - "capacity": Current capacity of the arraylist
  *
  * @code
- * // Example: Define a arraylist for integers
+ * // Example: Define an arraylist for integers
  * ARRAYLIST_DEFINE(int, int)
  * // Creates a struct named struct arraylist_int
  * @endcode
@@ -62,6 +62,15 @@ struct arraylist_##name { \
  * - arraylist_##name##_clear()
  * - arraylist_##name##_deinit()
  * 
+ * @todo { WILL IMPLEMENT:
+ * insert_at() - Inserts at given index
+ * remove_at() - Removes at given index
+ * insert_elements_at() - Inserts a number of elements at given index
+ * remove_elements_at() - Removes a number of elements at given index
+ * resize() - Changes the size of a vector, adding or removing elements if necessary
+ * shrink_to_fit() - Reduces the reserved memory of a vector if necessary to exactly fit the number of elements
+ * swap() - Swaps the contents of one vector with another
+ * }
  */
 #define ARRAYLIST_DECLARE(T, name) \
 struct arraylist_##name arraylist_##name##_init(Allocator *alloc, void (*destructor)(T *)); \
@@ -81,7 +90,7 @@ void arraylist_##name##_deinit(struct arraylist_##name *arraylist);
 
 /**
  * @def ARRAYLIST_IMPLEMENT(T, name)
- * @brief Implements all functions for a arraylist type
+ * @brief Implements all functions for an arraylist type
  * @param T The type arraylist will hold
  * @param name The name suffix for the arraylist type
  *
@@ -96,7 +105,7 @@ void arraylist_##name##_deinit(struct arraylist_##name *arraylist);
  * @param alloc Custom allocator instance, if null, default alloc will be used \
  * @return An initialized arraylist structure \
  * \
- * Creates a arraylist with initial cap of 8 elements \
+ * Creates an arraylist with initial cap of 8 elements \
  * If memory alloc fails, cap is set to 0 \
  * \
  */ \
@@ -115,7 +124,7 @@ struct arraylist_##name arraylist_##name##_init(Allocator *alloc, void (*destruc
 } \
 \
 /**
- * @brief Reserves the capacity of a arraylist \
+ * @brief Reserves the capacity of an arraylist \
  * @param arraylist Pointer to the arraylist \
  * @param new_capacity New capacity of the arraylist \
  * @return 1 if arraylist is null or arraylist's capacity is lesser or equals than new capacity \
@@ -273,7 +282,7 @@ bool arraylist_##name##_is_empty(const struct arraylist_##name *arraylist) { \
 } \
 \
 /**
- * @brief Gets the capacity of a arraylist \
+ * @brief Gets the capacity of an arraylist \
  * @param arraylist Pointer to the arraylist \
  * @return The capacity or 0 if arraylist is null \
  * \
@@ -303,7 +312,7 @@ void arraylist_##name##_clear(struct arraylist_##name *arraylist) { \
 } \
 \
 /**
- * @brief Destroys and frees a arraylist \
+ * @brief Destroys and frees an arraylist \
  * @param arraylist Pointer to the arraylist to deinit \
  * \
  * Frees the internal data array and resets the fields \
