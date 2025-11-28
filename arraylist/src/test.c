@@ -4,6 +4,8 @@
 
 #include "arraylist.h"
 
+#include <assert.h>
+
 struct test {
     char *objname;
     int *a;
@@ -15,6 +17,31 @@ void test_print(struct test *t);
 void test_dtor(struct test *t);
 
 ARRAYLIST(struct test, test)
+
+static void test_arraylist_init_and_deinit(void) {
+    printf("Testing arraylist init and deinit functions.\n");
+    struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
+    assert(arrlisttest.destructor);
+    assert(arrlisttest.alloc);
+    assert(arrlisttest.capacity == 1);
+    assert(arrlisttest.data);
+    assert(arrlisttest.size == 0);
+
+    arraylist_test_deinit(&arrlisttest);
+    assert(!arrlisttest.data);
+
+    arrlisttest = arraylist_test_init(nullptr, test_dtor);
+    assert(arrlisttest.destructor);
+    assert(arrlisttest.alloc);
+    assert(arrlisttest.capacity == 1);
+    assert(arrlisttest.data);
+    assert(arrlisttest.size == 0);
+
+    arraylist_test_deinit(&arrlisttest);
+    assert(!arrlisttest.data);
+    printf("arraylist init and deinit functions passed all tests.\n");
+}
+
 
 int main(void) {
     struct arraylist_test arrtest = arraylist_test_init(nullptr, test_dtor);

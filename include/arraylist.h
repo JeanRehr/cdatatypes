@@ -67,8 +67,8 @@ struct arraylist_##name { \
  * @todo { WILL IMPLEMENT:
  * insert_at() - Inserts at given index
  * remove_at() - Removes at given index
- * insert_elements_at() - Inserts a number of elements at given index
- * remove_elements_at() - Removes a number of elements at given index
+ * insert_from_to() - Inserts a number of elements at given index
+ * remove_from_to() - Removes a number of elements at given index
  * swap() - Swaps the contents of one vector with another with the same type T
  * }
  */
