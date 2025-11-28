@@ -489,9 +489,48 @@ void test_arraylist_capacity(void) {
 void test_arraylist_swap(void) {
     printf("Testing arraylist end function.\n");
     struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
+    struct arraylist_test otherarr = arraylist_test_init(nullptr, test_dtor);
+
+    struct test add1;
+    test_ctor(&add1, 10, 0.5, "add1");
+    arraylist_test_push_back(&arrlisttest, add1);
+
+    // It seems that, after reallocation of data because of capacity, pointers might get invalidated
+    // Spent quite a while on here because I was storing pointers right after the first push_back
+    // struct test *arrlisttest_first_p = arraylist_test_begin(&arrlisttest);
+
+    struct test add2;
+    test_ctor(&add2, 11, 0.6, "add2");
+    arraylist_test_push_back(&arrlisttest, add2);
+
+    struct test add3;
+    test_ctor(&add3, 12, 0.7, "add3");
+    arraylist_test_push_back(&arrlisttest, add3);
+    assert(arrlisttest.size == 3);
+
+    struct test *arrlisttest_first_p = arraylist_test_begin(&arrlisttest);
+
+
+    struct test other1;
+    test_ctor(&other1, 10, 0.5, "add1");
+    arraylist_test_push_back(&otherarr, other1);
+
+    struct test other2;
+    test_ctor(&other2, 11, 0.6, "add2");
+    arraylist_test_push_back(&otherarr, other2);
+    assert(otherarr.size == 2);
+
+    struct test *otherarr_first_p = arraylist_test_begin(&otherarr);
+
+    arraylist_test_swap(&arrlisttest, &otherarr);
+    assert(arrlisttest.size == 2);
+    assert(otherarr.size == 3);
+
+    assert(arrlisttest_first_p == arraylist_test_begin(&otherarr));
+    assert(otherarr_first_p == arraylist_test_begin(&arrlisttest));
 
     arraylist_test_deinit(&arrlisttest);
-    assert(false);
+    arraylist_test_deinit(&otherarr);
     printf("arraylist end passed all tests.\n");
 }
 

@@ -267,7 +267,7 @@ T* arraylist_##name##_at(struct arraylist_##name *self, size_t index) { \
  * @details It returns the block of memory allocated, can be used to iterate, \
  *          and where a function accepts a *T \
  * @param arraylist Pointer to the arraylist \
- * @return A pointer to the first value or null if !self or size is less than or equal to 0 \
+ * @return A pointer to the first value or null if !self \
  * \
  * @code \
  * // Prints the contents of an arraylist of T (substitute T for your type) \
@@ -276,8 +276,8 @@ T* arraylist_##name##_at(struct arraylist_##name *self, size_t index) { \
  * \
  */ \
 T* arraylist_##name##_begin(struct arraylist_##name *self) { \
-    if (!self || self->size <= 0) return nullptr; \
-    return &self->data[0]; \
+    if (!self) return nullptr; \
+    return self->data; \
 } \
 \
 /**
@@ -285,26 +285,26 @@ T* arraylist_##name##_begin(struct arraylist_##name *self) { \
  * @details Can be used as an Iterator, where a function accepts a *T same as begin, \
  *          but it will not be the end of the arraylist, just the last element, can be dereferenced \
  * @param arraylist Pointer to the arraylist \
- * @return A pointer to the last value or null if !self or size is less than or equal to 0 \
+ * @return A pointer to the last value or null if !self \
  * \
  */ \
 T* arraylist_##name##_back(struct arraylist_##name *self) { \
-    if (!self || self->size <= 0) return nullptr; \
-    return &self->data[self->size - 1]; \
+    if (!self) return nullptr; \
+    return self->data + (self->size - 1); \
 } \
 \
 /**
  * @brief Accesses the end of the arraylist \
  * @details Can be used as an Iterator, where a function accepts a *T same as begin \
  * @param arraylist Pointer to the arraylist \
- * @return A pointer to the end or null if !self or size is less than or equal to 0 \
+ * @return A pointer to the end or null if !self \
  * \
  * @warning Dereferencing it leads to undefined behavior \
  * \
  */ \
 T* arraylist_##name##_end(struct arraylist_##name *self) { \
-    if (!self || self->size <= 0) return nullptr; \
-    return &self->data[self->size]; \
+    if (!self) return nullptr; \
+    return self->data + self->size; \
 } \
 \
 /**
