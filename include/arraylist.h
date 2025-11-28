@@ -153,9 +153,9 @@ int arraylist_##name##_reserve(struct arraylist_##name *self, size_t capacity) {
  * \
  */ \
 void arraylist_##name##_shrink_size(struct arraylist_##name *self, size_t size) { \
-    if (!self || self->size <= 0 || self->size <= size || size <= 0) return; \
+    if (!self || self->size <= 0 || self->size <= size) return; \
     T *it_atsize = arraylist_##name##_at(self, size); \
-    for (T *it = arraylist_##name##_end(self); it >= it_atsize; --it) { \
+    for (T *it = arraylist_##name##_end(self); it > it_atsize; --it) { \
         if (self->destructor) self->destructor(&self->data[self->size - 1]); \
         --self->size; \
     } \

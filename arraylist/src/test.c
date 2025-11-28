@@ -55,6 +55,39 @@ static void test_arraylist_reserve(void) {
     printf("arraylist reserve passed all tests.\n");
 }
 
+static void test_arraylist_shrink_size(void) {
+    printf("Testing arraylist shrink_size function.\n");
+    struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
+
+    struct test add1;
+    struct test add2;
+    struct test add3;
+    struct test add4;
+    struct test add5;
+
+    test_ctor(&add1, 10, 0.5, "add1");
+    test_ctor(&add2, 11, 0.6, "add2");
+    test_ctor(&add3, 12, 0.7, "add3");
+    test_ctor(&add4, 13, 0.8, "add4");
+    test_ctor(&add5, 14, 0.9, "add5");
+
+    arraylist_test_push_back(&arrlisttest, add1);
+    arraylist_test_push_back(&arrlisttest, add2);
+    arraylist_test_push_back(&arrlisttest, add3);
+    arraylist_test_push_back(&arrlisttest, add4);
+    arraylist_test_push_back(&arrlisttest, add5);
+
+    assert(arrlisttest.size == 5);
+
+    size_t shrink = 3;
+
+    arraylist_test_shrink_size(&arrlisttest, shrink);
+    assert(arrlisttest.size == 3);
+
+    arraylist_test_deinit(&arrlisttest);
+    printf("arraylist shrink_size passed all tests.\n");
+}
+
 
 int main(void) {
     struct arraylist_test arrtest = arraylist_test_init(nullptr, test_dtor);
