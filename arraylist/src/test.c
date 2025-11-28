@@ -1,7 +1,6 @@
 /**
- * @file main.c
+ * @file test.c
  */
-
 #include "arraylist.h"
 
 #include <assert.h>
@@ -12,9 +11,9 @@ struct test {
     float *b;
 };
 
-void test_ctor(struct test *t, int a, float b, char *objname);
-void test_print(struct test *t);
-void test_dtor(struct test *t);
+static void test_ctor(struct test *t, int a, float b, char *objname);
+static void test_print(struct test *t);
+static void test_dtor(struct test *t);
 
 ARRAYLIST(struct test, test)
 
@@ -350,7 +349,7 @@ static void test_arraylist_at(void) {
     printf("arraylist at passed all tests.\n");
 }
 
-void test_arraylist_begin(void) {
+static void test_arraylist_begin(void) {
     printf("Testing arraylist begin function.\n");
     struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
 
@@ -371,7 +370,7 @@ void test_arraylist_begin(void) {
     printf("arraylist begin passed all tests.\n");
 }
 
-void test_arraylist_back(void) {
+static void test_arraylist_back(void) {
     printf("Testing arraylist back function.\n");
     struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
 
@@ -395,7 +394,7 @@ void test_arraylist_back(void) {
     printf("arraylist back passed all tests.\n");
 }
 
-void test_arraylist_end(void) {
+static void test_arraylist_end(void) {
     printf("Testing arraylist end function.\n");
     struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
 
@@ -419,7 +418,7 @@ void test_arraylist_end(void) {
     printf("arraylist end passed all tests.\n");
 }
 
-void test_arraylist_size(void) {
+static void test_arraylist_size(void) {
     printf("Testing arraylist end function.\n");
     struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
     assert(arraylist_test_size(&arrlisttest) == 0);
@@ -438,7 +437,7 @@ void test_arraylist_size(void) {
     printf("arraylist end passed all tests.\n");
 }
 
-void test_arraylist_is_empty(void) {
+static void test_arraylist_is_empty(void) {
     printf("Testing arraylist end function.\n");
     struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
     assert(arraylist_test_is_empty(&arrlisttest));
@@ -455,7 +454,7 @@ void test_arraylist_is_empty(void) {
     printf("arraylist end passed all tests.\n");
 }
 
-void test_arraylist_capacity(void) {
+static void test_arraylist_capacity(void) {
     printf("Testing arraylist end function.\n");
     struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
     assert(arraylist_test_capacity(&arrlisttest) == 1);
@@ -486,7 +485,7 @@ void test_arraylist_capacity(void) {
     printf("arraylist end passed all tests.\n");
 }
 
-void test_arraylist_swap(void) {
+static void test_arraylist_swap(void) {
     printf("Testing arraylist end function.\n");
     struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
     struct arraylist_test otherarr = arraylist_test_init(nullptr, test_dtor);
@@ -511,11 +510,11 @@ void test_arraylist_swap(void) {
     struct test *arrlisttest_first_p = arraylist_test_begin(&arrlisttest);
 
     struct test other1;
-    test_ctor(&other1, 10, 0.5, "add1");
+    test_ctor(&other1, 10, 0.5, "other1");
     arraylist_test_push_back(&otherarr, other1);
 
     struct test other2;
-    test_ctor(&other2, 11, 0.6, "add2");
+    test_ctor(&other2, 11, 0.6, "other2");
     arraylist_test_push_back(&otherarr, other2);
     assert(otherarr.size == 2);
 
@@ -531,12 +530,18 @@ void test_arraylist_swap(void) {
     assert(arrlisttest_first_p == arraylist_test_begin(&otherarr));
     assert(otherarr_first_p == arraylist_test_begin(&arrlisttest));
 
+    size_t i = 0;
+    for (struct test *it = arraylist_test_begin(&arrlisttest); it < arraylist_test_end(&arrlisttest); ++it) {
+        test_print(&arrlisttest.data[i]);
+        ++i;
+    }
+
     arraylist_test_deinit(&arrlisttest);
     arraylist_test_deinit(&otherarr);
     printf("arraylist end passed all tests.\n");
 }
 
-void test_arraylist_clear(void) {
+static void test_arraylist_clear(void) {
     printf("Testing arraylist end function.\n");
     struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
 
@@ -582,7 +587,7 @@ int main(void) {
     return 0;
 }
 
-void test_ctor(struct test *t, int a, float b, char *objname) {
+static void test_ctor(struct test *t, int a, float b, char *objname) {
     //printf("Constructor called! Creating object named %s\n", objname);
     t->a = malloc(sizeof(a));
     t->b = malloc(sizeof(b));
@@ -591,13 +596,13 @@ void test_ctor(struct test *t, int a, float b, char *objname) {
     t->objname = objname;
 }
 
-void test_print(struct test *t) {
+static void test_print(struct test *t) {
     //printf("t->a = %d\n", *t->a);
     //printf("t->b = %f\n", *t->b);
     printf("t->objname = %s\n", t->objname);
 }
 
-void test_dtor(struct test *t) {
+static void test_dtor(struct test *t) {
     //printf("Destructor called for obj named %s!\n", t->objname);
     free(t->a);
     free(t->b);
