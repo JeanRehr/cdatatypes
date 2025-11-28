@@ -166,7 +166,7 @@ T arraylist_##name##_pop_back(struct arraylist_##name *vec) { \
  * @brief Accesses the position of the arraylist at index \
  * @param vec Pointer to the arraylist \
  * @param index Position to access \
- * @return A pointer to the value accesses or null if vec=null or index is greater than vec size \
+ * @return A pointer to the value accessed or null if vec=null or index is greater than vec size \
  * \
  */ \
 T* arraylist_##name##_at(struct arraylist_##name *vec, size_t index) { \
