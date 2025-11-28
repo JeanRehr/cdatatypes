@@ -114,7 +114,7 @@ struct arraylist_##name arraylist_##name##_init(Allocator *alloc, void (*destruc
     if (alloc) arraylist.alloc = alloc; else arraylist.alloc = allocator_get_default(); \
     arraylist.destructor = destructor; \
     arraylist.size = 0; \
-    arraylist.capacity = 8; \
+    arraylist.capacity = 1; \
     arraylist.data = arraylist.alloc->malloc(arraylist.capacity * sizeof(T), arraylist.alloc->ctx); \
     if (!arraylist.data) { \
         fprintf(stderr, "Not able to allocate memory."); \
