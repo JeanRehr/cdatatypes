@@ -261,6 +261,7 @@ int arraylist_##name##_insert_at(struct arraylist_##name *self, T value, size_t 
     ++self->size; \
     for (size_t i = self->size - 1; i >= index; --i) { \
         self->data[i + 1] = self->data[i]; \
+        if (i == 0) break; \
     } \
     self->data[index] = value; \
     return 0; \
