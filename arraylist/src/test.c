@@ -289,6 +289,48 @@ static void test_arraylist_emplace_back_slot(void) {
     printf("arraylist emplace_back_slot passed all tests.\n");
 }
 
+static void test_arraylist_insert_at(void) {
+    printf("Testing arraylist insert_at function.\n");
+    struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
+
+    struct test add1;
+    test_ctor(&add1, 10, 0.5, "add1");
+    arraylist_test_push_back(&arrlisttest, add1);
+
+    struct test add2;
+    test_ctor(&add2, 11, 0.6, "add2");
+    arraylist_test_push_back(&arrlisttest, add2);
+
+    struct test add3;
+    test_ctor(&add3, 12, 0.7, "add3");
+    arraylist_test_push_back(&arrlisttest, add3);
+
+    struct test add4;
+    test_ctor(&add4, 13, 0.2, "add4");
+    
+    assert(arrlisttest.size == 3);
+    
+    // Overflow should insert at last position
+    arraylist_test_insert_at(&arrlisttest, add4, -1);
+    assert(arrlisttest.size == 4);
+    assert(strcmp(arrlisttest.data[arrlisttest.size - 1].objname, add4.objname) == 0);
+    struct test add5;
+    test_ctor(&add5, 15, 0.5, "add5");
+    
+    arraylist_test_insert_at(&arrlisttest, add5, 0);
+    assert(arrlisttest.capacity == 8);
+    assert(strcmp(arrlisttest.data[0].objname, add5.objname) == 0);
+
+    size_t add6_index_pos = 2;
+    struct test add6;
+    test_ctor(&add6, 16, 0.6, "add6");
+    arraylist_test_insert_at(&arrlisttest, add6, add6_index_pos); // Between add1 and add2
+    assert(strcmp(arrlisttest.data[2].objname, add6.objname) == 0);
+
+    arraylist_test_deinit(&arrlisttest);
+    printf("arraylist insert_at passed all tests.\n");
+}
+
 static void test_arraylist_pop_back(void) {
     printf("Testing arraylist pop_back function.\n");
     struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
@@ -542,48 +584,6 @@ static void test_arraylist_swap(void) {
     printf("arraylist end passed all tests.\n");
 }
 
-static void test_arraylist_insert_at(void) {
-    printf("Testing arraylist insert_at function.\n");
-    struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
-
-    struct test add1;
-    test_ctor(&add1, 10, 0.5, "add1");
-    arraylist_test_push_back(&arrlisttest, add1);
-
-    struct test add2;
-    test_ctor(&add2, 11, 0.6, "add2");
-    arraylist_test_push_back(&arrlisttest, add2);
-
-    struct test add3;
-    test_ctor(&add3, 12, 0.7, "add3");
-    arraylist_test_push_back(&arrlisttest, add3);
-
-    struct test add4;
-    test_ctor(&add4, 13, 0.2, "add4");
-    
-    assert(arrlisttest.size == 3);
-    
-    // Overflow should insert at last position
-    arraylist_test_insert_at(&arrlisttest, add4, -1);
-    assert(arrlisttest.size == 4);
-    assert(strcmp(arrlisttest.data[arrlisttest.size - 1].objname, add4.objname) == 0);
-    struct test add5;
-    test_ctor(&add5, 15, 0.5, "add5");
-    
-    arraylist_test_insert_at(&arrlisttest, add5, 0);
-    assert(arrlisttest.capacity == 8);
-    assert(strcmp(arrlisttest.data[0].objname, add5.objname) == 0);
-
-    size_t add6_index_pos = 2;
-    struct test add6;
-    test_ctor(&add6, 16, 0.6, "add6");
-    arraylist_test_insert_at(&arrlisttest, add6, add6_index_pos); // Between add1 and add2
-    assert(strcmp(arrlisttest.data[2].objname, add6.objname) == 0);
-
-    arraylist_test_deinit(&arrlisttest);
-    printf("arraylist insert_at passed all tests.\n");
-}
-
 static void test_arraylist_remove_at(void) {
     printf("Testing arraylist remove_at function.\n");
     struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
@@ -644,6 +644,7 @@ int main(void) {
     test_arraylist_shrink_to_fit();
     test_arraylist_push_back();
     test_arraylist_emplace_back_slot();
+    test_arraylist_insert_at();
     test_arraylist_pop_back();
     test_arraylist_at();
     test_arraylist_begin();
@@ -655,7 +656,6 @@ int main(void) {
     test_arraylist_swap();
     test_arraylist_clear();
 
-    test_arraylist_insert_at();
     test_arraylist_remove_at();
     test_arraylist_insert_from_to();
     test_arraylist_remove_from_to();

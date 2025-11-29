@@ -53,6 +53,7 @@ struct arraylist_##name { \
  * - arraylist_##name##_shrink_to_fit()
  * - arraylist_##name##_push_back()
  * - arraylist_##name##_emplace_back_slot()
+ * - arraylist_##name##_insert_at()
  * - arraylist_##name##_pop_back()
  * - arraylist_##name##_at()
  * - arraylist_##name##_begin()
@@ -65,7 +66,6 @@ struct arraylist_##name { \
  * - arraylist_##name##_deinit()
  * 
  * @todo { WILL IMPLEMENT:
- * insert_at() - Inserts at given index
  * remove_at() - Removes at given index
  * insert_from_to() - Inserts a number of elements at given index
  * remove_from_to() - Removes a number of elements at given index
