@@ -244,6 +244,8 @@ T* arraylist_##name##_emplace_back_slot(struct arraylist_##name *self) { \
  * \
  * Will automatically resize and realocate capacity, doubling it \
  * \
+ * @warning if index < 0 size_t overflows and inserts at end \
+ * \
  */ \
 int arraylist_##name##_insert_at(struct arraylist_##name *self, T value, size_t index) {\
     if (!self) return -1; \
