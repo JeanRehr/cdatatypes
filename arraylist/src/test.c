@@ -541,6 +541,42 @@ static void test_arraylist_swap(void) {
     printf("arraylist end passed all tests.\n");
 }
 
+static void test_arraylist_insert_at(void) {
+    printf("Testing arraylist insert_at function.\n");
+    struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
+
+    arraylist_test_deinit(&arrlisttest);
+    assert(false);
+    printf("arraylist insert_at passed all tests.\n");
+}
+
+static void test_arraylist_remove_at(void) {
+    printf("Testing arraylist remove_at function.\n");
+    struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
+
+    arraylist_test_deinit(&arrlisttest);
+    assert(false);
+    printf("arraylist remove_at passed all tests.\n");
+}
+
+static void test_arraylist_insert_from_to(void) {
+    printf("Testing arraylist insert_from_to function.\n");
+    struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
+
+    arraylist_test_deinit(&arrlisttest);
+    assert(false);
+    printf("arraylist insert_from_to passed all tests.\n");
+}
+
+static void test_arraylist_remove_from_to(void) {
+    printf("Testing arraylist remove_from_to function.\n");
+    struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
+
+    arraylist_test_deinit(&arrlisttest);
+    assert(false);
+    printf("arraylist remove_from_to passed all tests.\n");
+}
+
 static void test_arraylist_clear(void) {
     printf("Testing arraylist end function.\n");
     struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
@@ -584,6 +620,11 @@ int main(void) {
     test_arraylist_capacity();
     test_arraylist_swap();
     test_arraylist_clear();
+
+    test_arraylist_insert_at();
+    test_arraylist_remove_at();
+    test_arraylist_insert_from_to();
+    test_arraylist_remove_from_to();
     return 0;
 }
 
