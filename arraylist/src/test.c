@@ -4,6 +4,7 @@
 #include "arraylist.h"
 
 #include <assert.h>
+#include <string.h>
 
 struct test {
     char *objname;
@@ -559,19 +560,27 @@ static void test_arraylist_insert_at(void) {
 
     struct test add4;
     test_ctor(&add4, 13, 0.2, "add4");
+    
+    assert(arrlisttest.size == 3);
+    
+    // Overflow should insert at last position
+    arraylist_test_insert_at(&arrlisttest, add4, -1);
+    assert(arrlisttest.size == 4);
+    assert(strcmp(arrlisttest.data[arrlisttest.size - 1].objname, add4.objname) == 0);
+    struct test add5;
+    test_ctor(&add5, 15, 0.5, "add5");
+    
+    arraylist_test_insert_at(&arrlisttest, add5, 0);
+    assert(arrlisttest.capacity == 8);
+    assert(strcmp(arrlisttest.data[0].objname, add5.objname) == 0);
 
-    for (size_t i = 0; i < arrlisttest.size; i++) {
-        test_print(&arrlisttest.data[i]);
-    }
-
-    arraylist_test_insert_at(&arrlisttest, add4, 2);
-
-    for (size_t i = 0; i < arrlisttest.size; i++) {
-        test_print(&arrlisttest.data[i]);
-    }
+    size_t add6_index_pos = 2;
+    struct test add6;
+    test_ctor(&add6, 16, 0.6, "add6");
+    arraylist_test_insert_at(&arrlisttest, add6, add6_index_pos); // Between add1 and add2
+    assert(strcmp(arrlisttest.data[2].objname, add6.objname) == 0);
 
     arraylist_test_deinit(&arrlisttest);
-    assert(false);
     printf("arraylist insert_at passed all tests.\n");
 }
 
