@@ -251,6 +251,7 @@ int arraylist_##name##_insert_at(struct arraylist_##name *self, T value, size_t 
         if (arraylist_##name##_push_back(self, value) == 0) return 0; \
         else return -1 ; \
     } \
+    ++self->size; \
     if (self->size >= self->capacity) { \
         size_t new_capacity = self->capacity * 2; \
         T *new_data = self->alloc->realloc(self->data, self->capacity * sizeof(T), new_capacity * sizeof(T), self->alloc->ctx); \
@@ -258,7 +259,6 @@ int arraylist_##name##_insert_at(struct arraylist_##name *self, T value, size_t 
         self->data = new_data; \
         self->capacity = new_capacity; \
     } \
-    ++self->size; \
     for (size_t i = self->size - 1; i >= index; --i) { \
         self->data[i + 1] = self->data[i]; \
         if (i == 0) break; \

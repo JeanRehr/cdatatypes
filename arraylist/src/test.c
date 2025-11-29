@@ -545,6 +545,31 @@ static void test_arraylist_insert_at(void) {
     printf("Testing arraylist insert_at function.\n");
     struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
 
+    struct test add1;
+    test_ctor(&add1, 10, 0.5, "add1");
+    arraylist_test_push_back(&arrlisttest, add1);
+
+    struct test add2;
+    test_ctor(&add2, 11, 0.6, "add2");
+    arraylist_test_push_back(&arrlisttest, add2);
+
+    struct test add3;
+    test_ctor(&add3, 12, 0.7, "add3");
+    arraylist_test_push_back(&arrlisttest, add3);
+
+    struct test add4;
+    test_ctor(&add4, 13, 0.2, "add4");
+
+    for (size_t i = 0; i < arrlisttest.size; i++) {
+        test_print(&arrlisttest.data[i]);
+    }
+
+    arraylist_test_insert_at(&arrlisttest, add4, 2);
+
+    for (size_t i = 0; i < arrlisttest.size; i++) {
+        test_print(&arrlisttest.data[i]);
+    }
+
     arraylist_test_deinit(&arrlisttest);
     assert(false);
     printf("arraylist insert_at passed all tests.\n");
