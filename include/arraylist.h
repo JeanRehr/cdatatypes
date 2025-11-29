@@ -249,9 +249,9 @@ T* arraylist_##name##_emplace_back_slot(struct arraylist_##name *self) { \
  */ \
 int arraylist_##name##_insert_at(struct arraylist_##name *self, T value, size_t index) {\
     if (!self) return -1; \
-    if (index >= self->size) { \
+    if (index >= self->size - 1) { \
         if (arraylist_##name##_push_back(self, value) == 0) return 0; \
-        else return -1 ; \
+        else return -1; \
     } \
     ++self->size; \
     if (self->size >= self->capacity) { \
