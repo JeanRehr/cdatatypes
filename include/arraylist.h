@@ -69,7 +69,6 @@ struct arraylist_##name { \
  * remove_at() - Removes at given index
  * insert_from_to() - Inserts a number of elements at given index
  * remove_from_to() - Removes a number of elements at given index
- * swap() - Swaps the contents of one vector with another with the same type T
  * }
  */
 #define ARRAYLIST_DECLARE(T, name) \
