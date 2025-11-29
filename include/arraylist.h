@@ -55,6 +55,7 @@ struct arraylist_##name { \
  * - arraylist_##name##_emplace_back_slot()
  * - arraylist_##name##_insert_at()
  * - arraylist_##name##_pop_back()
+ * - arraylist_##name##_remove_at()
  * - arraylist_##name##_at()
  * - arraylist_##name##_begin()
  * - arraylist_##name##_back()
@@ -66,7 +67,6 @@ struct arraylist_##name { \
  * - arraylist_##name##_deinit()
  * 
  * @todo { WILL IMPLEMENT:
- * remove_at() - Removes at given index
  * insert_from_to() - Inserts a number of elements at given index
  * remove_from_to() - Removes a number of elements at given index
  * }
@@ -80,6 +80,7 @@ int arraylist_##name##_push_back(struct arraylist_##name *self, T value); \
 T* arraylist_##name##_emplace_back_slot(struct arraylist_##name *self); \
 int arraylist_##name##_insert_at(struct arraylist_##name *self, T value, size_t index); \
 void arraylist_##name##_pop_back(struct arraylist_##name *self); \
+void arraylist_##name##_remove_at(struct arraylist_##name *self, size_t index); \
 T* arraylist_##name##_at(struct arraylist_##name *self, size_t index); \
 T* arraylist_##name##_begin(struct arraylist_##name *self); \
 T* arraylist_##name##_back(struct arraylist_##name *self); \
@@ -294,6 +295,32 @@ void arraylist_##name##_pop_back(struct arraylist_##name *self) { \
 T* arraylist_##name##_at(struct arraylist_##name *self, size_t index) { \
     if (!self || index >= self->size) return nullptr; \
     return &self->data[index]; \
+} \
+\
+/**
+ * @brief Removes the element at position index \
+ * @param arraylist Pointer to the arraylist \
+ * @param index Position to remove \
+ * \
+ * Will call destructor if available \
+ * \
+ * @warning if index < 0 size_t overflows and removes at end \
+ * \
+ */ \
+void arraylist_##name##_remove_at(struct arraylist_##name *self, size_t index) {\
+    if (!self) return; \
+    if (index >= self->size - 1) { \
+        arraylist_##name##_pop_back(self); \
+        return; \
+    } \
+    if (self->destructor) { \
+        self->destructor(&self->data[index]); \
+    } \
+    for (size_t i = index; i <= self->size - 1; ++i) { \
+        self->data[i] = self->data[i + 1]; \
+    } \
+    --self->size; \
+    return; \
 } \
 \
 /**
