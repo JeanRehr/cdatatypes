@@ -78,6 +78,7 @@ void arraylist_##name##_shrink_size(struct arraylist_##name *self, size_t size);
 int arraylist_##name##_shrink_to_fit(struct arraylist_##name *self); \
 int arraylist_##name##_push_back(struct arraylist_##name *self, T value); \
 T* arraylist_##name##_emplace_back_slot(struct arraylist_##name *self); \
+int arraylist_##name##_insert_at(struct arraylist_##name *self, T value, size_t index); \
 void arraylist_##name##_pop_back(struct arraylist_##name *self); \
 T* arraylist_##name##_at(struct arraylist_##name *self, size_t index); \
 T* arraylist_##name##_begin(struct arraylist_##name *self); \
@@ -163,7 +164,7 @@ void arraylist_##name##_shrink_size(struct arraylist_##name *self, size_t size) 
 /**
  * @brief Shrinks the capacity of the arraylist to fit the size, may reallocate and does not remove elements \
  * @param arraylist Pointer to the arraylist \
- * @return 0 if successful, 1 on noop, and -1 on allocation failure\
+ * @return 0 if successful, 1 on noop, and -1 on allocation failure \
  * Returns early if arraylist is null or arraylist capacity == size \
  * \
  */ \
@@ -210,7 +211,7 @@ int arraylist_##name##_push_back(struct arraylist_##name *self, T value) { \
 /**
  * @brief Returns a slot at the end of the arraylist for an object to be constructed \
  * @param arraylist Pointer to the arraylist \
- * @return The slot or nullptr if the arraylist isn't initialized or if the reallocation fails\
+ * @return The slot or nullptr if the arraylist isn't initialized or if the reallocation fails \
  * \
  * Will automatically resize and realocate capacity, doubling it \
  * \
@@ -233,6 +234,37 @@ T* arraylist_##name##_emplace_back_slot(struct arraylist_##name *self) { \
     } \
     return &self->data[self->size++]; \
 } \
+\
+/**
+ * @brief Inserts an element in the given index \
+ * @param arraylist Pointer to the arraylist \
+ * @param value Value of type T to be inserted \
+ * @param index Index to insert \
+ * @return -1 on failure 0 on success \
+ * \
+ * Will automatically resize and realocate capacity, doubling it \
+ * \
+ */ \
+int arraylist_##name##_insert_at(struct arraylist_##name *self, T value, size_t index) {\
+    if (!self) return -1; \
+    if (index >= self->size) { \
+        if (arraylist_##name##_push_back(self, value) == 0) return 0; \
+        else return -1 ; \
+    } \
+    if (self->size >= self->capacity) { \
+        size_t new_capacity = self->capacity * 2; \
+        T *new_data = self->alloc->realloc(self->data, self->capacity * sizeof(T), new_capacity * sizeof(T), self->alloc->ctx); \
+        if (!new_data) return -1; \
+        self->data = new_data; \
+        self->capacity = new_capacity; \
+    } \
+    ++self->size; \
+    for (size_t i = self->size - 1; i >= index; --i) { \
+        self->data[i + 1] = self->data[i]; \
+    } \
+    self->data[index] = value; \
+    return 0; \
+}\
 \
 /**
  * @brief Removes the last added element \
