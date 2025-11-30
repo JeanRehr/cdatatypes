@@ -113,7 +113,7 @@ void arraylist_##name##_deinit(struct arraylist_##name *self);
  * @param alloc Custom allocator instance, if null, default alloc will be used \
  * @return An initialized arraylist structure \
  * \
- * Creates an arraylist with initial cap of 8 elements \
+ * Creates an arraylist with initial cap of 1 elements \
  * If memory alloc fails, cap is set to 0 \
  * \
  */ \
