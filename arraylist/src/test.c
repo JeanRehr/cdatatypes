@@ -207,6 +207,7 @@ static void test_arraylist_emplace_back_slot(void) {
     struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
 
     // ways that emplace_back can be used with arraylist of values:
+    
     // can be added like this, most efficient as it is constructed inside the container:
     struct test *add1 = arraylist_test_emplace_back_slot(&arrlisttest);
 
@@ -775,6 +776,57 @@ static void test_arraylist_clear(void) {
     printf("arraylist end passed all tests.\n");
 }
 
+// An example of a container of pointers of struct test
+ARRAYLIST(struct test*, test_ptr)
+
+static void test_arraylist_ptr_push_back(void) {
+    printf("Testing arraylist_ptr push_back function.\n");
+    struct arraylist_test_ptr arrlisttestptr = arraylist_test_ptr_init(nullptr, test_ptr_dtor);
+
+    struct test *add1 = malloc(sizeof(struct test));
+    test_ctor(add1, 10, 0.5, "add1");
+
+    struct test *add2 = malloc(sizeof(struct test));
+    test_ctor(add2, 11, 0.6, "add2");
+
+    struct test *add3 = test_alloc_ctor(12, 0.7, "add3");
+
+    struct test *add4 = malloc(sizeof(struct test));
+    test_ctor(add4, 13, 0.8, "add4");
+
+    struct test *add5 = malloc(sizeof(struct test));
+    test_ctor(add5, 14, 0.9, "add5");
+
+
+    arraylist_test_ptr_push_back(&arrlisttestptr, add1);
+    assert(arrlisttestptr.size == 1);
+    arraylist_test_ptr_push_back(&arrlisttestptr, add2);
+    assert(arrlisttestptr.size == 2);
+    assert(arrlisttestptr.capacity == 2);
+    arraylist_test_ptr_push_back(&arrlisttestptr, add3);
+    assert(arrlisttestptr.size == 3);
+    assert(arrlisttestptr.capacity == 4);
+    arraylist_test_ptr_push_back(&arrlisttestptr, add4);
+    assert(arrlisttestptr.size == 4);
+    assert(arrlisttestptr.capacity == 4);
+    arraylist_test_ptr_push_back(&arrlisttestptr, add5);
+    assert(arrlisttestptr.size == 5);
+    assert(arrlisttestptr.capacity == 8);
+
+    arraylist_test_ptr_reserve(&arrlisttestptr, 11);
+    assert(arrlisttestptr.capacity == 11);
+
+    arraylist_test_ptr_deinit(&arrlisttestptr);
+    // free(add1); // double-free, arraylist owns the pointers to it and frees it
+
+    // add1 is still not null, but points to freed memory, the dtor passed to arraylist sets the
+    // freed pointer to null, as the arraylist shallow copies, so dtor will set only the copy of the
+    // copy inside it to null 
+    assert(add1); 
+    printf("arraylist_ptr push_back passed all tests.\n");
+}
+
+
 int main(void) {
     test_arraylist_init_and_deinit();
     test_arraylist_reserve();
@@ -797,6 +849,8 @@ int main(void) {
     test_arraylist_clear();
 
     //test_arraylist_insert_from_to();
+
+    test_arraylist_ptr_push_back();
     return 0;
 }
 
