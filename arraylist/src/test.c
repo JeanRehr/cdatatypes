@@ -496,7 +496,6 @@ static void test_arraylist_remove_from_to(void) {
     */
 
     arraylist_test_deinit(&arrlisttest);
-    assert(false);
     printf("arraylist remove_from_to passed all tests.\n");
 }
 
