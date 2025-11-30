@@ -207,7 +207,7 @@ static void test_arraylist_emplace_back_slot(void) {
     struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
 
     // ways that emplace_back can be used with arraylist of values:
-    
+
     // can be added like this, most efficient as it is constructed inside the container:
     struct test *add1 = arraylist_test_emplace_back_slot(&arrlisttest);
 
@@ -820,9 +820,10 @@ static void test_arraylist_ptr_push_back(void) {
     // free(add1); // double-free, arraylist owns the pointers to it and frees it
 
     // add1 is still not null, but points to freed memory, the dtor passed to arraylist sets the
-    // freed pointer to null, as the arraylist shallow copies, so dtor will set only the copy of the
-    // copy inside it to null 
-    assert(add1); 
+    // freed pointer to null, as the arraylist shallow copies, so dtor will set only the copy
+    // inside it to null 
+    assert(add1);
+    assert(!arrlisttestptr.data);
     printf("arraylist_ptr push_back passed all tests.\n");
 }
 
@@ -831,6 +832,7 @@ static void test_arraylist_ptr_emplace_back_slot(void) {
     struct arraylist_test_ptr arrlisttestptr = arraylist_test_ptr_init(nullptr, test_ptr_dtor);
 
     // ways that emplace_back can be used with arraylist of pointers to values:
+    
     // can be added like this:
     struct test *add1 = malloc(sizeof(struct test));
     test_ctor(add1, 10, 0.5, "add1");
