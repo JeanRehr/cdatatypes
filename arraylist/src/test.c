@@ -203,28 +203,43 @@ static void test_arraylist_emplace_back_slot(void) {
     printf("Testing arraylist emplace_back_slot function.\n");
     struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
 
+    // ways that emplace_back can be used with arraylist of values:
+    // can be added like this, most efficient as it is constructed inside the container:
     struct test *add1 = arraylist_test_emplace_back_slot(&arrlisttest);
+
+    // emplace_back_slot may return nullptr, needs to be checked in real scenarios
+    if (!add1) {
+        assert(false && "emplace back returned null");
+    }
+
     test_ctor(add1, 10, 0.5, "add1");
     assert(arrlisttest.size == 1);
+
     struct test *add1_same = arraylist_test_at(&arrlisttest, 0);
     assert(add1_same == add1);
 
-    struct test *add2 = arraylist_test_emplace_back_slot(&arrlisttest);
-    test_ctor(add2, 11, 0.6, "add2");
+    // can be added like this, copy into slot:
+    struct test add2;
+    test_ctor(&add2, 11, 0.6, "add2");
+    *arraylist_test_emplace_back_slot(&arrlisttest) = add2;
     assert(arrlisttest.size == 2);
     assert(arrlisttest.capacity == 2);
-    struct test *add2_same = arraylist_test_at(&arrlisttest, 1);
-    assert(add2_same == add2);
 
-    struct test *add3 = arraylist_test_emplace_back_slot(&arrlisttest);
-    test_ctor(add3, 12, 0.7, "add3");
+    // could be added by assigning a struct literal, if the struct had simple fields:
+    //*arraylist_test_emplace_back_slot(&arrlisttest) = (struct test){ .a = ...};
+
+    // can be added with a constructor that returns a struct by value:
+    *arraylist_test_emplace_back_slot(&arrlisttest) = test_ctor_by_val(12, 0.7, "add3");
     assert(arrlisttest.size == 3);
     assert(arrlisttest.capacity == 4);
-    struct test *add3_same = arraylist_test_at(&arrlisttest, 2);
-    assert(add3_same == add3);
 
+    // can fill slots individually:
     struct test *add4 = arraylist_test_emplace_back_slot(&arrlisttest);
-    test_ctor(add4, 13, 0.8, "add4");
+    add4->a = malloc(sizeof(int));
+    add4->b = malloc(sizeof(float));
+    *add4->a = 13;
+    *add4->b = 0.8;
+    add4->objname = "add4";
     assert(arrlisttest.size == 4);
     assert(arrlisttest.capacity == 4);
     struct test *add4_same = arraylist_test_at(&arrlisttest, 3);
