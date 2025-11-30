@@ -868,6 +868,13 @@ static void test_arraylist_ptr_emplace_back_slot(void) {
     printf("arraylist_ptr emplace_back_slot passed all tests.\n");
 }
 
+ARRAYLIST(long, long)
+
+void *my_malloc(size_t n, void *p) { return n ? 0 : p; }
+void *my_realloc(void *, size_t, size_t n, void *p) { return n ? 0 : p; }
+void my_free(void *, size_t, void *) {}
+Allocator alloc = {my_malloc, my_realloc, my_free, (void *)16};
+
 int main(void) {
     test_arraylist_init_and_deinit();
     test_arraylist_reserve();
@@ -893,6 +900,21 @@ int main(void) {
 
     test_arraylist_ptr_push_back();
     test_arraylist_ptr_emplace_back_slot();
+    
+    struct arraylist_long xs = arraylist_long_init(0, 0);
+    if (arraylist_long_reserve(&xs, 0x8000000000000001) == -1) {
+        printf("couldnt reserve.\n");
+        return 1;
+    }
+    arraylist_long_push_back(&xs, 0);
+    arraylist_long_push_back(&xs, 0);
+
+    struct arraylist_long xs_alloc = arraylist_long_init(&alloc, 0);
+    arraylist_long_push_back(&xs_alloc, 0);
+
+    arraylist_long_deinit(&xs);
+    arraylist_long_deinit(&xs_alloc);
+
     return 0;
 }
 
