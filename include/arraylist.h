@@ -56,6 +56,7 @@ struct arraylist_##name { \
  * - arraylist_##name##_insert_at()
  * - arraylist_##name##_pop_back()
  * - arraylist_##name##_remove_at()
+ * - arraylist_##name##_remove_from_to()
  * - arraylist_##name##_at()
  * - arraylist_##name##_begin()
  * - arraylist_##name##_back()
@@ -66,10 +67,10 @@ struct arraylist_##name { \
  * - arraylist_##name##_clear()
  * - arraylist_##name##_deinit()
  * 
- * @todo { WILL IMPLEMENT:
+ * @todo 
  * insert_from_to() - Inserts a number of elements at given index
- * remove_from_to() - Removes a number of elements at given index
- * }
+ * remove_from_to(struct arraylist_##name *self, size_t from, size_t to) - Removes a number of elements at given index
+ * 
  */
 #define ARRAYLIST_DECLARE(T, name) \
 struct arraylist_##name arraylist_##name##_init(Allocator *alloc, void (*destructor)(T *)); \
@@ -81,6 +82,7 @@ T* arraylist_##name##_emplace_back_slot(struct arraylist_##name *self); \
 int arraylist_##name##_insert_at(struct arraylist_##name *self, T value, size_t index); \
 void arraylist_##name##_pop_back(struct arraylist_##name *self); \
 void arraylist_##name##_remove_at(struct arraylist_##name *self, size_t index); \
+void arraylist_##name##_remove_from_to(struct arraylist_##name *self, size_t from, size_t to); \
 T* arraylist_##name##_at(struct arraylist_##name *self, size_t index); \
 T* arraylist_##name##_begin(struct arraylist_##name *self); \
 T* arraylist_##name##_back(struct arraylist_##name *self); \
@@ -286,18 +288,6 @@ void arraylist_##name##_pop_back(struct arraylist_##name *self) { \
 } \
 \
 /**
- * @brief Accesses the position of the arraylist at index \
- * @param arraylist Pointer to the arraylist \
- * @param index Position to access \
- * @return A pointer to the value accessed or null if arraylist=null or index is greater than arraylist size \
- * \
- */ \
-T* arraylist_##name##_at(struct arraylist_##name *self, size_t index) { \
-    if (!self || index >= self->size) return nullptr; \
-    return &self->data[index]; \
-} \
-\
-/**
  * @brief Removes the element at position index \
  * @param arraylist Pointer to the arraylist \
  * @param index Position to remove \
@@ -321,6 +311,62 @@ void arraylist_##name##_remove_at(struct arraylist_##name *self, size_t index) {
     } \
     --self->size; \
     return; \
+} \
+\
+/**
+ * @brief Removes elements from index until to inclusive \
+ * @param arraylist Pointer to the arraylist \
+ * @param from Starting position to remove \
+ * @param to Ending position inclusive \
+ * \
+ * Will call destructor if available \
+ * If from > to does nothing \
+ * \
+ * @warning if from < 0 size_t overflows and removes at end \
+ *          if to < 0, it will remove until size - 1 \
+ * \
+ */ \
+void arraylist_##name##_remove_from_to(struct arraylist_##name *self, size_t from, size_t to) { \
+    if (!self) return; \
+    if (to > self->size - 1) to = self->size - 1; \
+    if (from > self->size - 1) from = self->size - 1; \
+    size_t num_elems_to_rem = to - from; \
+    if (num_elems_to_rem == 0) { \
+        arraylist_##name##_remove_at(self, from); \
+        return; \
+    } \
+    size_t i = from; \
+    if (self->destructor) { \
+        for (; i <= to; ++i) { \
+            self->destructor(&self->data[i]); \
+        } \
+    } \
+    size_t num_elems_left = (self->size - 1) - num_elems_to_rem; \
+    /* \
+    printf("VALUE OF from = %lu\n", from); \
+    printf("VALUE OF to = %lu\n", to); \
+    printf("VALUE OF num_elems_to_rem = %lu\n", num_elems_to_rem); \
+    printf("VALUE OF i = %lu\n", i); \
+    printf("VALUE OF num_elems_left = %lu\n", num_elems_left); \
+    */ \
+    for (; from <= num_elems_left; ++from) { \
+        self->data[from] = self->data[to + 1]; \
+        ++to; \
+    } \
+    self->size -= num_elems_to_rem + 1; \
+    return; \
+} \
+\
+/**
+ * @brief Accesses the position of the arraylist at index \
+ * @param arraylist Pointer to the arraylist \
+ * @param index Position to access \
+ * @return A pointer to the value accessed or null if arraylist=null or index is greater than arraylist size \
+ * \
+ */ \
+T* arraylist_##name##_at(struct arraylist_##name *self, size_t index) { \
+    if (!self || index >= self->size) return nullptr; \
+    return &self->data[index]; \
 } \
 \
 /**
