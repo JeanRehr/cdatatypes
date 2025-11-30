@@ -10,7 +10,7 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 
 # Allocator src is needed by allocator header
 set(ALLOCATOR_SRC allocator/src/allocator.c)
-set(VECTOR_TEST_SRC arraylist/src/test.c)
+set(ARRAYLIST_TEST_SRC arraylist/src/test.c)
 
 include_directories(include)
 
@@ -67,11 +67,11 @@ else()
     message(WARNING "Unknown build type: ${CMAKE_BUILD_TYPE}")
 endif()
 
-add_executable(test_vector ${ALLOCATOR_SRC} ${VECTOR_TEST_SRC})
+add_executable(test_arraylist ${ALLOCATOR_SRC} ${ARRAYLIST_TEST_SRC})
 
-set_target_properties(test_vector PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set_target_properties(test_arraylist PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-target_include_directories(test_vector PRIVATE "${PROJECT_SOURCE_DIR}/include")
+target_include_directories(test_arraylist PRIVATE "${PROJECT_SOURCE_DIR}/include")
 
 # Debug build is default
 # $cmake ..
@@ -83,4 +83,4 @@ target_include_directories(test_vector PRIVATE "${PROJECT_SOURCE_DIR}/include")
 # $cmake -DCMAKE_BUILD_TYPE=Sanitizer ..
 
 # $cmake --build .
-# Executable will be on build/bin/test_vector(.exe)
+# Executable will be on build/bin/test_arraylist(.exe)
