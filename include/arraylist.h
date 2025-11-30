@@ -477,8 +477,8 @@ void arraylist_##name##_clear(struct arraylist_##name *self) { \
         for (size_t i = 0; i < self->size; ++i) { \
             self->destructor(&self->data[i]); \
         } \
-    self->size = 0; \
     } \
+    self->size = 0; \
 } \
 \
 /**
