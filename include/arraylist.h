@@ -14,6 +14,8 @@
 
 #include "allocator.h"
 
+#define INITIAL_CAP 1
+
 /**
  * @def ARRAYLIST_DEFINE(T, name)
  * @brief Defines an arraylist structure for a specific type T
@@ -110,10 +112,9 @@ void arraylist_##name##_deinit(struct arraylist_##name *self);
 /**
  * @brief Creates a new arraylist \
  * @param alloc Custom allocator instance, if null, default alloc will be used \
- * @return An initialized arraylist structure \
+ * @return A zero initialized arraylist structure \
  * \
- * Creates an arraylist with initial cap of 1 elements \
- * If memory alloc fails, cap is set to 0 \
+ * It does not allocate \
  * \
  */ \
 struct arraylist_##name arraylist_##name##_init(Allocator *alloc, void (*destructor)(T *)) { \
@@ -122,6 +123,7 @@ struct arraylist_##name arraylist_##name##_init(Allocator *alloc, void (*destruc
     arraylist.destructor = destructor; \
     arraylist.size = 0; \
     arraylist.capacity = 0; \
+    arraylist.data = nullptr; \
     return arraylist; \
 } \
 \
@@ -130,11 +132,21 @@ struct arraylist_##name arraylist_##name##_init(Allocator *alloc, void (*destruc
  * @param arraylist Pointer to the arraylist \
  * @param capacity New capacity of the arraylist \
  * @return 1 if arraylist is null or arraylist's capacity is lesser or equals than new capacity \
- *         0 on success, -1 on reallocation failure \
+ *         0 on success, -1 on reallocation failure, or -2 if given capacity overflows the buffer \
  * \
  */ \
 int arraylist_##name##_reserve(struct arraylist_##name *self, size_t capacity) { \
     if (!self || capacity <= self->capacity) return 1; \
+    if (capacity > SIZE_MAX / sizeof(T)) { \
+        return -2; \
+    } \
+    if (self->capacity == 0) { \
+        T *new_data = self->alloc->malloc(capacity * sizeof(T), self->alloc->ctx); \
+        if (!new_data) return -1; \
+        self->data = new_data; \
+        self->capacity = capacity; \
+        return 0; \
+    }\
     T *new_data = self->alloc->realloc(self->data, self->capacity * sizeof(T), capacity * sizeof(T), self->alloc->ctx); \
     if (!new_data) return -1; \
     self->data = new_data; \
@@ -186,7 +198,7 @@ int arraylist_##name##_shrink_to_fit(struct arraylist_##name *self) { \
  * @brief Adds a new element to the end of the array \
  * @param arraylist Pointer to the arraylist to add a new value \
  * @param T value to be added \
- * @return -1 on failure 0 on success \
+ * @return -1 self being null or on allocation failure, -2 on buffer overflow, 0 on success \
  * \
  * Safe to call on nullptr or already deinitialed arraylists \
  * Will automatically resize and realocate capacity, doubling it \
@@ -196,8 +208,17 @@ int arraylist_##name##_shrink_to_fit(struct arraylist_##name *self) { \
  */ \
 int arraylist_##name##_push_back(struct arraylist_##name *self, T value) { \
     if (!self) return -1; \
+    if (self->capacity == 0) { \
+        T *new_data = self->alloc->malloc(INITIAL_CAP * sizeof(T), self->alloc->ctx); \
+        if (!new_data) return -1; \
+        self->data = new_data; \
+        self->capacity = INITIAL_CAP; \
+    }\
     if (self->size >= self->capacity) { \
         size_t new_capacity = self->capacity * 2; \
+        if (new_capacity > SIZE_MAX / sizeof(T)) { \
+            return -2; \
+        } \
         T *new_data = self->alloc->realloc(self->data, self->capacity * sizeof(T), new_capacity * sizeof(T), self->alloc->ctx); \
         if (!new_data) return -1; \
         self->data = new_data; \
@@ -210,7 +231,7 @@ int arraylist_##name##_push_back(struct arraylist_##name *self, T value) { \
 /**
  * @brief Returns a slot at the end of the arraylist for an object to be constructed \
  * @param arraylist Pointer to the arraylist \
- * @return The slot or nullptr if the arraylist isn't initialized or if the reallocation fails \
+ * @return The slot or nullptr if the arraylist isn't initialized, if the (re)allocation fails \
  * \
  * Will automatically resize and realocate capacity, doubling it \
  * \
@@ -226,8 +247,18 @@ int arraylist_##name##_push_back(struct arraylist_##name *self, T value) { \
  */ \
 T* arraylist_##name##_emplace_back_slot(struct arraylist_##name *self) { \
     if (!self) return nullptr; \
+    if (self->capacity == 0) { \
+        T *new_data = self->alloc->malloc(INITIAL_CAP * sizeof(T), self->alloc->ctx); \
+        if (!new_data) return nullptr; \
+        self->data = new_data; \
+        self->capacity = INITIAL_CAP; \
+        return &self->data[self->size++]; \
+    }\
     if (self->size >= self->capacity) { \
         size_t new_capacity = self->capacity * 2; \
+        if (new_capacity > SIZE_MAX / sizeof(T)) { \
+            return nullptr; \
+        } \
         T *new_data = self->alloc->realloc(self->data, self->capacity * sizeof(T), new_capacity * sizeof(T), self->alloc->ctx); \
         if (!new_data) return nullptr; \
         self->data = new_data; \
@@ -241,7 +272,7 @@ T* arraylist_##name##_emplace_back_slot(struct arraylist_##name *self) { \
  * @param arraylist Pointer to the arraylist \
  * @param value Value of type T to be inserted \
  * @param index Index to insert \
- * @return -1 on failure 0 on success \
+ * @return -1 on self being null, or on (re)allocation failure, -2 on data buffer overflow, 0 on success \
  * \
  * Will automatically resize and realocate capacity, doubling it \
  * \
@@ -254,9 +285,20 @@ int arraylist_##name##_insert_at(struct arraylist_##name *self, T value, size_t 
         if (arraylist_##name##_push_back(self, value) == 0) return 0; \
         else return -1; \
     } \
+    if (self->capacity == 0) { \
+        T *new_data = self->alloc->malloc(INITIAL_CAP * sizeof(T), self->alloc->ctx); \
+        if (!new_data) return -1; \
+        self->data = new_data; \
+        self->capacity = INITIAL_CAP; \
+        self->data[self->size++] = value; \
+        return 0; \
+    } \
     ++self->size; \
     if (self->size >= self->capacity) { \
         size_t new_capacity = self->capacity * 2; \
+        if (new_capacity > SIZE_MAX / sizeof(T)) { \
+            return -2; \
+        } \
         T *new_data = self->alloc->realloc(self->data, self->capacity * sizeof(T), new_capacity * sizeof(T), self->alloc->ctx); \
         if (!new_data) return -1; \
         self->data = new_data; \

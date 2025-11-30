@@ -3,8 +3,10 @@
  */
 #include "arraylist.h"
 
+#include <stdio.h>
 #include <assert.h>
 #include <string.h>
+#include <stdlib.h>
 
 struct test {
     char *objname;
@@ -26,8 +28,8 @@ static void test_arraylist_init_and_deinit(void) {
     struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
     assert(arrlisttest.destructor);
     assert(arrlisttest.alloc);
-    assert(arrlisttest.capacity == 1);
-    assert(arrlisttest.data);
+    assert(arrlisttest.capacity == 0);
+    assert(!arrlisttest.data);
     assert(arrlisttest.size == 0);
 
     arraylist_test_deinit(&arrlisttest);
@@ -36,8 +38,8 @@ static void test_arraylist_init_and_deinit(void) {
     arrlisttest = arraylist_test_init(nullptr, test_dtor);
     assert(arrlisttest.destructor);
     assert(arrlisttest.alloc);
-    assert(arrlisttest.capacity == 1);
-    assert(arrlisttest.data);
+    assert(arrlisttest.capacity == 0);
+    assert(!arrlisttest.data);
     assert(arrlisttest.size == 0);
 
     arraylist_test_deinit(&arrlisttest);
@@ -111,6 +113,7 @@ static void test_arraylist_shrink_to_fit(void) {
     assert(arrlisttest.capacity == 10);
 
     arraylist_test_push_back(&arrlisttest, add1);
+    printf("BUFFERHERE\n");
     arraylist_test_push_back(&arrlisttest, add2);
     arraylist_test_push_back(&arrlisttest, add3);
     arraylist_test_push_back(&arrlisttest, add4);
@@ -655,7 +658,7 @@ static void test_arraylist_is_empty(void) {
 static void test_arraylist_capacity(void) {
     printf("Testing arraylist end function.\n");
     struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
-    assert(arraylist_test_capacity(&arrlisttest) == 1);
+    assert(arraylist_test_capacity(&arrlisttest) == 0);
 
     arraylist_test_reserve(&arrlisttest, 2);
     assert(arraylist_test_capacity(&arrlisttest) == 2);
@@ -739,17 +742,6 @@ static void test_arraylist_swap(void) {
     printf("arraylist end passed all tests.\n");
 }
 
-/*
-static void test_arraylist_insert_from_to(void) {
-    printf("Testing arraylist insert_from_to function.\n");
-    struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
-
-    arraylist_test_deinit(&arrlisttest);
-    assert(false);
-    printf("arraylist insert_from_to passed all tests.\n");
-}
-*/
-
 static void test_arraylist_clear(void) {
     printf("Testing arraylist end function.\n");
     struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
@@ -775,6 +767,17 @@ static void test_arraylist_clear(void) {
     arraylist_test_deinit(&arrlisttest);
     printf("arraylist end passed all tests.\n");
 }
+
+/*
+static void test_arraylist_insert_from_to(void) {
+    printf("Testing arraylist insert_from_to function.\n");
+    struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
+
+    arraylist_test_deinit(&arrlisttest);
+    assert(false);
+    printf("arraylist insert_from_to passed all tests.\n");
+}
+*/
 
 // An example of a container of pointers of struct test
 ARRAYLIST(struct test*, test_ptr)
@@ -832,7 +835,7 @@ static void test_arraylist_ptr_emplace_back_slot(void) {
     struct arraylist_test_ptr arrlisttestptr = arraylist_test_ptr_init(nullptr, test_ptr_dtor);
 
     // ways that emplace_back can be used with arraylist of pointers to values:
-    
+
     // can be added like this:
     struct test *add1 = malloc(sizeof(struct test));
     test_ctor(add1, 10, 0.5, "add1");
