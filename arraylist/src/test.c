@@ -12,9 +12,12 @@ struct test {
     float *b;
 };
 
+static struct test *test_alloc_ctor(int a, float b, char *objname);
 static void test_ctor(struct test *t, int a, float b, char *objname);
+static struct test test_ctor_by_val(int a, float b, char *objname);
 static void test_print(struct test *t);
 static void test_dtor(struct test *t);
+static void test_ptr_dtor(struct test **t);
 
 ARRAYLIST(struct test, test)
 
@@ -797,6 +800,17 @@ int main(void) {
     return 0;
 }
 
+static struct test *test_alloc_ctor(int a, float b, char *objname) {
+    //printf("Constructor called! Creating object named %s\n", objname);
+    struct test *t = malloc(sizeof(struct test));
+    t->a = malloc(sizeof(a));
+    t->b = malloc(sizeof(b));
+    *t->a = a;
+    *t->b = b;
+    t->objname = objname;
+    return t;
+}
+
 static void test_ctor(struct test *t, int a, float b, char *objname) {
     //printf("Constructor called! Creating object named %s\n", objname);
     t->a = malloc(sizeof(a));
@@ -804,6 +818,16 @@ static void test_ctor(struct test *t, int a, float b, char *objname) {
     *t->a = a;
     *t->b = b;
     t->objname = objname;
+}
+
+static struct test test_ctor_by_val(int a, float b, char *objname) {
+    struct test t;
+    t.a = malloc(sizeof(a));
+    t.b = malloc(sizeof(b));
+    *t.a = a;
+    *t.b = b;
+    t.objname = objname;
+    return t;
 }
 
 static void test_print(struct test *t) {
@@ -814,6 +838,20 @@ static void test_print(struct test *t) {
 
 static void test_dtor(struct test *t) {
     //printf("Destructor called for obj named %s!\n", t->objname);
+    if(!t) {
+        return;
+    }
+    
     free(t->a);
     free(t->b);
+}
+
+static void test_ptr_dtor(struct test **t) {
+    if(!t || !*t) {
+        return;
+    }
+
+    test_dtor(*t);
+    free(*t); 
+    *t = nullptr;
 }
