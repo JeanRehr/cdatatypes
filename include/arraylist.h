@@ -218,6 +218,8 @@ int arraylist_##name##_push_back(struct arraylist_##name *self, T value) { \
  * \
  * Will automatically resize and realocate capacity, doubling it \
  * \
+ * @warning Return should be checked for null before usage \
+ * \
  * @code \
  * struct Foo { int a; }; \
  * // Initialize ... \
@@ -363,6 +365,8 @@ void arraylist_##name##_remove_from_to(struct arraylist_##name *self, size_t fro
  * @param index Position to access \
  * @return A pointer to the value accessed or null if arraylist=null or index is greater than arraylist size \
  * \
+ * @warning Return should be checked for null before usage \
+ * \
  */ \
 T* arraylist_##name##_at(struct arraylist_##name *self, size_t index) { \
     if (!self || index >= self->size) return nullptr; \
@@ -375,6 +379,8 @@ T* arraylist_##name##_at(struct arraylist_##name *self, size_t index) { \
  *          and where a function accepts a *T \
  * @param arraylist Pointer to the arraylist \
  * @return A pointer to the first value or null if !self \
+ * \
+ * @warning Return should be checked for null before usage \
  * \
  * @code \
  * // Prints the contents of an arraylist of T (substitute T for your type) \
@@ -394,6 +400,8 @@ T* arraylist_##name##_begin(struct arraylist_##name *self) { \
  * @param arraylist Pointer to the arraylist \
  * @return A pointer to the last value or null if !self \
  * \
+ * @warning Return should be checked for null before usage \
+ * \
  */ \
 T* arraylist_##name##_back(struct arraylist_##name *self) { \
     if (!self) return nullptr; \
@@ -406,7 +414,7 @@ T* arraylist_##name##_back(struct arraylist_##name *self) { \
  * @param arraylist Pointer to the arraylist \
  * @return A pointer to the end or null if !self \
  * \
- * @warning Dereferencing it leads to undefined behavior \
+ * @warning Return should be checked for null before usage, dereferencing it leads to UB \
  * \
  */ \
 T* arraylist_##name##_end(struct arraylist_##name *self) { \
