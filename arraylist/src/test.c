@@ -374,6 +374,132 @@ static void test_arraylist_pop_back(void) {
     printf("arraylist pop_back passed all tests.\n");
 }
 
+static void test_arraylist_remove_at(void) {
+    printf("Testing arraylist remove_at function.\n");
+    struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
+
+    struct test add1;
+    test_ctor(&add1, 10, 0.5, "add1");
+    arraylist_test_push_back(&arrlisttest, add1);
+
+    struct test add2;
+    test_ctor(&add2, 11, 0.6, "add2");
+    arraylist_test_push_back(&arrlisttest, add2);
+
+    struct test add3;
+    test_ctor(&add3, 12, 0.7, "add3");
+    arraylist_test_push_back(&arrlisttest, add3);
+    assert(arrlisttest.size == 3);
+    assert(arrlisttest.capacity == 4);
+
+    struct test add4;
+    test_ctor(&add4, 12, 0.7, "add4");
+    arraylist_test_push_back(&arrlisttest, add4);
+
+    struct test add5;
+    test_ctor(&add5, 12, 0.7, "add5");
+    arraylist_test_push_back(&arrlisttest, add5);
+
+    struct test add6;
+    test_ctor(&add6, 12, 0.7, "add6");
+    arraylist_test_push_back(&arrlisttest, add6);
+    assert(arrlisttest.size == 6);
+
+    /*
+    for (size_t j = 0; j < arrlisttest.size; ++j) {
+        printf("index = %lu | ", j);
+        test_print(&arrlisttest.data[j]);
+    }
+    */
+
+    arraylist_test_remove_at(&arrlisttest, 3); //add4
+    assert(arrlisttest.size == 5);
+
+    arraylist_test_remove_at(&arrlisttest, 3); //add5 now
+    assert(arrlisttest.size == 4);
+
+    // Should overflow and remove last element
+    arraylist_test_remove_at(&arrlisttest, -1); //add6
+    assert(arrlisttest.size == 3);
+
+    arraylist_test_remove_at(&arrlisttest, 0); //add1
+    assert(arrlisttest.size == 2);
+    
+    arraylist_test_remove_at(&arrlisttest, 1); //add3
+    assert(arrlisttest.size == 1);
+
+    /*
+    for (size_t i = 0; i < arrlisttest.size; ++i) {
+        printf("index = %lu | ", i);
+        test_print(&arrlisttest.data[i]);
+    }
+    */
+
+    arraylist_test_deinit(&arrlisttest);
+    printf("arraylist remove_at passed all tests.\n");
+}
+
+static void test_arraylist_remove_from_to(void) {
+    printf("Testing arraylist remove_from_to function.\n");
+    struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
+
+    struct test add1;
+    test_ctor(&add1, 10, 0.5, "add1");
+    arraylist_test_push_back(&arrlisttest, add1);
+
+    struct test add2;
+    test_ctor(&add2, 11, 0.6, "add2");
+    arraylist_test_push_back(&arrlisttest, add2);
+
+    struct test add3;
+    test_ctor(&add3, 12, 0.7, "add3");
+    arraylist_test_push_back(&arrlisttest, add3);
+    assert(arrlisttest.size == 3);
+    assert(arrlisttest.capacity == 4);
+
+    struct test add4;
+    test_ctor(&add4, 12, 0.7, "add4");
+    arraylist_test_push_back(&arrlisttest, add4);
+
+    struct test add5;
+    test_ctor(&add5, 12, 0.7, "add5");
+    arraylist_test_push_back(&arrlisttest, add5);
+
+    struct test add6;
+    test_ctor(&add6, 12, 0.7, "add6");
+    arraylist_test_push_back(&arrlisttest, add6);
+    assert(arrlisttest.size == 6);
+
+    /*
+    for (size_t j = 0; j < arrlisttest.size; ++j) {
+        printf("index = %lu | ", j);
+        test_print(&arrlisttest.data[j]);
+    }
+    */
+    
+    // from > to should do nothing
+    arraylist_test_remove_from_to(&arrlisttest, 4, 3);
+    assert(arrlisttest.size == 6);
+
+    // should overflow and just pop_back
+    arraylist_test_remove_from_to(&arrlisttest, -1, -1); // add6
+    assert(arrlisttest.size == 5);
+
+    arraylist_test_remove_from_to(&arrlisttest, 1, 3); // add2 add3 add4
+    assert(arrlisttest.size == 2);
+
+    /*
+    for (size_t i = 0; i < arrlisttest.size; ++i) {
+        printf("index = %lu | ", i);
+        test_print(&arrlisttest.data[i]);
+    }
+    */
+
+    arraylist_test_deinit(&arrlisttest);
+    assert(false);
+    printf("arraylist remove_from_to passed all tests.\n");
+}
+
 static void test_arraylist_at(void) {
     printf("Testing arraylist at function.\n");
     struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
@@ -595,71 +721,7 @@ static void test_arraylist_swap(void) {
     printf("arraylist end passed all tests.\n");
 }
 
-static void test_arraylist_remove_at(void) {
-    printf("Testing arraylist remove_at function.\n");
-    struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
-
-    struct test add1;
-    test_ctor(&add1, 10, 0.5, "add1");
-    arraylist_test_push_back(&arrlisttest, add1);
-
-    struct test add2;
-    test_ctor(&add2, 11, 0.6, "add2");
-    arraylist_test_push_back(&arrlisttest, add2);
-
-    struct test add3;
-    test_ctor(&add3, 12, 0.7, "add3");
-    arraylist_test_push_back(&arrlisttest, add3);
-    assert(arrlisttest.size == 3);
-    assert(arrlisttest.capacity == 4);
-
-    struct test add4;
-    test_ctor(&add4, 12, 0.7, "add4");
-    arraylist_test_push_back(&arrlisttest, add4);
-
-    struct test add5;
-    test_ctor(&add5, 12, 0.7, "add5");
-    arraylist_test_push_back(&arrlisttest, add5);
-
-    struct test add6;
-    test_ctor(&add6, 12, 0.7, "add6");
-    arraylist_test_push_back(&arrlisttest, add6);
-    assert(arrlisttest.size == 6);
-
-    /*
-    for (size_t j = 0; j < arrlisttest.size; ++j) {
-        printf("index = %lu | ", j);
-        test_print(&arrlisttest.data[j]);
-    }
-    */
-
-    arraylist_test_remove_at(&arrlisttest, 3); //add4
-    assert(arrlisttest.size == 5);
-
-    arraylist_test_remove_at(&arrlisttest, 3); //add5 now
-    assert(arrlisttest.size == 4);
-
-    // Should overflow and remove last element
-    arraylist_test_remove_at(&arrlisttest, -1); //add6
-    assert(arrlisttest.size == 3);
-
-    arraylist_test_remove_at(&arrlisttest, 0); //add1
-    assert(arrlisttest.size == 2);
-    
-    arraylist_test_remove_at(&arrlisttest, 1); //add3
-    assert(arrlisttest.size == 1);
-
-    /*
-    for (size_t i = 0; i < arrlisttest.size; ++i) {
-        printf("index = %lu | ", i);
-        test_print(&arrlisttest.data[i]);
-    }
-    */
-
-    arraylist_test_deinit(&arrlisttest);
-    printf("arraylist remove_at passed all tests.\n");
-}
-
+/*
 static void test_arraylist_insert_from_to(void) {
     printf("Testing arraylist insert_from_to function.\n");
     struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
@@ -668,15 +730,7 @@ static void test_arraylist_insert_from_to(void) {
     assert(false);
     printf("arraylist insert_from_to passed all tests.\n");
 }
-
-static void test_arraylist_remove_from_to(void) {
-    printf("Testing arraylist remove_from_to function.\n");
-    struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
-
-    arraylist_test_deinit(&arrlisttest);
-    assert(false);
-    printf("arraylist remove_from_to passed all tests.\n");
-}
+*/
 
 static void test_arraylist_clear(void) {
     printf("Testing arraylist end function.\n");
@@ -713,6 +767,8 @@ int main(void) {
     test_arraylist_emplace_back_slot();
     test_arraylist_insert_at();
     test_arraylist_pop_back();
+    test_arraylist_remove_at();
+    test_arraylist_remove_from_to();
     test_arraylist_at();
     test_arraylist_begin();
     test_arraylist_back();
@@ -723,9 +779,7 @@ int main(void) {
     test_arraylist_swap();
     test_arraylist_clear();
 
-    test_arraylist_remove_at();
-    test_arraylist_insert_from_to();
-    test_arraylist_remove_from_to();
+    //test_arraylist_insert_from_to();
     return 0;
 }
 
