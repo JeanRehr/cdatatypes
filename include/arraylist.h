@@ -140,14 +140,12 @@ int arraylist_##name##_reserve(struct arraylist_##name *self, size_t capacity) {
     if (capacity > SIZE_MAX / sizeof(T)) { \
         return -2; \
     } \
+    T *new_data = nullptr; \
     if (self->capacity == 0) { \
-        T *new_data = self->alloc->malloc(capacity * sizeof(T), self->alloc->ctx); \
-        if (!new_data) return -1; \
-        self->data = new_data; \
-        self->capacity = capacity; \
-        return 0; \
-    }\
-    T *new_data = self->alloc->realloc(self->data, self->capacity * sizeof(T), capacity * sizeof(T), self->alloc->ctx); \
+        new_data = self->alloc->malloc(capacity * sizeof(T), self->alloc->ctx); \
+    } else { \
+        new_data = self->alloc->realloc(self->data, self->capacity * sizeof(T), capacity * sizeof(T), self->alloc->ctx); \
+    } \
     if (!new_data) return -1; \
     self->data = new_data; \
     self->capacity = capacity; \
