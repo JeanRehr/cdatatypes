@@ -826,6 +826,42 @@ static void test_arraylist_ptr_push_back(void) {
     printf("arraylist_ptr push_back passed all tests.\n");
 }
 
+static void test_arraylist_ptr_emplace_back_slot(void) {
+    printf("Testing arraylist_ptr emplace_back_slot function.\n");
+    struct arraylist_test_ptr arrlisttestptr = arraylist_test_ptr_init(nullptr, test_ptr_dtor);
+
+    // ways that emplace_back can be used with arraylist of pointers to values:
+    // can be added like this:
+    struct test *add1 = malloc(sizeof(struct test));
+    test_ctor(add1, 10, 0.5, "add1");
+    
+    // get the pointer to a slot where a struct test pointer can be stored
+    struct test **slot_add1 = arraylist_test_ptr_emplace_back_slot(&arrlisttestptr);
+
+    // store it
+    *slot_add1 = add1;
+
+    assert(arrlisttestptr.size == 1);
+
+    struct test **add1_same = arraylist_test_ptr_at(&arrlisttestptr, 0);
+    // at returns a struct test **, a pointer where a struct test * is stored
+    assert(*add1_same == add1);
+
+    // can be added like this as well:
+    struct test *add2 = malloc(sizeof(struct test));
+    test_ctor(add2, 11, 0.6, "add2");
+    *arraylist_test_ptr_emplace_back_slot(&arrlisttestptr) = add2;
+
+    struct test **add2_same = arraylist_test_ptr_at(&arrlisttestptr, 1);
+    assert(*add2_same == add2);
+
+    // one-liner with an init function that returns a malloced and constructed object
+    *arraylist_test_ptr_emplace_back_slot(&arrlisttestptr) = test_alloc_ctor(12, 0.7, "add3");
+    assert(arrlisttestptr.size == 3);
+
+    arraylist_test_ptr_deinit(&arrlisttestptr);
+    printf("arraylist_ptr emplace_back_slot passed all tests.\n");
+}
 
 int main(void) {
     test_arraylist_init_and_deinit();
@@ -851,6 +887,7 @@ int main(void) {
     //test_arraylist_insert_from_to();
 
     test_arraylist_ptr_push_back();
+    test_arraylist_ptr_emplace_back_slot();
     return 0;
 }
 
