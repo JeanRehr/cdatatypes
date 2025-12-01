@@ -3,7 +3,7 @@
  * @brief Generic arraylist implementation using macros
  * @details The arraylist will own and free the memory, as long as the correct destructor for the
  *          object is provided, and the deinit function called correctly, once an object is inside
- *          the arraylist, do not free it, call the function of the arraylist that frees it
+ *          the arraylist, do not free it, call the function of the arraylist that frees it,
  *          in the case of a container of pointers of an object, pass the correct destructor that
  *          knows how to free its data inside, and frees the struct itself
  */
