@@ -316,47 +316,33 @@ T* arraylist_##name##_emplace_back_slot(struct arraylist_##name *self) { \
 \
 /**
  * @brief Inserts an element in the given index \
- * @param arraylist Pointer to the arraylist \
+ * @param self Pointer to the arraylist \
  * @param value Value of type T to be inserted \
  * @param index Index to insert \
- * @return -1 on self being null, or on (re)allocation failure, -2 on data buffer overflow, 0 on success \
+ * @return ARRAYLIST_ERR_NULL if self is null, or ARRAYLIST_ERR_ALLOC on allocation failure, or \
+ *         ARRAYLIST_ERR_OVERFLOW on buffer overflow, or ARRAYLIST_OK on success \
  * \
  * Will automatically resize and realocate capacity, doubling it \
  * \
  * @warning if index < 0 size_t overflows and inserts at end \
  * \
  */ \
-int arraylist_##name##_insert_at(struct arraylist_##name *self, T value, size_t index) {\
-    if (!self) return -1; \
-    if (index >= self->size - 1) { \
-        if (arraylist_##name##_push_back(self, value) == 0) return 0; \
-        else return -1; \
+enum arraylist_error arraylist_##name##_insert_at(struct arraylist_##name *self, T value, size_t index) {\
+    if (index >= self->size) { \
+        return arraylist_##name##_push_back(self, value); \
     } \
-    if (self->capacity == 0) { \
-        T *new_data = self->alloc->malloc(INITIAL_CAP * sizeof(T), self->alloc->ctx); \
-        if (!new_data) return -1; \
-        self->data = new_data; \
-        self->capacity = INITIAL_CAP; \
-        self->data[self->size++] = value; \
-        return 0; \
+    ARRAYLIST_ENSURE(self != nullptr, ARRAYLIST_ERR_NULL) \
+    if (self->size >= self->capacity) { \
+        enum arraylist_error err = arraylist_##name##_double_capacity(self); \
+        if (err != ARRAYLIST_OK) return err; \
     } \
     ++self->size; \
-    if (self->size >= self->capacity) { \
-        size_t new_capacity = self->capacity * 2; \
-        if (new_capacity > SIZE_MAX / sizeof(T)) { \
-            return -2; \
-        } \
-        T *new_data = self->alloc->realloc(self->data, self->capacity * sizeof(T), new_capacity * sizeof(T), self->alloc->ctx); \
-        if (!new_data) return -1; \
-        self->data = new_data; \
-        self->capacity = new_capacity; \
-    } \
     for (size_t i = self->size - 1; i >= index; --i) { \
         self->data[i + 1] = self->data[i]; \
         if (i == 0) break; \
     } \
     self->data[index] = value; \
-    return 0; \
+    return ARRAYLIST_OK; \
 }\
 \
 /**
