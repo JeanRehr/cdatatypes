@@ -289,8 +289,9 @@ enum arraylist_error arraylist_##name##_push_back(struct arraylist_##name *self,
 \
 /**
  * @brief Returns a slot at the end of the arraylist for an object to be constructed \
- * @param arraylist Pointer to the arraylist \
- * @return The slot or nullptr if the arraylist isn't initialized, if the (re)allocation fails \
+ * @param self Pointer to the arraylist \
+ * @return The slot or nullptr if the arraylist isn't initialized, or if the (re)allocation fails, \
+ *         or if there is a buffer overflow possibility \
  * \
  * Will automatically resize and realocate capacity, doubling it \
  * \
@@ -305,23 +306,10 @@ enum arraylist_error arraylist_##name##_push_back(struct arraylist_##name *self,
  * @endcode \
  */ \
 T* arraylist_##name##_emplace_back_slot(struct arraylist_##name *self) { \
-    if (!self) return nullptr; \
-    if (self->capacity == 0) { \
-        T *new_data = self->alloc->malloc(INITIAL_CAP * sizeof(T), self->alloc->ctx); \
-        if (!new_data) return nullptr; \
-        self->data = new_data; \
-        self->capacity = INITIAL_CAP; \
-        return &self->data[self->size++]; \
-    }\
+    ARRAYLIST_ENSURE_PTR(self != nullptr) \
     if (self->size >= self->capacity) { \
-        size_t new_capacity = self->capacity * 2; \
-        if (new_capacity > SIZE_MAX / sizeof(T)) { \
-            return nullptr; \
-        } \
-        T *new_data = self->alloc->realloc(self->data, self->capacity * sizeof(T), new_capacity * sizeof(T), self->alloc->ctx); \
-        if (!new_data) return nullptr; \
-        self->data = new_data; \
-        self->capacity = new_capacity; \
+        enum arraylist_error err = arraylist_##name##_double_capacity(self); \
+        if (err != ARRAYLIST_OK) return nullptr; \
     } \
     return &self->data[self->size++]; \
 } \
