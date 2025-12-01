@@ -2,12 +2,16 @@
  * @file test.c
  * @brief Unit tests for the arraylist.h file
  */
-#include "arraylist.h"
-
-#include <stdio.h>
 #include <assert.h>
-#include <string.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+
+// To use asserts inside arraylist functions instead of error code returns, define the following
+// variable ARRAYLIST_USE_ASSERT as 1, it must be before arraylist.h is included
+// Uncomment next line to use asserts
+// #define ARRAYLIST_USE_ASSERT 1
+#include "arraylist.h"
 
 struct test {
     char *objname;
