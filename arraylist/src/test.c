@@ -114,7 +114,6 @@ static void test_arraylist_shrink_to_fit(void) {
     assert(arrlisttest.capacity == 10);
 
     arraylist_test_push_back(&arrlisttest, add1);
-    printf("BUFFERHERE\n");
     arraylist_test_push_back(&arrlisttest, add2);
     arraylist_test_push_back(&arrlisttest, add3);
     arraylist_test_push_back(&arrlisttest, add4);
@@ -337,10 +336,9 @@ static void test_arraylist_insert_at(void) {
     arraylist_test_insert_at(&arrlisttest, add4, -1);
     assert(arrlisttest.size == 4);
     assert(strcmp(arrlisttest.data[arrlisttest.size - 1].objname, add4.objname) == 0);
-
+    
     struct test add5;
     test_ctor(&add5, 15, 0.5, "add5");
-    
     arraylist_test_insert_at(&arrlisttest, add5, 0);
     assert(arrlisttest.size == 5);
     assert(arrlisttest.capacity == 8);
@@ -353,13 +351,19 @@ static void test_arraylist_insert_at(void) {
     assert(arrlisttest.size == 6);
     assert(strcmp(arrlisttest.data[2].objname, add6.objname) == 0);
 
-
     size_t add7_index_pos = arrlisttest.size - 1;
     struct test add7;
     test_ctor(&add7, 17, 0.7, "add7");
-    arraylist_test_insert_at(&arrlisttest, add7, add7_index_pos);
-    assert(strcmp(arrlisttest.data[arrlisttest.size - 1].objname, add7.objname) == 0);
+    arraylist_test_insert_at(&arrlisttest, add7, add7_index_pos); // index 5, should be before last
+    assert(strcmp(arrlisttest.data[arrlisttest.size - 2].objname, add7.objname) == 0);
     assert(arrlisttest.size == 7);
+
+    size_t add8_index_pos = arrlisttest.size;
+    struct test add8;
+    test_ctor(&add8, 17, 0.7, "add8");
+    arraylist_test_insert_at(&arrlisttest, add8, add8_index_pos); // index 7, should be last
+    assert(strcmp(arrlisttest.data[arrlisttest.size - 1].objname, add8.objname) == 0);
+    assert(arrlisttest.size == 8);
 
     arraylist_test_deinit(&arrlisttest);
     printf("arraylist insert_at passed all tests.\n");
@@ -879,7 +883,7 @@ Allocator alloc = {my_malloc, my_realloc, my_free, (void *)16};
 static void test_arraylist_bufferoverflow() {
     printf("arraylist size_t buffer overflow test.\n");
     struct arraylist_long xs = arraylist_long_init(0, 0);
-    assert(arraylist_long_reserve(&xs, 0x8000000000000001) == -2);
+    assert(arraylist_long_reserve(&xs, 0x8000000000000001) == ARRAYLIST_ERR_OVERFLOW);
     arraylist_long_push_back(&xs, 0);
     arraylist_long_push_back(&xs, 0);
 
