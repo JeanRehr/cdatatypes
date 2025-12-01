@@ -328,10 +328,10 @@ T* arraylist_##name##_emplace_back_slot(struct arraylist_##name *self) { \
  * \
  */ \
 enum arraylist_error arraylist_##name##_insert_at(struct arraylist_##name *self, T value, size_t index) {\
+    ARRAYLIST_ENSURE(self != nullptr, ARRAYLIST_ERR_NULL) \
     if (index >= self->size) { \
         return arraylist_##name##_push_back(self, value); \
     } \
-    ARRAYLIST_ENSURE(self != nullptr, ARRAYLIST_ERR_NULL) \
     if (self->size >= self->capacity) { \
         enum arraylist_error err = arraylist_##name##_double_capacity(self); \
         if (err != ARRAYLIST_OK) return err; \
@@ -375,10 +375,10 @@ enum arraylist_error arraylist_##name##_pop_back(struct arraylist_##name *self) 
  * \
  */ \
 enum arraylist_error arraylist_##name##_remove_at(struct arraylist_##name *self, size_t index) {\
+    ARRAYLIST_ENSURE(self != nullptr, ARRAYLIST_ERR_NULL) \
     if (index >= self->size - 1) { \
         return arraylist_##name##_pop_back(self); \
     } \
-    ARRAYLIST_ENSURE(self != nullptr, ARRAYLIST_ERR_NULL) \
     if (self->destructor) { \
         self->destructor(&self->data[index]); \
     } \
