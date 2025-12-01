@@ -492,7 +492,7 @@ T* arraylist_##name##_end(struct arraylist_##name *self) { \
 \
 /**
  * @brief Gets the size of an arraylist \
- * @param arraylist Pointer to the arraylist \
+ * @param self Pointer to the arraylist \
  * @return The size or 0 if arraylist is null \
  * \
  */ \
@@ -501,7 +501,7 @@ size_t arraylist_##name##_size(const struct arraylist_##name *self) { \
 } \
 /**
  * @brief Checks if the arraylist is empty \
- * @param arraylist Pointer to the arraylist \
+ * @param self Pointer to the arraylist \
  * @return False if arraylist is null or size = 0, otherwise true \
  * \
  */ \
@@ -512,7 +512,7 @@ bool arraylist_##name##_is_empty(const struct arraylist_##name *self) { \
 \
 /**
  * @brief Gets the capacity of an arraylist \
- * @param arraylist Pointer to the arraylist \
+ * @param self Pointer to the arraylist \
  * @return The capacity or 0 if arraylist is null \
  * \
  */ \
