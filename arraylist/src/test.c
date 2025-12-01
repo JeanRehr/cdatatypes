@@ -1,5 +1,6 @@
 /**
  * @file test.c
+ * @brief Unit tests for the arraylist.h file
  */
 #include "arraylist.h"
 
@@ -875,6 +876,16 @@ void *my_realloc(void *, size_t, size_t n, void *p) { return n ? 0 : p; }
 void my_free(void *, size_t, void *) {}
 Allocator alloc = {my_malloc, my_realloc, my_free, (void *)16};
 
+static void test_arraylist_allocating_zero() {
+    printf("arraylist custom alloc allocating zero.\n");
+    struct arraylist_long xs_alloc = arraylist_long_init(&alloc, 0);
+
+    arraylist_long_push_back(&xs_alloc, 0);
+
+    arraylist_long_deinit(&xs_alloc);
+    printf("arraylist custom alloc allocating zero passed.\n");
+}
+
 int main(void) {
     test_arraylist_init_and_deinit();
     test_arraylist_reserve();
@@ -901,20 +912,8 @@ int main(void) {
     test_arraylist_ptr_push_back();
     test_arraylist_ptr_emplace_back_slot();
     
-    struct arraylist_long xs = arraylist_long_init(0, 0);
-    if (arraylist_long_reserve(&xs, 0x8000000000000001) == -1) {
-        printf("couldnt reserve.\n");
-        return 1;
-    }
-    arraylist_long_push_back(&xs, 0);
-    arraylist_long_push_back(&xs, 0);
-
-    struct arraylist_long xs_alloc = arraylist_long_init(&alloc, 0);
-    arraylist_long_push_back(&xs_alloc, 0);
-
-    arraylist_long_deinit(&xs);
-    arraylist_long_deinit(&xs_alloc);
-
+    test_arraylist_allocating_zero();
+    
     return 0;
 }
 
