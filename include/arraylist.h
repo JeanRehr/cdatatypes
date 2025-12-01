@@ -520,16 +520,26 @@ size_t arraylist_##name##_capacity(const struct arraylist_##name *self) { \
     return self ? self->capacity : 0; \
 } \
 \
-void arraylist_##name##_swap(struct arraylist_##name *self, struct arraylist_##name *other) { \
-    if (!self || !other) return; \
+/**
+ * @brief Swaps the contents of arraylist self with other \
+ * @param self Pointer to the arraylist \
+ * @param other Pointer to another arraylist \
+ * @return ARRAYLIST_ERR_NULL in case of nullptr being passed, or ARRAYLIST_OK \
+ * \
+ */ \
+enum arraylist_error arraylist_##name##_swap(struct arraylist_##name *self, struct arraylist_##name *other) { \
+    ARRAYLIST_ENSURE(self != nullptr, ARRAYLIST_ERR_NULL) \
+    ARRAYLIST_ENSURE(other != nullptr, ARRAYLIST_ERR_NULL) \
     struct arraylist_##name temp = *other; \
     *other = *self; \
     *self = temp; \
+    return ARRAYLIST_OK; \
 } \
 \
 /**
  * @brief Clears the arraylist's data \
- * @param arraylist Pointer to the arraylist \
+ * @param self Pointer to the arraylist \
+ * @return ARRAYLIST_ERR_NULL in case of nullptr being passed, or ARRAYLIST_OK \
  * \
  * It does not free the arraylist itself and does not alter the capacity, only sets its size to 0 \
  * Safe to call on nullptr, returns early \
@@ -537,19 +547,21 @@ void arraylist_##name##_swap(struct arraylist_##name *self, struct arraylist_##n
  * @note Will call the object's destructor on objects if available \
  * \
  */ \
-void arraylist_##name##_clear(struct arraylist_##name *self) { \
-    if (!self) return; \
+enum arraylist_error arraylist_##name##_clear(struct arraylist_##name *self) { \
+    ARRAYLIST_ENSURE(self != nullptr, ARRAYLIST_ERR_NULL) \
     if (self->destructor) { \
         for (size_t i = 0; i < self->size; ++i) { \
             self->destructor(&self->data[i]); \
         } \
     } \
     self->size = 0; \
+    return ARRAYLIST_OK; \
 } \
 \
 /**
  * @brief Destroys and frees an arraylist \
- * @param arraylist Pointer to the arraylist to deinit \
+ * @param self Pointer to the arraylist to deinit \
+ * @return ARRAYLIST_ERR_NULL in case of nullptr being passed, or ARRAYLIST_OK \
  * \
  * Frees the internal data array and resets the fields \
  * Safe to call on nullptr or already deinitialized arraylists, returns early \
@@ -557,8 +569,9 @@ void arraylist_##name##_clear(struct arraylist_##name *self) { \
  * @note Will call the destructor on data items if provided \
  * \
  */ \
-void arraylist_##name##_deinit(struct arraylist_##name *self) { \
-    if (!self || !self->data) return; \
+enum arraylist_error arraylist_##name##_deinit(struct arraylist_##name *self) { \
+    ARRAYLIST_ENSURE(self != nullptr, ARRAYLIST_ERR_NULL) \
+    if (!self->data) return ARRAYLIST_OK; \
     if (self->destructor) { \
         for (size_t i = 0; i < self->size; ++i) { \
             self->destructor(&self->data[i]); \
@@ -568,7 +581,8 @@ void arraylist_##name##_deinit(struct arraylist_##name *self) { \
     self->data = nullptr; \
     self->size = 0; \
     self->capacity = 0; \
-} \
+    return ARRAYLIST_OK; \
+}
 
 /**
  * @def ARRAYLIST(T, name)
