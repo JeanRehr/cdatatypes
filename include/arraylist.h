@@ -347,35 +347,38 @@ enum arraylist_error arraylist_##name##_insert_at(struct arraylist_##name *self,
 \
 /**
  * @brief Removes the last added element \
- * @param arraylist Pointer to the arraylist \
+ * @param self Pointer to the arraylist \
+ * @return ARRAYLIST_ERR_NULL in case of nullptr being passed, or ARRAYLIST_OK \
  * \
  * Does nothing on an empty arraylist \
  * \
  * @note The object will be destructed if a destructor is provided durint arraylist init \
  * \
  */ \
-void arraylist_##name##_pop_back(struct arraylist_##name *self) { \
-    if (!self || self->size <= 0) return; \
+enum arraylist_error arraylist_##name##_pop_back(struct arraylist_##name *self) { \
+    ARRAYLIST_ENSURE(self != nullptr, ARRAYLIST_ERR_NULL) \
+    if (self->size <= 0) return ARRAYLIST_OK; \
     if (self->destructor) self->destructor(&self->data[self->size - 1]); \
     --self->size; \
+    return ARRAYLIST_OK; \
 } \
 \
 /**
  * @brief Removes the element at position index \
- * @param arraylist Pointer to the arraylist \
+ * @param self Pointer to the arraylist \
  * @param index Position to remove \
+ * @return ARRAYLIST_ERR_NULL in case of nullptr being passed, or ARRAYLIST_OK \
  * \
  * Will call destructor if available \
  * \
  * @warning if index < 0 size_t overflows and removes at end \
  * \
  */ \
-void arraylist_##name##_remove_at(struct arraylist_##name *self, size_t index) {\
-    if (!self) return; \
+enum arraylist_error arraylist_##name##_remove_at(struct arraylist_##name *self, size_t index) {\
     if (index >= self->size - 1) { \
-        arraylist_##name##_pop_back(self); \
-        return; \
+        return arraylist_##name##_pop_back(self); \
     } \
+    ARRAYLIST_ENSURE(self != nullptr, ARRAYLIST_ERR_NULL) \
     if (self->destructor) { \
         self->destructor(&self->data[index]); \
     } \
@@ -383,12 +386,12 @@ void arraylist_##name##_remove_at(struct arraylist_##name *self, size_t index) {
         self->data[i] = self->data[i + 1]; \
     } \
     --self->size; \
-    return; \
+    return ARRAYLIST_OK; \
 } \
 \
 /**
  * @brief Removes elements from index until to inclusive \
- * @param arraylist Pointer to the arraylist \
+ * @param self Pointer to the arraylist \
  * @param from Starting position to remove \
  * @param to Ending position inclusive \
  * \
@@ -399,14 +402,13 @@ void arraylist_##name##_remove_at(struct arraylist_##name *self, size_t index) {
  *          if to < 0, it will remove until size - 1 \
  * \
  */ \
-void arraylist_##name##_remove_from_to(struct arraylist_##name *self, size_t from, size_t to) { \
-    if (!self) return; \
+enum arraylist_error arraylist_##name##_remove_from_to(struct arraylist_##name *self, size_t from, size_t to) { \
+    ARRAYLIST_ENSURE(self != nullptr, ARRAYLIST_ERR_NULL) \
     if (to > self->size - 1) to = self->size - 1; \
     if (from > self->size - 1) from = self->size - 1; \
     size_t num_elems_to_rem = to - from; \
     if (num_elems_to_rem == 0) { \
-        arraylist_##name##_remove_at(self, from); \
-        return; \
+        return arraylist_##name##_remove_at(self, from); \
     } \
     size_t i = from; \
     if (self->destructor) { \
@@ -415,19 +417,12 @@ void arraylist_##name##_remove_from_to(struct arraylist_##name *self, size_t fro
         } \
     } \
     size_t num_elems_left = (self->size - 1) - num_elems_to_rem; \
-    /* \
-    printf("VALUE OF from = %lu\n", from); \
-    printf("VALUE OF to = %lu\n", to); \
-    printf("VALUE OF num_elems_to_rem = %lu\n", num_elems_to_rem); \
-    printf("VALUE OF i = %lu\n", i); \
-    printf("VALUE OF num_elems_left = %lu\n", num_elems_left); \
-    */ \
     for (; from <= num_elems_left; ++from) { \
         self->data[from] = self->data[to + 1]; \
         ++to; \
     } \
     self->size -= num_elems_to_rem + 1; \
-    return; \
+    return ARRAYLIST_OK; \
 } \
 \
 /**
