@@ -17,6 +17,19 @@
 #define INITIAL_CAP 1
 
 /**
+ * @enum arraylist_error
+ * @brief Error codes for the arraylist
+ *
+ */
+enum arraylist_error {
+    ARRAYLIST_OK = 0,             ///< No error
+    ARRAYLIST_ERR_NULL = -1,      ///< Null pointer
+    ARRAYLIST_ERR_OVERFLOW = -2,  ///< Buffer will overflow
+    ARRAYLIST_ERR_ALLOC = -3,     ///< Allocation failure
+};
+
+
+/**
  * @def ARRAYLIST_DEFINE(T, name)
  * @brief Defines an arraylist structure for a specific type T
  * @param T The type arraylist will hold
