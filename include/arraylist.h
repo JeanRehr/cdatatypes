@@ -427,15 +427,16 @@ enum arraylist_error arraylist_##name##_remove_from_to(struct arraylist_##name *
 \
 /**
  * @brief Accesses the position of the arraylist at index \
- * @param arraylist Pointer to the arraylist \
+ * @param self Pointer to the arraylist \
  * @param index Position to access \
- * @return A pointer to the value accessed or null if arraylist=null or index is greater than arraylist size \
+ * @return A pointer to the value accessed or null if arraylist=null or index is OOB \
  * \
  * @warning Return should be checked for null before usage \
  * \
  */ \
 T* arraylist_##name##_at(struct arraylist_##name *self, size_t index) { \
-    if (!self || index >= self->size) return nullptr; \
+    ARRAYLIST_ENSURE_PTR(self != nullptr) \
+    ARRAYLIST_ENSURE_PTR(index < self->size) \
     return &self->data[index]; \
 } \
 \
@@ -443,7 +444,7 @@ T* arraylist_##name##_at(struct arraylist_##name *self, size_t index) { \
  * @brief Accesses the first element of the arraylist \
  * @details It returns the block of memory allocated, can be used to iterate, \
  *          and where a function accepts a *T \
- * @param arraylist Pointer to the arraylist \
+ * @param self Pointer to the arraylist \
  * @return A pointer to the first value or null if !self \
  * \
  * @warning Return should be checked for null before usage \
@@ -455,7 +456,7 @@ T* arraylist_##name##_at(struct arraylist_##name *self, size_t index) { \
  * \
  */ \
 T* arraylist_##name##_begin(struct arraylist_##name *self) { \
-    if (!self) return nullptr; \
+    ARRAYLIST_ENSURE_PTR(self != nullptr) \
     return self->data; \
 } \
 \
@@ -463,28 +464,29 @@ T* arraylist_##name##_begin(struct arraylist_##name *self) { \
  * @brief Accesses the last position of the arraylist \
  * @details Can be used as an Iterator, where a function accepts a *T same as begin, \
  *          but it will not be the end of the arraylist, just the last element, can be dereferenced \
- * @param arraylist Pointer to the arraylist \
+ * @param self Pointer to the arraylist \
  * @return A pointer to the last value or null if !self \
  * \
  * @warning Return should be checked for null before usage \
  * \
  */ \
 T* arraylist_##name##_back(struct arraylist_##name *self) { \
-    if (!self) return nullptr; \
+    ARRAYLIST_ENSURE_PTR(self != nullptr) \
     return self->data + (self->size - 1); \
 } \
 \
 /**
  * @brief Accesses the end of the arraylist \
  * @details Can be used as an Iterator, where a function accepts a *T same as begin \
- * @param arraylist Pointer to the arraylist \
+ * @param self Pointer to the arraylist \
  * @return A pointer to the end or null if !self \
  * \
- * @warning Return should be checked for null before usage, dereferencing it leads to UB \
+ * @warning Return should be checked for null before usage, dereferencing it leads to UB, \
+ *          even if nullptr was not returned \
  * \
  */ \
 T* arraylist_##name##_end(struct arraylist_##name *self) { \
-    if (!self) return nullptr; \
+    ARRAYLIST_ENSURE_PTR(self != nullptr) \
     return self->data + self->size; \
 } \
 \
