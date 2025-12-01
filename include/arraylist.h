@@ -243,24 +243,25 @@ enum arraylist_error arraylist_##name##_shrink_size(struct arraylist_##name *sel
 \
 /**
  * @brief Shrinks the capacity of the arraylist to fit the size, may reallocate and does not remove elements \
- * @param arraylist Pointer to the arraylist \
- * @return 0 if successful, 1 on noop, and -1 on allocation failure \
- * Returns early if arraylist is null or arraylist capacity == size \
+ * @param self Pointer to the arraylist \
+ * @return ARRAYLIST_OK if successful or on noop, or ARRAYLIST_ERR_ALLOC on allocation failure, \
+ *         or ARRAYLIST_ERR_NULL on null being passed \
  * \
  */ \
-int arraylist_##name##_shrink_to_fit(struct arraylist_##name *self) { \
-    if (!self || self->capacity == self->size) return 1; \
+enum arraylist_error arraylist_##name##_shrink_to_fit(struct arraylist_##name *self) { \
+    ARRAYLIST_ENSURE(self != nullptr, ARRAYLIST_ERR_NULL) \
+    if (self->capacity == self->size) return ARRAYLIST_OK; \
     if (self->size == 0) { \
         self->alloc->free(self->data, self->capacity * sizeof(T), self->alloc->ctx); \
         self->data = nullptr; \
         self->capacity = 0; \
-        return 0; \
+        return ARRAYLIST_OK; \
     }\
     T *new_data = self->alloc->realloc(self->data, self->capacity * sizeof(T), self->size * sizeof(T), self->alloc->ctx); \
-    if (!new_data) return -1; \
+    ARRAYLIST_ENSURE(new_data != nullptr, ARRAYLIST_ERR_ALLOC) \
     self->data = new_data; \
     self->capacity = self->size; \
-    return 0; \
+    return ARRAYLIST_OK; \
 }\
 \
 /**
