@@ -221,21 +221,24 @@ enum arraylist_error arraylist_##name##_reserve(struct arraylist_##name *self, s
 } \
 \
 /**
- * @brief Shrinks the arraylist to size, removing elements if necessary \
- * @param arraylist Pointer to the arraylist \
+ * @brief Shrinks the arraylist's capacity to size, removing elements if necessary \
+ * @param self Pointer to the arraylist \
  * @param size New size of the arraylist \
+ * @return ARRAYLIST_OK if successful or on noop, or ARRAYLIST_ERR_NULL on null being passed \
  * \
  * Returns early if arraylist is null or arraylist size is <= 0 or if arraylist size is <= size \
  *         or if provided size is <= 0 \
  * \
  */ \
-void arraylist_##name##_shrink_size(struct arraylist_##name *self, size_t size) { \
-    if (!self || self->size <= 0 || self->size <= size) return; \
+enum arraylist_error arraylist_##name##_shrink_size(struct arraylist_##name *self, size_t size) { \
+    ARRAYLIST_ENSURE(self != nullptr, ARRAYLIST_ERR_NULL) \
+    if (self->size <= 0 || self->size <= size) return ARRAYLIST_OK; \
     T *it_atsize = arraylist_##name##_at(self, size); \
     for (T *it = arraylist_##name##_end(self); it > it_atsize; --it) { \
         if (self->destructor) self->destructor(&self->data[self->size - 1]); \
         --self->size; \
     } \
+    return ARRAYLIST_OK; \
 } \
 \
 /**
