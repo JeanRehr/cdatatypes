@@ -10,7 +10,7 @@
 // To use asserts inside arraylist functions instead of error code returns, define the following
 // variable ARRAYLIST_USE_ASSERT as 1, it must be before arraylist.h is included
 // Uncomment next line to use asserts
-// #define ARRAYLIST_USE_ASSERT 1
+//#define ARRAYLIST_USE_ASSERT 1
 #include "arraylist.h"
 
 struct test {
@@ -908,25 +908,27 @@ static void test_arraylist_allocating_zero() {
 
 static void test_passing_nullptr_to_functions() {
     printf("test passing nullptr to functions.\n");
-    arraylist_long_reserve(nullptr, 0);
-    arraylist_long_shrink_size(nullptr, 0);
-    arraylist_long_shrink_to_fit(nullptr);
-    arraylist_long_push_back(nullptr, 0);
-    arraylist_long_emplace_back_slot(nullptr);
-    arraylist_long_insert_at(nullptr, 0, 0);
-    arraylist_long_pop_back(nullptr);
-    arraylist_long_remove_at(nullptr, 0);
-    arraylist_long_remove_from_to(nullptr, 0, 0);
-    arraylist_long_at(nullptr, 0);
-    arraylist_long_begin(nullptr);
-    arraylist_long_back(nullptr);
-    arraylist_long_end(nullptr);
-    arraylist_long_size(nullptr);
-    arraylist_long_is_empty(nullptr);
-    arraylist_long_capacity(nullptr);
-    arraylist_long_swap(nullptr, nullptr);
-    arraylist_long_clear(nullptr);
-    arraylist_long_deinit(nullptr);
+    // If using asserts instead of return codes in the library, then the following functions
+    // will fail not here, but inside the library, at the first call to reserve
+    assert(arraylist_long_reserve(nullptr, 0) == ARRAYLIST_ERR_NULL);
+    assert(arraylist_long_shrink_size(nullptr, 0) == ARRAYLIST_ERR_NULL);
+    assert(arraylist_long_shrink_to_fit(nullptr) == ARRAYLIST_ERR_NULL);
+    assert(arraylist_long_push_back(nullptr, 0) == ARRAYLIST_ERR_NULL);
+    assert(arraylist_long_emplace_back_slot(nullptr) == nullptr);
+    assert(arraylist_long_insert_at(nullptr, 0, 0) == ARRAYLIST_ERR_NULL);
+    assert(arraylist_long_pop_back(nullptr) == ARRAYLIST_ERR_NULL);
+    assert(arraylist_long_remove_at(nullptr, 0) == ARRAYLIST_ERR_NULL);
+    assert(arraylist_long_remove_from_to(nullptr, 0, 0) == ARRAYLIST_ERR_NULL);
+    assert(arraylist_long_at(nullptr, 0) == nullptr);
+    assert(arraylist_long_begin(nullptr) == nullptr);
+    assert(arraylist_long_back(nullptr) == nullptr);
+    assert(arraylist_long_end(nullptr) == nullptr);
+    assert(arraylist_long_size(nullptr) == 0);
+    assert(arraylist_long_is_empty(nullptr) == false);
+    assert(arraylist_long_capacity(nullptr) == 0);
+    assert(arraylist_long_swap(nullptr, nullptr) == ARRAYLIST_ERR_NULL);
+    assert(arraylist_long_clear(nullptr) == ARRAYLIST_ERR_NULL);
+    assert(arraylist_long_deinit(nullptr) == ARRAYLIST_ERR_NULL);
     printf("test passing nullptr to functions passed.\n");
 }
 
