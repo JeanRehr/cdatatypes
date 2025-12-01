@@ -266,9 +266,10 @@ enum arraylist_error arraylist_##name##_shrink_to_fit(struct arraylist_##name *s
 \
 /**
  * @brief Adds a new element to the end of the array \
- * @param arraylist Pointer to the arraylist to add a new value \
- * @param T value to be added \
- * @return -1 self being null or on allocation failure, -2 on buffer overflow, 0 on success \
+ * @param self Pointer to the arraylist to add a new value \
+ * @param value Value of type T to be added \
+ * @return ARRAYLIST_ERR_NULL if self is null, or ARRAYLIST_ERR_ALLOC on allocation failure, or \
+ *         ARRAYLIST_ERR_OVERFLOW on buffer overflow, or ARRAYLIST_OK on success \
  * \
  * Safe to call on nullptr or already deinitialed arraylists \
  * Will automatically resize and realocate capacity, doubling it \
@@ -276,26 +277,14 @@ enum arraylist_error arraylist_##name##_shrink_to_fit(struct arraylist_##name *s
  * @note Will not construct objects in place, objects must be constructed \
  * \
  */ \
-int arraylist_##name##_push_back(struct arraylist_##name *self, T value) { \
-    if (!self) return -1; \
-    if (self->capacity == 0) { \
-        T *new_data = self->alloc->malloc(INITIAL_CAP * sizeof(T), self->alloc->ctx); \
-        if (!new_data) return -1; \
-        self->data = new_data; \
-        self->capacity = INITIAL_CAP; \
-    }\
+enum arraylist_error arraylist_##name##_push_back(struct arraylist_##name *self, T value) { \
+    ARRAYLIST_ENSURE(self != nullptr, ARRAYLIST_ERR_NULL) \
     if (self->size >= self->capacity) { \
-        size_t new_capacity = self->capacity * 2; \
-        if (new_capacity > SIZE_MAX / sizeof(T)) { \
-            return -2; \
-        } \
-        T *new_data = self->alloc->realloc(self->data, self->capacity * sizeof(T), new_capacity * sizeof(T), self->alloc->ctx); \
-        if (!new_data) return -1; \
-        self->data = new_data; \
-        self->capacity = new_capacity; \
+        enum arraylist_error err = arraylist_##name##_double_capacity(self); \
+        if (err != ARRAYLIST_OK) return err; \
     } \
     self->data[self->size++] = value; \
-    return 0; \
+    return ARRAYLIST_OK; \
 } \
 \
 /**
