@@ -1,4 +1,7 @@
-
+/**
+ * @file allocator.c
+ * @brief Implements and expose default allocator with standard lib functions. 
+ */
 #include "allocator.h"
 
 #include <stdlib.h>

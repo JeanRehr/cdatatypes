@@ -1,3 +1,7 @@
+/**
+ * @file allocator.h
+ * @brief Allocator interface to support custom allocators. 
+ */
 #ifndef ALLOCATOR_H
 #define ALLOCATOR_H
 
