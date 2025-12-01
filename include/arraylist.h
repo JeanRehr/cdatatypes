@@ -28,6 +28,25 @@ enum arraylist_error {
     ARRAYLIST_ERR_ALLOC = -3,     ///< Allocation failure
 };
 
+/**
+ * @def ARRAYLIST_USE_ASSERT
+ * @brief Defines if the arraylist will use asserts or return error codes
+ * @details If ARRAYLIST_USE_ASSERT is 1, then the lib will assert and fail early, otherwise,
+ *          defensive programming and returning error codes will be used
+ *
+ */
+#ifndef ARRAYLIST_USE_ASSERT
+#define ARRAYLIST_USE_ASSERT 0
+#endif // ARRAYLIST_USE_ASSERT
+#include <assert.h>
+
+#if ARRAYLIST_USE_ASSERT
+#   define ARRAYLIST_ENSURE(cond, errcode)   assert(cond);
+#   define ARRAYLIST_ENSURE_PTR(cond)        assert(cond);
+#else
+#   define ARRAYLIST_ENSURE(cond, errcode)    if (!(cond)) return (errcode);
+#   define ARRAYLIST_ENSURE_PTR(cond)         if (!(cond)) return nullptr;
+#endif // ARRAYLIST_USE_ASSERT if directive
 
 /**
  * @def ARRAYLIST_DEFINE(T, name)
