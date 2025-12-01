@@ -141,6 +141,43 @@ enum arraylist_error arraylist_##name##_deinit(struct arraylist_##name *self);
  *
  */ 
 #define ARRAYLIST_IMPLEMENT(T, name) \
+/* === PRIVATE FUNCTIONS === */ \
+/**
+ * @brief Static (private) function that deals with capacity and (re)alloc if necessary \
+ * @param self Pointer to the arraylist to deinit \
+ * @param min_cap Minimum capacity the self must have \
+ * @return ARRAYLIST_OK if successful, ARRAYLIST_ERR_OVERFLOW if buffer will overflow, \
+ *         or ARRAYLIST_ERR_NULL if allocation failure \
+ * \
+ * This static function ensures that capacity of the arraylist is atleast min_cap \
+ * If the self->capacity is 0 (first allocation) will call malloc, otherwise realloc \
+ * Then set the self->capacity to min_cap \
+ * \
+ * @warning Assumes self is not null, as this is a static function, this is not really a problem \
+ * \
+ */ \
+static inline enum arraylist_error arraylist_##name##_double_capacity(struct arraylist_##name *self) { \
+    /* Assumes self is never null */ \
+    size_t new_capacity = 0; \
+    if (self->capacity != 0) { \
+        new_capacity = self->capacity * 2; \
+    } else { \
+        new_capacity = INITIAL_CAP; \
+    } \
+    ARRAYLIST_ENSURE(new_capacity <= SIZE_MAX / sizeof(T), ARRAYLIST_ERR_OVERFLOW) \
+    T *new_data = nullptr; \
+    if (self->capacity == 0) { \
+        new_data = self->alloc->malloc(new_capacity * sizeof(T), self->alloc->ctx); \
+    } else { \
+        new_data = self->alloc->realloc(self->data, self->capacity * sizeof(T), new_capacity * sizeof(T), self->alloc->ctx); \
+    } \
+    ARRAYLIST_ENSURE(new_data != nullptr, ARRAYLIST_ERR_ALLOC) \
+    self->data = new_data; \
+    self->capacity = new_capacity; \
+    return ARRAYLIST_OK; \
+} \
+\
+/* === PUBLIC FUNCTIONS === */ \
 /**
  * @brief Creates a new arraylist \
  * @param alloc Custom allocator instance, if null, default alloc will be used \
