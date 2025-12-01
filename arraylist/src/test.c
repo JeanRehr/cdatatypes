@@ -902,6 +902,30 @@ static void test_arraylist_allocating_zero() {
     printf("arraylist custom alloc allocating zero passed.\n");
 }
 
+static void test_passing_nullptr_to_functions() {
+    printf("test passing nullptr to functions.\n");
+    arraylist_long_reserve(nullptr, 0);
+    arraylist_long_shrink_size(nullptr, 0);
+    arraylist_long_shrink_to_fit(nullptr);
+    arraylist_long_push_back(nullptr, 0);
+    arraylist_long_emplace_back_slot(nullptr);
+    arraylist_long_insert_at(nullptr, 0, 0);
+    arraylist_long_pop_back(nullptr);
+    arraylist_long_remove_at(nullptr, 0);
+    arraylist_long_remove_from_to(nullptr, 0, 0);
+    arraylist_long_at(nullptr, 0);
+    arraylist_long_begin(nullptr);
+    arraylist_long_back(nullptr);
+    arraylist_long_end(nullptr);
+    arraylist_long_size(nullptr);
+    arraylist_long_is_empty(nullptr);
+    arraylist_long_capacity(nullptr);
+    arraylist_long_swap(nullptr, nullptr);
+    arraylist_long_clear(nullptr);
+    arraylist_long_deinit(nullptr);
+    printf("test passing nullptr to functions passed.\n");
+}
+
 int main(void) {
     test_arraylist_init_and_deinit();
     test_arraylist_reserve();
@@ -927,7 +951,9 @@ int main(void) {
 
     test_arraylist_ptr_push_back();
     test_arraylist_ptr_emplace_back_slot();
-    
+
+    test_passing_nullptr_to_functions();
+
     test_arraylist_bufferoverflow();
     test_arraylist_allocating_zero();
     
