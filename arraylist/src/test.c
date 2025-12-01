@@ -875,11 +875,6 @@ static void test_arraylist_ptr_emplace_back_slot(void) {
 
 ARRAYLIST(long, long)
 
-void *my_malloc(size_t n, void *p) { return n ? 0 : p; }
-void *my_realloc(void *, size_t, size_t n, void *p) { return n ? 0 : p; }
-void my_free(void *, size_t, void *) {}
-Allocator alloc = {my_malloc, my_realloc, my_free, (void *)16};
-
 static void test_arraylist_bufferoverflow() {
     printf("arraylist size_t buffer overflow test.\n");
     struct arraylist_long xs = arraylist_long_init(0, 0);
@@ -891,6 +886,11 @@ static void test_arraylist_bufferoverflow() {
     arraylist_long_deinit(&xs);
     printf("arraylist size_t buffer overflow test passed.\n");
 }
+
+void *my_malloc(size_t n, void *p) { return n ? 0 : p; }
+void *my_realloc(void *, size_t, size_t n, void *p) { return n ? 0 : p; }
+void my_free(void *, size_t, void *) {}
+Allocator alloc = {my_malloc, my_realloc, my_free, (void *)16};
 
 static void test_arraylist_allocating_zero() {
     printf("arraylist custom alloc allocating zero.\n");
