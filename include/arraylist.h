@@ -198,27 +198,26 @@ struct arraylist_##name arraylist_##name##_init(Allocator *alloc, void (*destruc
 \
 /**
  * @brief Reserves the capacity of an arraylist \
- * @param arraylist Pointer to the arraylist \
+ * @param self Pointer to the arraylist \
  * @param capacity New capacity of the arraylist \
- * @return 1 if arraylist is null or arraylist's capacity is lesser or equals than new capacity \
- *         0 on success, -1 on reallocation failure, or -2 if given capacity overflows the buffer \
+ * @return ARRAYLIST_OK if successful or on noop, ARRAYLIST_ERR_NULL on null being passed, \
+ *         ARRAYLIST_ERR_ALLOC on allocation failure, or ARRAYLIST_ERR_OVERFLOW on buffer overflow \
  * \
  */ \
-int arraylist_##name##_reserve(struct arraylist_##name *self, size_t capacity) { \
-    if (!self || capacity <= self->capacity) return 1; \
-    if (capacity > SIZE_MAX / sizeof(T)) { \
-        return -2; \
-    } \
+enum arraylist_error arraylist_##name##_reserve(struct arraylist_##name *self, size_t capacity) { \
+    ARRAYLIST_ENSURE(self != nullptr, ARRAYLIST_ERR_NULL) \
+    if (self->capacity >= capacity) return ARRAYLIST_OK; \
+    ARRAYLIST_ENSURE(capacity <= SIZE_MAX / sizeof(T), ARRAYLIST_ERR_OVERFLOW); \
     T *new_data = nullptr; \
     if (self->capacity == 0) { \
         new_data = self->alloc->malloc(capacity * sizeof(T), self->alloc->ctx); \
     } else { \
         new_data = self->alloc->realloc(self->data, self->capacity * sizeof(T), capacity * sizeof(T), self->alloc->ctx); \
     } \
-    if (!new_data) return -1; \
+    ARRAYLIST_ENSURE(new_data != nullptr, ARRAYLIST_ERR_ALLOC) \
     self->data = new_data; \
     self->capacity = capacity; \
-    return 0; \
+    return ARRAYLIST_OK; \
 } \
 \
 /**
