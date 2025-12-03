@@ -76,35 +76,16 @@ struct arraylist_##name { \
 };
 
 /**
+ * @todo 
+ * insert_from_to() - Inserts a number of elements at given index
+ * remove_from_to(struct arraylist_##name *self, size_t from, size_t to) - Removes a number of elements at given index
+ */
+
+/**
  * @def ARRAYLIST_DECLARE(T, name)
  * @brief Declares all functions for an arraylist type
  * @param T The type arraylist will hold
  * @param name The name suffix for the arraylist type
- *
- * Declares the following functions:
- * - arraylist_##name##_init()
- * - arraylist_##name##_reserve()
- * - arraylist_##name##_shrink_size()
- * - arraylist_##name##_shrink_to_fit()
- * - arraylist_##name##_push_back()
- * - arraylist_##name##_emplace_back_slot()
- * - arraylist_##name##_insert_at()
- * - arraylist_##name##_pop_back()
- * - arraylist_##name##_remove_at()
- * - arraylist_##name##_remove_from_to()
- * - arraylist_##name##_at()
- * - arraylist_##name##_begin()
- * - arraylist_##name##_back()
- * - arraylist_##name##_end()
- * - arraylist_##name##_size()
- * - arraylist_##name##_is_empty()
- * - arraylist_##name##_capacity()
- * - arraylist_##name##_clear()
- * - arraylist_##name##_deinit()
- * 
- * @todo 
- * insert_from_to() - Inserts a number of elements at given index
- * remove_from_to(struct arraylist_##name *self, size_t from, size_t to) - Removes a number of elements at given index
  * 
  */
 #define ARRAYLIST_DECLARE(T, name) \
