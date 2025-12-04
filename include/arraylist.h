@@ -126,7 +126,6 @@ enum arraylist_error arraylist_##name##_deinit(struct arraylist_##name *self);
 /**
  * @brief Static (private) function that deals with capacity and (re)alloc if necessary \
  * @param self Pointer to the arraylist to deinit \
- * @param min_cap Minimum capacity the self must have \
  * @return ARRAYLIST_OK if successful, ARRAYLIST_ERR_OVERFLOW if buffer will overflow, \
  *         or ARRAYLIST_ERR_NULL if allocation failure \
  * \
