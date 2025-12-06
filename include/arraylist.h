@@ -89,26 +89,26 @@ struct arraylist_##name { \
  * 
  */
 #define ARRAYLIST_DECLARE(T, name) \
-struct arraylist_##name arraylist_##name##_init(Allocator *alloc, void (*destructor)(T *)); \
-enum arraylist_error arraylist_##name##_reserve(struct arraylist_##name *self, size_t capacity); \
-enum arraylist_error arraylist_##name##_shrink_size(struct arraylist_##name *self, size_t size); \
-enum arraylist_error arraylist_##name##_shrink_to_fit(struct arraylist_##name *self); \
-enum arraylist_error arraylist_##name##_push_back(struct arraylist_##name *self, T value); \
-T* arraylist_##name##_emplace_back_slot(struct arraylist_##name *self); \
-enum arraylist_error arraylist_##name##_insert_at(struct arraylist_##name *self, T value, size_t index); \
-enum arraylist_error arraylist_##name##_pop_back(struct arraylist_##name *self); \
-enum arraylist_error arraylist_##name##_remove_at(struct arraylist_##name *self, size_t index); \
-enum arraylist_error arraylist_##name##_remove_from_to(struct arraylist_##name *self, size_t from, size_t to); \
-T* arraylist_##name##_at(struct arraylist_##name *self, size_t index); \
-T* arraylist_##name##_begin(struct arraylist_##name *self); \
-T* arraylist_##name##_back(struct arraylist_##name *self); \
-T* arraylist_##name##_end(struct arraylist_##name *self); \
-size_t arraylist_##name##_size(const struct arraylist_##name *self); \
-bool arraylist_##name##_is_empty(const struct arraylist_##name *self); \
-size_t arraylist_##name##_capacity(const struct arraylist_##name *self); \
-enum arraylist_error arraylist_##name##_swap(struct arraylist_##name *self, struct arraylist_##name *other); \
-enum arraylist_error arraylist_##name##_clear(struct arraylist_##name *self); \
-enum arraylist_error arraylist_##name##_deinit(struct arraylist_##name *self);
+static inline struct arraylist_##name arraylist_##name##_init(Allocator *alloc, void (*destructor)(T *)); \
+static inline enum arraylist_error arraylist_##name##_reserve(struct arraylist_##name *self, size_t capacity); \
+static inline enum arraylist_error arraylist_##name##_shrink_size(struct arraylist_##name *self, size_t size); \
+static inline enum arraylist_error arraylist_##name##_shrink_to_fit(struct arraylist_##name *self); \
+static inline enum arraylist_error arraylist_##name##_push_back(struct arraylist_##name *self, T value); \
+static inline T* arraylist_##name##_emplace_back_slot(struct arraylist_##name *self); \
+static inline enum arraylist_error arraylist_##name##_insert_at(struct arraylist_##name *self, T value, size_t index); \
+static inline enum arraylist_error arraylist_##name##_pop_back(struct arraylist_##name *self); \
+static inline enum arraylist_error arraylist_##name##_remove_at(struct arraylist_##name *self, size_t index); \
+static inline enum arraylist_error arraylist_##name##_remove_from_to(struct arraylist_##name *self, size_t from, size_t to); \
+static inline T* arraylist_##name##_at(struct arraylist_##name *self, size_t index); \
+static inline T* arraylist_##name##_begin(struct arraylist_##name *self); \
+static inline T* arraylist_##name##_back(struct arraylist_##name *self); \
+static inline T* arraylist_##name##_end(struct arraylist_##name *self); \
+static inline size_t arraylist_##name##_size(const struct arraylist_##name *self); \
+static inline bool arraylist_##name##_is_empty(const struct arraylist_##name *self); \
+static inline size_t arraylist_##name##_capacity(const struct arraylist_##name *self); \
+static inline enum arraylist_error arraylist_##name##_swap(struct arraylist_##name *self, struct arraylist_##name *other); \
+static inline enum arraylist_error arraylist_##name##_clear(struct arraylist_##name *self); \
+static inline enum arraylist_error arraylist_##name##_deinit(struct arraylist_##name *self);
 
 /**
  * @def ARRAYLIST_IMPLEMENT(T, name)
@@ -166,7 +166,7 @@ static inline enum arraylist_error arraylist_##name##_double_capacity(struct arr
  * It does not allocate \
  * \
  */ \
-struct arraylist_##name arraylist_##name##_init(Allocator *alloc, void (*destructor)(T *)) { \
+static inline struct arraylist_##name arraylist_##name##_init(Allocator *alloc, void (*destructor)(T *)) { \
     struct arraylist_##name arraylist = {0}; \
     if (alloc) arraylist.alloc = alloc; else arraylist.alloc = allocator_get_default(); \
     arraylist.destructor = destructor; \
@@ -184,7 +184,7 @@ struct arraylist_##name arraylist_##name##_init(Allocator *alloc, void (*destruc
  *         ARRAYLIST_ERR_ALLOC on allocation failure, or ARRAYLIST_ERR_OVERFLOW on buffer overflow \
  * \
  */ \
-enum arraylist_error arraylist_##name##_reserve(struct arraylist_##name *self, size_t capacity) { \
+static inline enum arraylist_error arraylist_##name##_reserve(struct arraylist_##name *self, size_t capacity) { \
     ARRAYLIST_ENSURE(self != nullptr, ARRAYLIST_ERR_NULL) \
     if (self->capacity >= capacity) return ARRAYLIST_OK; \
     ARRAYLIST_ENSURE(capacity <= SIZE_MAX / sizeof(T), ARRAYLIST_ERR_OVERFLOW); \
@@ -210,7 +210,7 @@ enum arraylist_error arraylist_##name##_reserve(struct arraylist_##name *self, s
  *         or if provided size is <= 0 \
  * \
  */ \
-enum arraylist_error arraylist_##name##_shrink_size(struct arraylist_##name *self, size_t size) { \
+static inline enum arraylist_error arraylist_##name##_shrink_size(struct arraylist_##name *self, size_t size) { \
     ARRAYLIST_ENSURE(self != nullptr, ARRAYLIST_ERR_NULL) \
     if (self->size <= 0 || self->size <= size) return ARRAYLIST_OK; \
     T *it_atsize = arraylist_##name##_at(self, size); \
@@ -228,7 +228,7 @@ enum arraylist_error arraylist_##name##_shrink_size(struct arraylist_##name *sel
  *         or ARRAYLIST_ERR_NULL on null being passed \
  * \
  */ \
-enum arraylist_error arraylist_##name##_shrink_to_fit(struct arraylist_##name *self) { \
+static inline enum arraylist_error arraylist_##name##_shrink_to_fit(struct arraylist_##name *self) { \
     ARRAYLIST_ENSURE(self != nullptr, ARRAYLIST_ERR_NULL) \
     if (self->capacity == self->size) return ARRAYLIST_OK; \
     if (self->size == 0) { \
@@ -257,7 +257,7 @@ enum arraylist_error arraylist_##name##_shrink_to_fit(struct arraylist_##name *s
  * @note Will not construct objects in place, objects must be constructed \
  * \
  */ \
-enum arraylist_error arraylist_##name##_push_back(struct arraylist_##name *self, T value) { \
+static inline enum arraylist_error arraylist_##name##_push_back(struct arraylist_##name *self, T value) { \
     ARRAYLIST_ENSURE(self != nullptr, ARRAYLIST_ERR_NULL) \
     if (self->size >= self->capacity) { \
         enum arraylist_error err = arraylist_##name##_double_capacity(self); \
@@ -285,7 +285,7 @@ enum arraylist_error arraylist_##name##_push_back(struct arraylist_##name *self,
  * slot->a = 42; // or call a constructor on slot \
  * @endcode \
  */ \
-T* arraylist_##name##_emplace_back_slot(struct arraylist_##name *self) { \
+static inline T* arraylist_##name##_emplace_back_slot(struct arraylist_##name *self) { \
     ARRAYLIST_ENSURE_PTR(self != nullptr) \
     if (self->size >= self->capacity) { \
         enum arraylist_error err = arraylist_##name##_double_capacity(self); \
@@ -307,7 +307,7 @@ T* arraylist_##name##_emplace_back_slot(struct arraylist_##name *self) { \
  * @warning if index < 0 size_t overflows and inserts at end \
  * \
  */ \
-enum arraylist_error arraylist_##name##_insert_at(struct arraylist_##name *self, T value, size_t index) {\
+static inline enum arraylist_error arraylist_##name##_insert_at(struct arraylist_##name *self, T value, size_t index) {\
     ARRAYLIST_ENSURE(self != nullptr, ARRAYLIST_ERR_NULL) \
     if (index >= self->size) { \
         return arraylist_##name##_push_back(self, value); \
@@ -335,7 +335,7 @@ enum arraylist_error arraylist_##name##_insert_at(struct arraylist_##name *self,
  * @note The object will be destructed if a destructor is provided durint arraylist init \
  * \
  */ \
-enum arraylist_error arraylist_##name##_pop_back(struct arraylist_##name *self) { \
+static inline enum arraylist_error arraylist_##name##_pop_back(struct arraylist_##name *self) { \
     ARRAYLIST_ENSURE(self != nullptr, ARRAYLIST_ERR_NULL) \
     if (self->size <= 0) return ARRAYLIST_OK; \
     if (self->destructor) self->destructor(&self->data[self->size - 1]); \
@@ -354,7 +354,7 @@ enum arraylist_error arraylist_##name##_pop_back(struct arraylist_##name *self) 
  * @warning if index < 0 size_t overflows and removes at end \
  * \
  */ \
-enum arraylist_error arraylist_##name##_remove_at(struct arraylist_##name *self, size_t index) {\
+static inline enum arraylist_error arraylist_##name##_remove_at(struct arraylist_##name *self, size_t index) {\
     ARRAYLIST_ENSURE(self != nullptr, ARRAYLIST_ERR_NULL) \
     if (index >= self->size - 1) { \
         return arraylist_##name##_pop_back(self); \
@@ -382,7 +382,7 @@ enum arraylist_error arraylist_##name##_remove_at(struct arraylist_##name *self,
  *          if to < 0, it will remove until size - 1 \
  * \
  */ \
-enum arraylist_error arraylist_##name##_remove_from_to(struct arraylist_##name *self, size_t from, size_t to) { \
+static inline enum arraylist_error arraylist_##name##_remove_from_to(struct arraylist_##name *self, size_t from, size_t to) { \
     ARRAYLIST_ENSURE(self != nullptr, ARRAYLIST_ERR_NULL) \
     if (to > self->size - 1) to = self->size - 1; \
     if (from > self->size - 1) from = self->size - 1; \
@@ -414,7 +414,7 @@ enum arraylist_error arraylist_##name##_remove_from_to(struct arraylist_##name *
  * @warning Return should be checked for null before usage \
  * \
  */ \
-T* arraylist_##name##_at(struct arraylist_##name *self, size_t index) { \
+static inline T* arraylist_##name##_at(struct arraylist_##name *self, size_t index) { \
     ARRAYLIST_ENSURE_PTR(self != nullptr) \
     ARRAYLIST_ENSURE_PTR(index < self->size) \
     return &self->data[index]; \
@@ -435,7 +435,7 @@ T* arraylist_##name##_at(struct arraylist_##name *self, size_t index) { \
  * @endcode \
  * \
  */ \
-T* arraylist_##name##_begin(struct arraylist_##name *self) { \
+static inline T* arraylist_##name##_begin(struct arraylist_##name *self) { \
     ARRAYLIST_ENSURE_PTR(self != nullptr) \
     return self->data; \
 } \
@@ -450,7 +450,7 @@ T* arraylist_##name##_begin(struct arraylist_##name *self) { \
  * @warning Return should be checked for null before usage \
  * \
  */ \
-T* arraylist_##name##_back(struct arraylist_##name *self) { \
+static inline T* arraylist_##name##_back(struct arraylist_##name *self) { \
     ARRAYLIST_ENSURE_PTR(self != nullptr) \
     return self->data + (self->size - 1); \
 } \
@@ -465,7 +465,7 @@ T* arraylist_##name##_back(struct arraylist_##name *self) { \
  *          even if nullptr was not returned \
  * \
  */ \
-T* arraylist_##name##_end(struct arraylist_##name *self) { \
+static inline T* arraylist_##name##_end(struct arraylist_##name *self) { \
     ARRAYLIST_ENSURE_PTR(self != nullptr) \
     return self->data + self->size; \
 } \
@@ -476,7 +476,7 @@ T* arraylist_##name##_end(struct arraylist_##name *self) { \
  * @return The size or 0 if arraylist is null \
  * \
  */ \
-size_t arraylist_##name##_size(const struct arraylist_##name *self) { \
+static inline size_t arraylist_##name##_size(const struct arraylist_##name *self) { \
     return self ? self->size : 0; \
 } \
 /**
@@ -485,7 +485,7 @@ size_t arraylist_##name##_size(const struct arraylist_##name *self) { \
  * @return False if arraylist is null or size = 0, otherwise true \
  * \
  */ \
-bool arraylist_##name##_is_empty(const struct arraylist_##name *self) { \
+static inline bool arraylist_##name##_is_empty(const struct arraylist_##name *self) { \
     if (!self) return false; \
     return self->size == 0 ? true : false; \
 } \
@@ -496,7 +496,7 @@ bool arraylist_##name##_is_empty(const struct arraylist_##name *self) { \
  * @return The capacity or 0 if arraylist is null \
  * \
  */ \
-size_t arraylist_##name##_capacity(const struct arraylist_##name *self) { \
+static inline size_t arraylist_##name##_capacity(const struct arraylist_##name *self) { \
     return self ? self->capacity : 0; \
 } \
 \
@@ -507,7 +507,7 @@ size_t arraylist_##name##_capacity(const struct arraylist_##name *self) { \
  * @return ARRAYLIST_ERR_NULL in case of nullptr being passed, or ARRAYLIST_OK \
  * \
  */ \
-enum arraylist_error arraylist_##name##_swap(struct arraylist_##name *self, struct arraylist_##name *other) { \
+static inline enum arraylist_error arraylist_##name##_swap(struct arraylist_##name *self, struct arraylist_##name *other) { \
     ARRAYLIST_ENSURE(self != nullptr, ARRAYLIST_ERR_NULL) \
     ARRAYLIST_ENSURE(other != nullptr, ARRAYLIST_ERR_NULL) \
     struct arraylist_##name temp = *other; \
@@ -527,7 +527,7 @@ enum arraylist_error arraylist_##name##_swap(struct arraylist_##name *self, stru
  * @note Will call the object's destructor on objects if available \
  * \
  */ \
-enum arraylist_error arraylist_##name##_clear(struct arraylist_##name *self) { \
+static inline enum arraylist_error arraylist_##name##_clear(struct arraylist_##name *self) { \
     ARRAYLIST_ENSURE(self != nullptr, ARRAYLIST_ERR_NULL) \
     if (self->destructor) { \
         for (size_t i = 0; i < self->size; ++i) { \
@@ -549,7 +549,7 @@ enum arraylist_error arraylist_##name##_clear(struct arraylist_##name *self) { \
  * @note Will call the destructor on data items if provided \
  * \
  */ \
-enum arraylist_error arraylist_##name##_deinit(struct arraylist_##name *self) { \
+static inline enum arraylist_error arraylist_##name##_deinit(struct arraylist_##name *self) { \
     ARRAYLIST_ENSURE(self != nullptr, ARRAYLIST_ERR_NULL) \
     if (!self->data) return ARRAYLIST_OK; \
     if (self->destructor) { \
