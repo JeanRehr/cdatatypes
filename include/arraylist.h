@@ -119,6 +119,7 @@ ARRAYLIST_UNUSED static inline bool arraylist_##name##_contains(const struct arr
 ARRAYLIST_UNUSED static inline size_t arraylist_##name##_size(const struct arraylist_##name *self); \
 ARRAYLIST_UNUSED static inline bool arraylist_##name##_is_empty(const struct arraylist_##name *self); \
 ARRAYLIST_UNUSED static inline size_t arraylist_##name##_capacity(const struct arraylist_##name *self); \
+ARRAYLIST_UNUSED static inline Allocator* arraylist_##name##_get_allocator(const struct arraylist_##name *self); \
 ARRAYLIST_UNUSED static inline enum arraylist_error arraylist_##name##_swap(struct arraylist_##name *self, struct arraylist_##name *other); \
 ARRAYLIST_UNUSED static inline enum arraylist_error arraylist_##name##_clear(struct arraylist_##name *self); \
 ARRAYLIST_UNUSED static inline enum arraylist_error arraylist_##name##_deinit(struct arraylist_##name *self);
@@ -587,6 +588,16 @@ static inline bool arraylist_##name##_is_empty(const struct arraylist_##name *se
 static inline size_t arraylist_##name##_capacity(const struct arraylist_##name *self) { \
     ARRAYLIST_ENSURE(self != nullptr, 0) \
     return self->capacity; \
+} \
+\
+/**
+ * @brief Gets the allocator of an arraylist \
+ * @param self Pointer to the arraylist \
+ * @return The allocator \
+ * \
+ */ \
+static inline Allocator* arraylist_##name##_get_allocator(const struct arraylist_##name *self) { \
+    return self->alloc; \
 } \
 \
 /**
