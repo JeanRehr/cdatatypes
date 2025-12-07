@@ -488,6 +488,7 @@ static inline T* arraylist_##name##_end(const struct arraylist_##name *self) { \
  * \
  */ \
 static inline size_t arraylist_##name##_size(const struct arraylist_##name *self) { \
+    ARRAYLIST_ENSURE(self != nullptr, 0) \
     return self ? self->size : 0; \
 } \
 /**
@@ -497,7 +498,7 @@ static inline size_t arraylist_##name##_size(const struct arraylist_##name *self
  * \
  */ \
 static inline bool arraylist_##name##_is_empty(const struct arraylist_##name *self) { \
-    if (!self) return false; \
+    ARRAYLIST_ENSURE(self != nullptr, false) \
     return self->size == 0 ? true : false; \
 } \
 \
@@ -508,7 +509,8 @@ static inline bool arraylist_##name##_is_empty(const struct arraylist_##name *se
  * \
  */ \
 static inline size_t arraylist_##name##_capacity(const struct arraylist_##name *self) { \
-    return self ? self->capacity : 0; \
+    ARRAYLIST_ENSURE(self != nullptr, 0) \
+    return self->capacity; \
 } \
 \
 /**
