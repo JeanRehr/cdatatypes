@@ -729,6 +729,33 @@ static void test_arraylist_find(void) {
     printf("arraylist find passed all tests.\n");
 }
 
+static void test_arraylist_contains(void) {
+    printf("Testing arraylist contains function.\n");
+    struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
+
+    struct test add1;
+    test_ctor(&add1, 10, 0.5, "add1");
+    arraylist_test_push_back(&arrlisttest, add1);
+
+    struct test add2;
+    test_ctor(&add2, 11, 0.6, "add2");
+    arraylist_test_push_back(&arrlisttest, add2);
+
+    const char *target_name_found = "add2";
+
+    size_t index = 0;
+
+    assert(arraylist_test_contains(&arrlisttest, test_pred_find_name, (char*)target_name_found, &index));
+    assert(index == 1);
+
+    const char *target_name_not_found = "add3";
+    assert(!arraylist_test_contains(&arrlisttest, test_pred_find_name, (char*)target_name_not_found, &index));
+    assert(index == 1); // Unchanged from before
+
+    arraylist_test_deinit(&arrlisttest);
+    printf("arraylist contains passed all tests.\n");
+}
+
 static void test_arraylist_size(void) {
     printf("Testing arraylist end function.\n");
     struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
@@ -1335,6 +1362,7 @@ static void test_passing_nullptr_to_functions() {
     assert(arraylist_long_back(nullptr) == nullptr);
     assert(arraylist_long_end(nullptr) == nullptr);
     assert(arraylist_long_find(nullptr, nullptr, nullptr) == nullptr);
+    assert(arraylist_long_contains(nullptr, nullptr, nullptr, nullptr) == false);
     assert(arraylist_long_size(nullptr) == 0);
     assert(arraylist_long_is_empty(nullptr) == false);
     assert(arraylist_long_capacity(nullptr) == 0);
@@ -1360,6 +1388,7 @@ int main(void) {
     test_arraylist_back();
     test_arraylist_end();
     test_arraylist_find();
+    test_arraylist_contains();
     test_arraylist_size();
     test_arraylist_is_empty();
     test_arraylist_capacity();
