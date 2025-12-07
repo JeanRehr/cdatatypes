@@ -1367,8 +1367,8 @@ static void test_passing_nullptr_to_functions() {
     assert(arraylist_long_is_empty(nullptr) == false);
     assert(arraylist_long_capacity(nullptr) == 0);
     assert(arraylist_long_swap(nullptr, nullptr) == ARRAYLIST_ERR_NULL);
-    assert(arraylist_long_clear(nullptr) == ARRAYLIST_ERR_NULL);
-    assert(arraylist_long_deinit(nullptr) == ARRAYLIST_ERR_NULL);
+    assert(arraylist_long_clear(nullptr) == ARRAYLIST_OK);
+    assert(arraylist_long_deinit(nullptr) == ARRAYLIST_OK);
     printf("test passing nullptr to functions passed.\n");
 }
 
