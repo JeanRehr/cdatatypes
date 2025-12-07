@@ -1,11 +1,81 @@
 /**
  * @file arraylist.h
- * @brief Generic arraylist implementation using macros
- * @details The arraylist will own and free the memory, as long as the correct destructor for the
- *          object is provided, and the deinit function called correctly, once an object is inside
- *          the arraylist, do not free it, call the function of the arraylist that frees it,
- *          in the case of a container of pointers of an object, pass the correct destructor that
- *          knows how to free its data inside, and frees the struct itself
+ * @brief Generic and typesafe arraylist implementation using macros
+ *
+ * It is a zero-cost abstraction if no destructor is provided to the arraylist and no manual
+ * assignment of it later in the usage code, compiler eliminates all tests for destructor in the
+ * code because all functions are static inlined (tested on clang -O3)
+ *
+ * @details:
+ * This arraylist implementation provides similar functionality to C++ std::vector, with explicit
+ * control over memory management with custom allocator and destructors
+ *
+ * The arraylist will own and manage the memory of its internal storage. Once elements are added:
+ * - Do not manually free elements, use the arraylist functions to remove.
+ * - Destructor callback (if provided) will be called automatically when elements are removed.
+ * - After deinit(), all contained elements are destroyed and the storage freed. 
+ *
+ * For value types (int, struct foo):
+ * - Elements are copied into the arraylist.
+ * - Destructors are called on removal/destruction if provided.
+ * - If the struct/element contains heap-allocated memory, supply a destructor to avoid memory leaks
+ *   or manually free them if not provided
+ * - Prefer using emplace_back_slot() to construct objects in-place, avoids shallow copies
+ *
+ * For pointer types (struct foo*):
+ * - The arraylist store the pointers, ownership of the pointed-to memory is only managed if a
+ *   destructor is provided, the destructor must free the pointer and set it to null
+ * - Without the destructor, the user must manage the pointed-to objects manually
+ * - The typical destructor usually is: Foo_dtor_ptr(struct Foo **foo), so it can free internal
+ *   resources, the obj itself, and set the pointer (in the list) to null
+ *
+ * Copy Semantics:
+ * Unlike C++ std::vector, it has no move semantics, and performs shallow copies bit by bit always
+ * when adding an element or on reallocating memory, deep copy and move semantics are not automatic 
+ * For structs containing heap-allocated memory, this means that the internal pointers may be
+ * duplicated or invalidated after an internal realloc.
+ *
+ * It's recommended to always use emplace_back_slot() when possible to prevent shallow copies and
+ * construct the object in-place, or do a deep-copy (moving the src to dst and invalidating src)
+ * if your type needs it.
+ *
+ * Comparison to std::vector:
+ * - For value types, usage is equivalent to std::vector<T>, with manual dtor/copy semantics in C
+ * - For pointer types, it is like std::vector<T*> by default, if a destructor is provided, it
+ *   behaves like std::vector<unique_ptr<T>> (the container will own the pointed-to memory)
+ * - Copy and move semantics must be manually handled explicitly still.
+ *
+ * Example destructor for value types to be supplied to the arraylist:
+ * @code
+ * void Foo_dtor(struct Foo *t) {
+ *     if (!t) return;
+ *     // Free internal allocated members if needed
+ *     free(t->member);
+ *     // Do not free t itself, arraylist owns it
+ * }
+ * @endcode
+ *
+ * Example destructor for pointer types to be supplied to the arraylist:
+ * @code
+ * void Foo_dtor_ptr(struct Foo **t_ptr) {
+ *     if (!t_ptr || !*t_ptr) return;
+ *     // Free internal allocated members if needed
+ *     free((*t_ptr)->member);
+ *     // Or call the Foo_dtor:
+ *     // Foo_dtor(*t_ptr);
+ *     // Free the object itself
+ *     free(*t_ptr);
+ *     // Set it to null, which only affects the copy on the arraylist
+ *     *t_ptr = nullptr;
+ * }
+ * @endcode
+ *
+ * @warning Always assume that pointers are invalid after adding them to pointer containers and
+ *          don't hold pointers to elements across operations that may reallocate.
+ * @warning Call deinit() when done.
+ *
+ * @todo 
+ * insert_from_to() or assign() - Inserts a number of elements at given index
  */
 #ifndef ARRAYLIST_H
 #define ARRAYLIST_H
@@ -87,12 +157,6 @@ struct arraylist_##name { \
 };
 
 /**
- * @todo 
- * insert_from_to() - Inserts a number of elements at given index
- * remove_from_to(struct arraylist_##name *self, size_t from, size_t to) - Removes a number of elements at given index
- */
-
-/**
  * @def ARRAYLIST_DECLARE(T, name)
  * @brief Declares all functions for an arraylist type
  * @param T The type arraylist will hold
@@ -109,6 +173,8 @@ struct arraylist_##name { \
  * \
  * @note It does not allocate \
  * \
+ * @warning Call arraylist_##name##deinit() when done. \
+ * \
  */ \
 ARRAYLIST_UNUSED static inline struct arraylist_##name arraylist_##name##_init(Allocator *alloc, void (*destructor)(T *)); \
 \
@@ -123,6 +189,8 @@ ARRAYLIST_UNUSED static inline struct arraylist_##name arraylist_##name##_init(A
  * @warning If allocation fails, or given capacity overflows the buffer, it will fail and set \
  *          everything to zero, if using asserts, it will abort, test the fields of the struct \
  *          or use the functions capacity() and the like if needed \
+ * \
+ * @warning Call arraylist_##name##deinit() when done. \
  * \
  */ \
 ARRAYLIST_UNUSED static inline struct arraylist_##name arraylist_##name##_init_with_capacity(Allocator *alloc, void (*destructor)(T *), size_t capacity); \
@@ -159,7 +227,7 @@ ARRAYLIST_UNUSED static inline enum arraylist_error arraylist_##name##_shrink_si
 ARRAYLIST_UNUSED static inline enum arraylist_error arraylist_##name##_shrink_to_fit(struct arraylist_##name *self); \
 \
 /**
- * @brief Adds a new element to the end of the array \
+ * @brief Adds a new element by value to the end of the arraylist \
  * @param self Pointer to the arraylist to add a new value \
  * @param value Value of type T to be added \
  * @return ARRAYLIST_ERR_NULL if self is null, or ARRAYLIST_ERR_ALLOC on allocation failure, or \
@@ -190,6 +258,9 @@ ARRAYLIST_UNUSED static inline enum arraylist_error arraylist_##name##_push_back
  * // Now slot is a valid pointer for writing into a new element. For example: \
  * slot->a = 42; // or call a constructor on slot \
  * @endcode \
+ * \
+ * For pointer types, this returns a slot for storing the pointer \
+ * \
  */ \
 ARRAYLIST_UNUSED static inline T* arraylist_##name##_emplace_back_slot(struct arraylist_##name *self); \
 \
