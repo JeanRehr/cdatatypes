@@ -114,6 +114,7 @@ ARRAYLIST_UNUSED static inline T* arraylist_##name##_at(const struct arraylist_#
 ARRAYLIST_UNUSED static inline T* arraylist_##name##_begin(const struct arraylist_##name *self); \
 ARRAYLIST_UNUSED static inline T* arraylist_##name##_back(const struct arraylist_##name *self); \
 ARRAYLIST_UNUSED static inline T* arraylist_##name##_end(const struct arraylist_##name *self); \
+ARRAYLIST_UNUSED static inline T* arraylist_##name##_find(const struct arraylist_##name *self, bool (*predicate)(T*, void *), void *ctx); \
 ARRAYLIST_UNUSED static inline size_t arraylist_##name##_size(const struct arraylist_##name *self); \
 ARRAYLIST_UNUSED static inline bool arraylist_##name##_is_empty(const struct arraylist_##name *self); \
 ARRAYLIST_UNUSED static inline size_t arraylist_##name##_capacity(const struct arraylist_##name *self); \
@@ -479,6 +480,31 @@ static inline T* arraylist_##name##_back(const struct arraylist_##name *self) { 
  */ \
 static inline T* arraylist_##name##_end(const struct arraylist_##name *self) { \
     ARRAYLIST_ENSURE_PTR(self != nullptr) \
+    return self->data + self->size; \
+} \
+\
+/**
+ * @brief Tries to finds the given value and returns it \
+ * @param self Pointer to the arraylist \
+ * @param predicate Function pointer responsible for comparing a T value \
+ * @param ctx A context to be used in the function pointer \
+ * @return A pointer to the value if found, a pointer to the end if not found, or null if !self \
+ * \
+ * @details Performs a simple linear search, if performance matters, roll your own \
+ *          sort and/or find functions \
+ * \
+ * @warning Return should be checked for null before usage, dereferencing it leads to UB if \
+            value is not found \
+ * \
+ */ \
+static inline T* arraylist_##name##_find(const struct arraylist_##name *self, bool (*predicate)(T*, void *), void *ctx) { \
+    ARRAYLIST_ENSURE_PTR(self != nullptr) \
+    ARRAYLIST_ENSURE_PTR(predicate != nullptr) \
+    for (size_t i = 0; i < self->size; ++i) { \
+        if (predicate(&self->data[i], ctx)) { \
+           return &self->data[i]; \
+        } \
+    } \
     return self->data + self->size; \
 } \
 \
