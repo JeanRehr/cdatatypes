@@ -420,7 +420,7 @@ static inline enum arraylist_error arraylist_##name##_double_capacity(struct arr
     } \
     ARRAYLIST_ENSURE(new_capacity <= SIZE_MAX / sizeof(T), ARRAYLIST_ERR_OVERFLOW) \
     T *new_data = nullptr; \
-    if (self->capacity == 0) { \
+    if (self->data == nullptr) { \
         new_data = self->alloc->malloc(new_capacity * sizeof(T), self->alloc->ctx); \
     } else { \
         new_data = self->alloc->realloc(self->data, self->capacity * sizeof(T), new_capacity * sizeof(T), self->alloc->ctx); \
