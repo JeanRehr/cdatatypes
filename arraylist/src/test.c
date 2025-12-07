@@ -111,6 +111,31 @@ static void test_arraylist_init_and_deinit(void) {
     printf("arraylist init and deinit functions passed all tests.\n");
 }
 
+static void test_arraylist_init_with_capacity(void) {
+    printf("Testing arraylist init_with_capacity function.\n");
+    struct arraylist_test arrlisttest = arraylist_test_init_with_capacity(nullptr, test_dtor, 10);
+    assert(arrlisttest.destructor);
+    assert(arrlisttest.alloc);
+    assert(arrlisttest.capacity == 10);
+    assert(arrlisttest.data);
+    assert(arrlisttest.size == 0);
+
+    arraylist_test_deinit(&arrlisttest);
+    assert(!arrlisttest.data);
+    assert(arrlisttest.capacity == 0);
+
+    arrlisttest = arraylist_test_init_with_capacity(nullptr, test_dtor, 0);
+    assert(arrlisttest.destructor);
+    assert(arrlisttest.alloc);
+    assert(arrlisttest.capacity == 0);
+    assert(!arrlisttest.data);
+    assert(arrlisttest.size == 0);
+
+    arraylist_test_deinit(&arrlisttest);
+    assert(!arrlisttest.data);
+    printf("arraylist init_with_capacity function passed all tests.\n");
+}
+
 static void test_arraylist_reserve(void) {
     printf("Testing arraylist reserve function.\n");
     struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
@@ -1394,6 +1419,7 @@ static void test_passing_nullptr_to_functions() {
 
 int main(void) {
     test_arraylist_init_and_deinit();
+    test_arraylist_init_with_capacity();
     test_arraylist_reserve();
     test_arraylist_shrink_size();
     test_arraylist_shrink_to_fit();
