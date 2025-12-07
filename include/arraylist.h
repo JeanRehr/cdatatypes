@@ -395,24 +395,25 @@ static inline enum arraylist_error arraylist_##name##_remove_at(struct arraylist
  */ \
 static inline enum arraylist_error arraylist_##name##_remove_from_to(struct arraylist_##name *self, size_t from, size_t to) { \
     ARRAYLIST_ENSURE(self != nullptr, ARRAYLIST_ERR_NULL) \
-    if (to > self->size - 1) to = self->size - 1; \
-    if (from > self->size - 1) from = self->size - 1; \
-    size_t num_elems_to_rem = to - from; \
-    if (num_elems_to_rem == 0) { \
-        return arraylist_##name##_remove_at(self, from); \
+    if (to > self->size - 1) { \
+        to = self->size - 1; \
     } \
-    size_t i = from; \
+    if (from > self->size - 1) { \
+        from = self->size - 1; \
+    } \
+    size_t num_to_remove = to - from + 1; \
     if (self->destructor) { \
-        for (; i <= to; ++i) { \
+        for (size_t i = from; i <= to; ++i) { \
             self->destructor(&self->data[i]); \
         } \
     } \
-    size_t num_elems_left = (self->size - 1) - num_elems_to_rem; \
-    for (; from <= num_elems_left; ++from) { \
-        self->data[from] = self->data[to + 1]; \
-        ++to; \
+    \
+    /* how many numbers are left after the to param */ \
+    size_t num_after = self->size - to - 1; \
+    for (size_t i = 0; i < num_after; ++i) { \
+        self->data[from + i] = self->data[to + 1 + i]; \
     } \
-    self->size -= num_elems_to_rem + 1; \
+    self->size -= num_to_remove; \
     return ARRAYLIST_OK; \
 } \
 \
