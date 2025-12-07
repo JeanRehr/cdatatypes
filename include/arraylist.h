@@ -25,7 +25,7 @@
 
 #include "allocator.h"
 
-#define INITIAL_CAP 1
+constexpr size_t initial_cap = 1;
 
 /**
  * @enum arraylist_error
@@ -416,7 +416,7 @@ static inline enum arraylist_error arraylist_##name##_double_capacity(struct arr
     if (self->capacity != 0) { \
         new_capacity = self->capacity * 2; \
     } else { \
-        new_capacity = INITIAL_CAP; \
+        new_capacity = initial_cap; \
     } \
     ARRAYLIST_ENSURE(new_capacity <= SIZE_MAX / sizeof(T), ARRAYLIST_ERR_OVERFLOW) \
     T *new_data = nullptr; \
