@@ -905,6 +905,16 @@ static void test_arraylist_clear(void) {
     printf("arraylist end passed all tests.\n");
 }
 
+static void test_arraylist_get_allocator_default(void) {
+    printf("Testing arraylist get_allocator default function.\n");
+    struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
+
+    assert(allocator_get_default() == arraylist_test_get_allocator(&arrlisttest));
+
+    arraylist_test_deinit(&arrlisttest);
+    printf("arraylist get_allocator default passed all tests.\n");
+}
+
 /*
 static void test_arraylist_insert_from_to(void) {
     printf("Testing arraylist insert_from_to function.\n");
@@ -1344,6 +1354,16 @@ static void test_arraylist_allocating_zero() {
     printf("arraylist custom alloc allocating zero passed.\n");
 }
 
+static void test_arraylist_get_custom_allocator() {
+    printf("test arraylist getting custom allocator.\n");
+    struct arraylist_long xs_alloc = arraylist_long_init(&alloc, 0);
+
+    assert(&alloc == arraylist_long_get_allocator(&xs_alloc));
+
+    arraylist_long_deinit(&xs_alloc);
+    printf("arraylist getting custom allocator passed.\n");
+}
+
 static void test_passing_nullptr_to_functions() {
     printf("test passing nullptr to functions.\n");
     // If using asserts instead of return codes in the library, then the following functions
@@ -1392,6 +1412,7 @@ int main(void) {
     test_arraylist_size();
     test_arraylist_is_empty();
     test_arraylist_capacity();
+    test_arraylist_get_allocator_default();
     test_arraylist_swap();
     test_arraylist_clear();
 
@@ -1410,6 +1431,7 @@ int main(void) {
 
     test_arraylist_bufferoverflow();
     test_arraylist_allocating_zero();
+    test_arraylist_get_custom_allocator();
 
     return 0;
 }
