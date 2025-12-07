@@ -426,7 +426,7 @@ static inline enum arraylist_error arraylist_##name##_remove_from_to(struct arra
  * @warning Return should be checked for null before usage \
  * \
  */ \
-static inline T* arraylist_##name##_at(struct arraylist_##name *self, size_t index) { \
+static inline T* arraylist_##name##_at(const struct arraylist_##name *self, const size_t index) { \
     ARRAYLIST_ENSURE_PTR(self != nullptr) \
     ARRAYLIST_ENSURE_PTR(index < self->size) \
     return &self->data[index]; \
