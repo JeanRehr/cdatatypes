@@ -329,9 +329,8 @@ static inline enum arraylist_error arraylist_##name##_insert_at(struct arraylist
         if (err != ARRAYLIST_OK) return err; \
     } \
     ++self->size; \
-    for (size_t i = self->size - 1; i >= index; --i) { \
-        self->data[i + 1] = self->data[i]; \
-        if (i == 0) break; \
+    for (size_t i = self->size; i > index; --i) { \
+        self->data[i] = self->data[i - 1]; \
     } \
     self->data[index] = value; \
     return ARRAYLIST_OK; \
