@@ -103,9 +103,11 @@ struct arraylist_##name { \
 /**
  * @brief Creates a new arraylist \
  * @param alloc Custom allocator instance, if null, default alloc will be used \
+ * @param destructor Custom destructor function pointer, if null, the arraylist will not know \
+ *        how to free the given value if needed, user will be responsible for freeing \
  * @return A zero initialized arraylist structure \
  * \
- * It does not allocate \
+ * @note It does not allocate \
  * \
  */ \
 ARRAYLIST_UNUSED static inline struct arraylist_##name arraylist_##name##_init(Allocator *alloc, void (*destructor)(T *)); \
