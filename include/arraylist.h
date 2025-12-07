@@ -223,12 +223,13 @@ static inline enum arraylist_error arraylist_##name##_reserve(struct arraylist_#
  */ \
 static inline enum arraylist_error arraylist_##name##_shrink_size(struct arraylist_##name *self, size_t size) { \
     ARRAYLIST_ENSURE(self != nullptr, ARRAYLIST_ERR_NULL) \
-    if (self->size <= 0 || self->size <= size) return ARRAYLIST_OK; \
-    T *it_atsize = arraylist_##name##_at(self, size); \
-    for (T *it = arraylist_##name##_end(self); it > it_atsize; --it) { \
-        if (self->destructor) self->destructor(&self->data[self->size - 1]); \
-        --self->size; \
+    if (self->size <= size || self->size <= 0) return ARRAYLIST_OK; \
+    if (self->destructor) { \
+        for (size_t i = size; i < self->size; i++) { \
+            self->destructor(&self->data[i]); \
+        } \
     } \
+    self->size = size; \
     return ARRAYLIST_OK; \
 } \
 \
