@@ -2,9 +2,10 @@
  * @file arraylist.h
  * @brief Generic and typesafe arraylist implementation using macros
  *
- * It is a zero-cost abstraction if no destructor is provided to the arraylist and no manual
- * assignment of it later in the usage code, compiler eliminates all tests for destructor in the
- * code because all functions are static inlined (tested on clang -O3)
+ * It is a zero-cost abstraction, if no destructor is provided to the arraylist and no manual
+ * assignment of it later in the usage code, compiler eliminates all tests for destructor because 
+ * it can be prove that no dtor is needed, this works due to all functions being static inlined
+ * (tested on clang -O3)
  *
  * @details:
  * This arraylist implementation provides similar functionality to C++ std::vector, with explicit
@@ -43,7 +44,7 @@
  * - For value types, usage is equivalent to std::vector<T>, with manual dtor/copy semantics in C
  * - For pointer types, it is like std::vector<T*> by default, if a destructor is provided, it
  *   behaves like std::vector<unique_ptr<T>> (the container will own the pointed-to memory)
- * - Copy and move semantics must be manually handled explicitly still.
+ * - Copy and move semantics must still be manually handled explicitly if needed.
  *
  * Example destructor for value types to be supplied to the arraylist:
  * @code
@@ -139,6 +140,8 @@ enum arraylist_error {
  * - "data": Pointer of type T to the array of elements
  * - "size": Current number of elements in the arraylist
  * - "capacity": Current capacity of the arraylist
+ * - "alloc": Pointer to custom alloc, if not provided, def alloc from allocator.h/c will be used
+ * - "destructor": Function pointer to a destructor that knows how to free type T
  *
  * @code
  * // Example: Define an arraylist for integers
