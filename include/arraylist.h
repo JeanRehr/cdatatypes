@@ -113,6 +113,21 @@ struct arraylist_##name { \
 ARRAYLIST_UNUSED static inline struct arraylist_##name arraylist_##name##_init(Allocator *alloc, void (*destructor)(T *)); \
 \
 /**
+ * @brief Creates a new arraylist with a given capacity \
+ * @param alloc Custom allocator instance, if null, default alloc will be used \
+ * @param destructor Custom destructor function pointer, if null, the arraylist will not know \
+ *        how to free the given value if needed, user will be responsible for freeing \
+ * @param capacity Capacity to initialize with, if zero, it will zero initialized \
+ * @return An arraylist struct with the given capacity \
+ * \
+ * @warning If allocation fails, or given capacity overflows the buffer, it will fail and set \
+ *          everything to zero, if using asserts, it will abort, test the fields of the struct \
+ *          or use the functions capacity() and the like if needed \
+ * \
+ */ \
+ARRAYLIST_UNUSED static inline struct arraylist_##name arraylist_##name##_init_with_capacity(Allocator *alloc, void (*destructor)(T *), size_t capacity); \
+\
+/**
  * @brief Reserves the capacity of an arraylist \
  * @param self Pointer to the arraylist \
  * @param capacity New capacity of the arraylist \
@@ -445,6 +460,19 @@ static inline struct arraylist_##name arraylist_##name##_init(Allocator *alloc, 
     arraylist.size = 0; \
     arraylist.capacity = 0; \
     arraylist.data = nullptr; \
+    return arraylist; \
+} \
+\
+static inline struct arraylist_##name arraylist_##name##_init_with_capacity(Allocator *alloc, void (*destructor)(T *), size_t capacity) { \
+    struct arraylist_##name arraylist = {0}; \
+    arraylist = arraylist_##name##_init(alloc, destructor); \
+    if (capacity > 0) { \
+        if (arraylist_##name##_reserve(&arraylist, capacity) != ARRAYLIST_OK) { \
+            arraylist.size = 0; \
+            arraylist.capacity = 0; \
+            arraylist.data = nullptr; \
+        } \
+    } \
     return arraylist; \
 } \
 \
