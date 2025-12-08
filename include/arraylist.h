@@ -641,10 +641,13 @@ static inline enum arraylist_error arraylist_##name##_remove_at(struct arraylist
 \
 static inline enum arraylist_error arraylist_##name##_remove_from_to(struct arraylist_##name *self, size_t from, size_t to) { \
     ARRAYLIST_ENSURE(self != nullptr, ARRAYLIST_ERR_NULL) \
-    if (to > self->size - 1) { \
+    if (self->size == 0) { \
+        return ARRAYLIST_OK; \
+    } \
+    if (to >= self->size) { \
         to = self->size - 1; \
     } \
-    if (from > self->size - 1) { \
+    if (from >= self->size) { \
         from = self->size - 1; \
     } \
     size_t num_to_remove = to - from + 1; \
@@ -654,7 +657,7 @@ static inline enum arraylist_error arraylist_##name##_remove_from_to(struct arra
         } \
     } \
     \
-    /* how many numbers are left after the to param */ \
+    /* how many numbers are left after the 'to' param */ \
     size_t num_after = self->size - to - 1; \
     for (size_t i = 0; i < num_after; ++i) { \
         self->data[from + i] = self->data[to + 1 + i]; \
