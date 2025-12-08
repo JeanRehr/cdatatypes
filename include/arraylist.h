@@ -357,8 +357,10 @@ ARRAYLIST_UNUSED static inline T* arraylist_##name##_end(const struct arraylist_
 /**
  * @brief Tries to finds the given value and returns it \
  * @param self Pointer to the arraylist \
- * @param predicate Function pointer responsible for comparing a T value \
- * @param ctx A context to be used in the function pointer \
+ * @param predicate Function pointer responsible for comparing a T* value with a void* value, \
+ *                  returns a boolean \
+ * @param ctx A context to be used in the function pointer, usually used for comparing with a \
+ *            field of type T \
  * @return A pointer to the value if found, a pointer to the end if not found, or null if !self \
  * \
  * @details Performs a simple linear search, if performance matters, roll your own \
@@ -368,7 +370,6 @@ ARRAYLIST_UNUSED static inline T* arraylist_##name##_end(const struct arraylist_
             value is not found \
  */ \
 ARRAYLIST_UNUSED static inline T* arraylist_##name##_find(const struct arraylist_##name *self, bool (*predicate)(T*, void *), void *ctx); \
-\
 \
 /**
  * @brief Tries to finds the given value and returns it \
