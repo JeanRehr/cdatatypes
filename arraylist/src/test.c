@@ -492,6 +492,14 @@ static void test_arraylist_pop_back(void) {
     assert(arrlisttest.size == 2);
     assert(arrlisttest.capacity == 2);
 
+    arraylist_test_pop_back(&arrlisttest);
+    assert(arrlisttest.size == 1);
+    arraylist_test_pop_back(&arrlisttest);
+    assert(arrlisttest.size == 0);
+
+    assert(arraylist_test_pop_back(&arrlisttest) == ARRAYLIST_OK);
+    assert(arraylist_test_pop_back(&arrlisttest) == ARRAYLIST_OK);
+
     arraylist_test_deinit(&arrlisttest);
     printf("arraylist pop_back passed all tests.\n");
 }
@@ -557,6 +565,10 @@ static void test_arraylist_remove_at(void) {
     }
     */
 
+    arraylist_test_remove_at(&arrlisttest, 0);
+    assert(arrlisttest.size == 0);
+    assert(arraylist_test_remove_at(&arrlisttest, 0) == ARRAYLIST_OK);
+
     arraylist_test_deinit(&arrlisttest);
     printf("arraylist remove_at passed all tests.\n");
 }
@@ -610,12 +622,25 @@ static void test_arraylist_remove_from_to(void) {
     arraylist_test_remove_from_to(&arrlisttest, 1, 3); // add2 add3 add4
     assert(arrlisttest.size == 2);
 
-    /*
+    
     for (size_t i = 0; i < arrlisttest.size; ++i) {
         printf("index = %lu | ", i);
         test_print(&arrlisttest.data[i]);
     }
-    */
+    
+    arraylist_test_remove_from_to(&arrlisttest, 0, 0); // add1
+    assert(arrlisttest.size == 1);
+    
+    // Double-free, add1 must be constructed again to be instered
+    // arraylist_test_push_back(&arrlisttest, add1);
+
+    test_ctor(&add1, 10, 0.5, "add1");
+    arraylist_test_push_back(&arrlisttest, add1);
+    arraylist_test_remove_from_to(&arrlisttest, 0, 1); // add1 add2
+    assert(arrlisttest.size == 0);
+
+    assert(arraylist_test_remove_from_to(&arrlisttest, 0, 0) == ARRAYLIST_OK); // noop
+    assert(arrlisttest.size == 0);
 
     arraylist_test_deinit(&arrlisttest);
     printf("arraylist remove_from_to passed all tests.\n");
