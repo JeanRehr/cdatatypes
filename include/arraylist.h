@@ -4,7 +4,7 @@
  *
  * It is a zero-cost abstraction, if no destructor is provided to the arraylist and no manual
  * assignment of it later in the usage code, compiler eliminates all tests for destructor because 
- * it can be prove that no dtor is needed, this works due to all functions being static inlined
+ * it can be proved that no dtor is needed, this works due to all functions being static inlined
  * (tested on clang -O3)
  *
  * @details
@@ -199,13 +199,13 @@ ARRAYLIST_UNUSED static inline struct arraylist_##name arraylist_##name##_init_w
  */ \
 ARRAYLIST_UNUSED static inline enum arraylist_error arraylist_##name##_reserve(struct arraylist_##name *self, const size_t capacity); \
 /**
- * @brief Shrinks the arraylist's capacity to size, removing elements if necessary \
+ * @brief Shrinks the arraylist's size to size passed, removing elements if necessary \
  * @param self Pointer to the arraylist \
  * @param size New size of the arraylist \
  * @return ARRAYLIST_OK if successful or on noop, or ARRAYLIST_ERR_NULL on null being passed \
  * \
- * Returns early if arraylist is null or arraylist size is <= 0 or if arraylist size is <= size \
- *         or if provided size is <= 0 \
+ * Returns early if arraylist is null or arraylist size is <= 0 or if arraylist size is >= size \
+ *         or if provided size is < 0 \
  */ \
 ARRAYLIST_UNUSED static inline enum arraylist_error arraylist_##name##_shrink_size(struct arraylist_##name *self, const size_t size); \
 /**
@@ -345,14 +345,14 @@ ARRAYLIST_UNUSED static inline T* arraylist_##name##_end(const struct arraylist_
  * @param predicate Function pointer responsible for comparing a T* value with a void* value, \
  *                  returns a boolean \
  * @param ctx A context to be used in the function pointer, usually used for comparing with a \
- *            field of type T \
+ *            field of type T or a member of it \
  * @return A pointer to the value if found, a pointer to the end if not found, or null if !self \
  * \
- * @details Performs a simple linear search, if performance matters, roll your own \
+ * @note Performs a simple linear search, if performance matters, roll your own \
  *          sort and/or find functions \
  * \
- * @warning Return should be checked for null before usage, dereferencing it leads to UB \
-            value is not found \
+ * @warning Return should be checked for null before usage, dereferencing it leads to \
+            UB if value is not found \
  */ \
 ARRAYLIST_UNUSED static inline T* arraylist_##name##_find(const struct arraylist_##name *self, bool (*predicate)(T*, void *), void *ctx); \
 /**
@@ -363,7 +363,7 @@ ARRAYLIST_UNUSED static inline T* arraylist_##name##_find(const struct arraylist
  * @param out_index The index if wanted \
  * @return True if found, false if not found or self == nullptr \
  * \
- * @details Performs a simple linear search, if performance matters, roll your own \
+ * @note Performs a simple linear search, if performance matters, roll your own \
  *          sort and/or find functions \
  * \
  * @warning Return should be checked for null before usage, dereferencing it leads to UB if \
@@ -519,7 +519,7 @@ static inline enum arraylist_error arraylist_##name##_reserve(struct arraylist_#
 \
 static inline enum arraylist_error arraylist_##name##_shrink_size(struct arraylist_##name *self, size_t size) { \
     ARRAYLIST_ENSURE(self != nullptr, ARRAYLIST_ERR_NULL) \
-    if (self->size <= size || self->size <= 0) { \
+    if (size >= self->size || self->size <= 0) { \
         return ARRAYLIST_OK; \
     } \
     if (self->destructor) { \
