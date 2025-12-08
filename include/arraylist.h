@@ -583,11 +583,11 @@ static inline enum arraylist_error arraylist_##name##_insert_at(struct arraylist
             return err; \
         } \
     } \
-    ++self->size; \
     for (size_t i = self->size; i > index; --i) { \
         self->data[i] = self->data[i - 1]; \
     } \
     self->data[index] = value; \
+    ++self->size; \
     return ARRAYLIST_OK; \
 }\
 \
