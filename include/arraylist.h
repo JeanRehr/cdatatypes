@@ -626,7 +626,7 @@ static inline enum arraylist_error arraylist_##name##_pop_back(struct arraylist_
 \
 static inline enum arraylist_error arraylist_##name##_remove_at(struct arraylist_##name *self, const size_t index) {\
     ARRAYLIST_ENSURE(self != nullptr, ARRAYLIST_ERR_NULL) \
-    if (index >= self->size - 1) { \
+    if (index >= self->size) { \
         return arraylist_##name##_pop_back(self); \
     } \
     if (self->destructor) { \
