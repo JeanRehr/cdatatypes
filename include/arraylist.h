@@ -8,7 +8,7 @@
  * (tested on clang -O3)
  *
  * @details
- * This arraylist implementation provides similar functionality to C++ std::vector, with explicit
+ * This arraylist implementation provides similar functionality to C++ std vector, with explicit
  * control over memory management with custom allocator and destructors
  *
  * The arraylist will own and manage the memory of its internal storage. Once elements are added:
@@ -31,7 +31,7 @@
  *   resources, the obj itself, and set the pointer (in the list) to null
  *
  * Copy Semantics:
- * Unlike C++ std::vector, it has no move semantics, and performs shallow copies bit by bit always
+ * Unlike C++ std vector, it has no move semantics, and performs shallow copies bit by bit always
  * when adding an element or on reallocating memory, deep copy and move semantics are not automatic 
  * For structs containing heap-allocated memory, this means that the internal pointers may be
  * duplicated or invalidated after an internal realloc.
@@ -40,10 +40,10 @@
  * construct the object in-place, or do a deep-copy (moving the src to dst and invalidating src)
  * if your type needs it.
  *
- * Comparison to std::vector:
- * - For value types, usage is equivalent to std::vector<T>, with manual dtor/copy semantics in C
- * - For pointer types, it is like std::vector<T*> by default, if a destructor is provided, it
- *   behaves like std::vector<unique_ptr<T>> (the container will own the pointed-to memory)
+ * Comparison to std vector:
+ * - For value types, usage is equivalent to std vector<T>, with manual dtor/copy semantics in C
+ * - For pointer types, it is like std vector<T*> by default, if a destructor is provided, it
+ *   behaves like std vector<unique ptr<T>> (the container will own the pointed-to memory)
  * - Copy and move semantics must still be manually handled explicitly if needed.
  *
  * Example destructor for value types to be supplied to the arraylist:
