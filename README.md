@@ -56,15 +56,13 @@ struct arraylist_mytype arr = arraylist_mytype_init(nullptr, mytype_dtor);
 arraylist_mytyoe_deinit(&arr);
 ```
 
+Destructor functions are critical for correct memory handling of heap allocated fields inside structs, if your type doesn't allocate anything inside it, no need for a destructor.
+
+All arraylist functions are safe to call on nullptr or deinitialized arraylist, unless assert is decided to be used.
+
 Full example on arraylist/src/test.c
 
 # Custom Allocators
 
 Allocator is a pluggable interface via the Allocator struct, by default malloc/realloc/free are used.
 To use a custom allocator, you have to implement the three function pointers as described in allocator.h, then create and pass an Allocator instance to init function
-
-# Notes
-
-Destructor functions are critical for correct memory handling of heap allocated fields inside structs, if your type doesn't allocate anything inside it, no need for a destructor.
-
-All arraylist functions are safe to call on nullptr or deinitialized arraylist.
