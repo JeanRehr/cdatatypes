@@ -15,7 +15,7 @@ Compiled with C23, but should work with C99 with minimal changes, changing nullp
 
 ## Build & Run
 
-By default uses CMake for portability and convenience.
+By default uses CMake.
 
 ## Step-by-step
 
