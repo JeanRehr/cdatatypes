@@ -178,6 +178,10 @@ static void test_arraylist_shrink_size(void) {
     arraylist_test_shrink_size(&arrlisttest, shrink);
     assert(arrlisttest.size == 3);
 
+    // passed size is greater than arraylist.size, noop
+    arraylist_test_shrink_size(&arrlisttest, 10);
+    assert(arrlisttest.size == 3);
+
     arraylist_test_deinit(&arrlisttest);
     printf("arraylist shrink_size passed all tests.\n");
 }
