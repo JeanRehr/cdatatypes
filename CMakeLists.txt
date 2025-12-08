@@ -7,12 +7,12 @@ set(CMAKE_C_STANDARD 23)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
 # Set sources and include directories
+include_directories(include)
 
 # Allocator src is needed by allocator header
 set(ALLOCATOR_SRC allocator/src/allocator.c)
 set(ARRAYLIST_TEST_SRC arraylist/src/test.c)
-
-include_directories(include)
+set(ARRAYLIST_EXAMPLE_SRC arraylist/src/example.c)
 
 # Build types
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release;Sanitizer" CACHE STRING "" FORCE)
@@ -67,11 +67,20 @@ else()
     message(WARNING "Unknown build type: ${CMAKE_BUILD_TYPE}")
 endif()
 
+# Executables
+# Arraylist unit tests executable
 add_executable(test_arraylist ${ALLOCATOR_SRC} ${ARRAYLIST_TEST_SRC})
 
-set_target_properties(test_arraylist PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+# Arraylist examples executable
+add_executable(example_arraylist ${ALLOCATOR_SRC} ${ARRAYLIST_EXAMPLE_SRC})
 
+# Output directory
+set_target_properties(test_arraylist PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set_target_properties(example_arraylist PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+
+# Include directory
 target_include_directories(test_arraylist PRIVATE "${PROJECT_SOURCE_DIR}/include")
+target_include_directories(example_arraylist PRIVATE "${PROJECT_SOURCE_DIR}/include")
 
 # Debug build is default
 # $cmake ..
@@ -83,4 +92,4 @@ target_include_directories(test_arraylist PRIVATE "${PROJECT_SOURCE_DIR}/include
 # $cmake -DCMAKE_BUILD_TYPE=Sanitizer ..
 
 # $cmake --build .
-# Executable will be on build/bin/test_arraylist(.exe)
+# Executables will be on build/bin/*(.exe)
