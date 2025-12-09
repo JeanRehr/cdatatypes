@@ -91,7 +91,7 @@ static void test_arraylist_init_and_deinit(void) {
     printf("Testing arraylist init and deinit functions.\n");
     struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
     assert(arrlisttest.destructor);
-    assert(arrlisttest.alloc);
+    assert(&arrlisttest.alloc);
     assert(arrlisttest.capacity == 0);
     assert(!arrlisttest.data);
     assert(arrlisttest.size == 0);
@@ -101,7 +101,7 @@ static void test_arraylist_init_and_deinit(void) {
 
     arrlisttest = arraylist_test_init(nullptr, test_dtor);
     assert(arrlisttest.destructor);
-    assert(arrlisttest.alloc);
+    assert(&arrlisttest.alloc);
     assert(arrlisttest.capacity == 0);
     assert(!arrlisttest.data);
     assert(arrlisttest.size == 0);
@@ -115,7 +115,7 @@ static void test_arraylist_init_with_capacity(void) {
     printf("Testing arraylist init_with_capacity function.\n");
     struct arraylist_test arrlisttest = arraylist_test_init_with_capacity(nullptr, test_dtor, 10);
     assert(arrlisttest.destructor);
-    assert(arrlisttest.alloc);
+    assert(&arrlisttest.alloc);
     assert(arrlisttest.capacity == 10);
     assert(arrlisttest.data);
     assert(arrlisttest.size == 0);
@@ -126,7 +126,7 @@ static void test_arraylist_init_with_capacity(void) {
 
     arrlisttest = arraylist_test_init_with_capacity(nullptr, test_dtor, 0);
     assert(arrlisttest.destructor);
-    assert(arrlisttest.alloc);
+    assert(&arrlisttest.alloc);
     assert(arrlisttest.capacity == 0);
     assert(!arrlisttest.data);
     assert(arrlisttest.size == 0);
@@ -960,11 +960,18 @@ static void test_arraylist_clear(void) {
     printf("arraylist end passed all tests.\n");
 }
 
+static bool allocator_test_equality(const Allocator *a, const Allocator *b) {
+    return a->malloc == b->malloc && a->realloc == b->realloc && a->free == b->free && a->ctx == b->ctx;
+}
+
 static void test_arraylist_get_allocator_default(void) {
     printf("Testing arraylist get_allocator default function.\n");
-    struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
+    struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor); // Init default allocator
 
-    assert(allocator_get_default() == arraylist_test_get_allocator(&arrlisttest));
+    Allocator def = allocator_get_default();
+
+    assert(allocator_test_equality(&def, arraylist_test_get_allocator(&arrlisttest)));
+    assert(allocator_test_equality(&def, &arrlisttest.alloc)); // Should be same as above
 
     arraylist_test_deinit(&arrlisttest);
     printf("arraylist get_allocator default passed all tests.\n");
@@ -1413,7 +1420,8 @@ static void test_arraylist_get_custom_allocator() {
     printf("test arraylist getting custom allocator.\n");
     struct arraylist_long xs_alloc = arraylist_long_init(&alloc, 0);
 
-    assert(&alloc == arraylist_long_get_allocator(&xs_alloc));
+    assert(allocator_test_equality(&alloc, arraylist_long_get_allocator(&xs_alloc)));
+    assert(allocator_test_equality(&alloc, &xs_alloc.alloc)); // should be same as above
 
     arraylist_long_deinit(&xs_alloc);
     printf("arraylist getting custom allocator passed.\n");
