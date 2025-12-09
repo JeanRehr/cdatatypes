@@ -791,17 +791,18 @@ ARRAYLIST_IMPL(T, name)
  * Must be used in a .c file, after the ARRAYLIST_IMPL macro
  * Inspiration taken from the Tsoding's nob.h lib
  *
- * Example:
+ * Usage:
  * @code{.c}
- * ARRAYLIST_DEF(int, ints)
- * ARRAYLIST_DECL(int, ints)
- * ARRAYLIST_IMPL(int, ints)
- * ARRAYLIST_STRIP_PREFIX(int, ints)
- * // All of them must have the same T type and name
- *
- * // Now can be used as:
- * struct arraylist_ints inst_list = ints_init(...);
- * ints_push_back(...);
+ * // In a header, or at the top of a .c file:
+ * ARRAYLIST_DEF(int, int_list)
+ * ARRAYLIST_DECL(int, int_list)
+ * // In a .c file:
+ * ARRAYLIST_IMPL(int, int_list)
+ * ARRAYLIST_STRIP_PREFIX(int, int_list)
+ * // All of them must have the same T type and name, now both naming works:
+ * struct arraylist_ints list = int_list_init(&list, ...); // Short
+ * arraylist_int_list_pushback(...); // Full
+ * int_list_pushback(...) // Short
  * @endcode
  *
  * @warning Ensure "name" doesn't collide with existing identifiers in a codebase.
@@ -811,14 +812,26 @@ ARRAYLIST_IMPL(T, name)
  * // User code:
  * void strings_init(...) {...}
  *
- * // Then adding the strip prefix for an arraylist of char * like:
- * ARRAYLIST_STRIP_PREFIX(char *, strings)
- * // The arraylist init function will be: strings_init(...)
+ * // This creates a collision
+ * ARRAYLIST_STRIP_PREFIX(char *, strings) // Tries to define strings_init(...)
  * @endcode
  *
- * @warning Each ARRAYLIST type must have unique "name" parameter. Do not use this macro multiple
- *          times with the same name for different types "T"
- *
+ * @warning Using the same name multiple times will cause redefinition errors
+ * @code{.c}
+ * // Different names for same or different types works
+ * ARRAYLIST(int, int_list)
+ * ARRAYLIST_STRIP_PREFIX(int, int_list)
+ * 
+ * ARRAYLIST(int, int_array)
+ * ARRAYLIST_STRIP_PREFIX(int, int_array)
+ * 
+ * // Same name for different types doesn't work
+ * ARRAYLIST(int, numbers)
+ * ARRAYLIST_STRIP_PREFIX(int, numbers)
+ * 
+ * ARRAYLIST(float, numbers) // Error, confliting types with the above
+ * ARRAYLIST_STRIP_PREFIX(float, numbers) // Redefinition, tries to create items_init(...), etc.
+ * @endcode
  * @note The macro inline wrappers, compiler will eliminate wrapper overhead with optimizations enabled
  *
  * @param T The type arraylist will hold

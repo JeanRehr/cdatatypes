@@ -22,9 +22,20 @@ ARRAYLIST_IMPL(int, ints)
 // Or with the all in one macro, must be in a .c file
 // ARRAYLIST(int, ints)
 
+// If wanted to strip the arraylist_ prefix:
+// ARRAYLIST_STRIP_PREFIX(int, ints)
+// Creates ints_init(...), etc...
+// T and name must match exactly with the ARRAYLIST definitions above
+// Can be used with same type and different names:
+// ARRAYLIST(int, array)
+// ARRAYLIST_STRIP_PREFIX(int, array)
+// The same name for different types cannot be used:
+// ARRAYLIST(float, ints)
+// ARRAYLIST_STRIP_PREFIX(float, ints)
+
 // All three macros must have the same type T and name (int and ints in this case)
 
-// May be typedefed if wanted
+// The struct defined may be typedefed if wanted
 // typedef struct arraylist_ints arraylist_ints;
 
 // To be used to find an int inside a container of ints
