@@ -388,10 +388,11 @@ ARRAYLIST_UNUSED static inline T* arraylist_##name##_find(const struct arraylist
  * @param predicate Function pointer responsible for comparing a T value \
  * @param ctx A context to be used in the function pointer \
  * @param out_index The index if wanted \
- * @return True if found, false if not found or self == nullptr \
+ * @return True if found and out_index if provided will return the index where it was found, \
+           false if not found and out_index is untouched, or self == nullptr \
  * \
  * @note Performs a simple linear search, if performance matters, roll your own \
- *          sort and/or find functions \
+ *       sort and/or find functions \
  * \
  * @warning Return should be checked for null before usage, dereferencing it leads to UB if \
             value is not found \
@@ -702,6 +703,7 @@ static inline T* arraylist_##name##_find(const struct arraylist_##name *self, bo
     } \
     return self->data + self->size; \
 } \
+\
 static inline bool arraylist_##name##_contains(const struct arraylist_##name *self, bool (*predicate)(T*, void *), void *ctx, size_t *out_index) { \
     ARRAYLIST_ENSURE(self != nullptr && predicate != nullptr, false) \
     for (size_t i = 0; i < self->size; ++i) { \
