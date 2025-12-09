@@ -10,14 +10,14 @@
 #include "arraylist.h"
 
 // The following ARRAYLIST_DEFINE and ARRAYLIST_DECLARE may be declared on the header
-ARRAYLIST_DEFINE(int, ints)
-ARRAYLIST_DECLARE(int, ints)
+ARRAYLIST_DEF(int, ints)
+ARRAYLIST_DECL(int, ints)
 
 // ARRAYLIST_DEFINE just defined a struct that hold the type int with "ints" appended on the name
 // struct arraylist_ints
 
 // This must always be on a .c file
-ARRAYLIST_IMPLEMENT(int, ints)
+ARRAYLIST_IMPL(int, ints)
 
 // Or with the all in one macro, must be in a .c file
 // ARRAYLIST(int, ints)

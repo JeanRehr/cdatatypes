@@ -128,7 +128,7 @@ enum arraylist_error {
 #endif // ARRAYLIST_USE_ASSERT if directive
 
 /**
- * @def ARRAYLIST_DEFINE(T, name)
+ * @def ARRAYLIST_DEF(T, name)
  * @brief Defines an arraylist structure for a specific type T
  * @param T The type arraylist will hold
  * @param name The name suffix for the arraylist type
@@ -142,11 +142,11 @@ enum arraylist_error {
  *
  * @code
  * // Example: Define an arraylist for integers
- * ARRAYLIST_DEFINE(int, int)
+ * ARRAYLIST_DEF(int, int)
  * // Creates a struct named struct arraylist_int
  * @endcode
  */
-#define ARRAYLIST_DEFINE(T, name) \
+#define ARRAYLIST_DEF(T, name) \
 struct arraylist_##name { \
     T *data; \
     size_t size; \
@@ -156,12 +156,12 @@ struct arraylist_##name { \
 };
 
 /**
- * @def ARRAYLIST_DECLARE(T, name)
+ * @def ARRAYLIST_DECL(T, name)
  * @brief Declares all functions for an arraylist type
  * @param T The type arraylist will hold
  * @param name The name suffix for the arraylist type
  */
-#define ARRAYLIST_DECLARE(T, name) \
+#define ARRAYLIST_DECL(T, name) \
 /**
  * @brief Creates a new arraylist \
  * @param alloc Custom allocator instance, if null, default alloc will be used \
@@ -426,17 +426,16 @@ ARRAYLIST_UNUSED static inline enum arraylist_error arraylist_##name##_clear(str
 ARRAYLIST_UNUSED static inline enum arraylist_error arraylist_##name##_deinit(struct arraylist_##name *self);
 
 /**
- * @def ARRAYLIST_IMPLEMENT(T, name)
+ * @def ARRAYLIST_IMPL(T, name)
  * @brief Implements all functions for an arraylist type
  * @param T The type arraylist will hold
  * @param name The name suffix for the arraylist type
  *
- * Implements the functions of the ARRAYLIST_DECLARE macro
+ * Implements the functions of the ARRAYLIST_DECL macro
  *
  * @note This macro should be used in a .c file, not in a header
- *
  */ 
-#define ARRAYLIST_IMPLEMENT(T, name) \
+#define ARRAYLIST_IMPL(T, name) \
 /* =========================== PRIVATE FUNCTIONS =========================== */ \
 /** \
  * @brief Static function that deals with capacity and (re)alloc if necessary \
@@ -751,11 +750,10 @@ static inline enum arraylist_error arraylist_##name##_deinit(struct arraylist_##
  * @brief Helper macro to define, declare and implement all in one \
  * @param T The type arraylist will hold
  * @param name The name suffix for the arraylist type
- *
  */
 #define ARRAYLIST(T, name)\
-ARRAYLIST_DEFINE(T, name) \
-ARRAYLIST_DECLARE(T, name) \
-ARRAYLIST_IMPLEMENT(T, name)
+ARRAYLIST_DEF(T, name) \
+ARRAYLIST_DECL(T, name) \
+ARRAYLIST_IMPL(T, name)
 
 #endif // ARRAYLIST_H
