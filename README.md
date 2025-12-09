@@ -58,7 +58,9 @@ Destructor functions are critical for correct memory handling of heap allocated 
 
 All arraylist functions are safe to call on nullptr or deinitialized arraylist, unless assert is decided to be used.
 
-Full example on arraylist/src/test.c
+Unit tests on arraylist/src/test.c
+
+Examples on arraylist/src/example.c
 
 # Custom Allocators
 
