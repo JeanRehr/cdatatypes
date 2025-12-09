@@ -416,15 +416,15 @@ static void test_arraylist_insert_at(void) {
 
     struct test add1;
     test_ctor(&add1, 10, 0.5, "add1");
-    arraylist_test_push_back(&arrlisttest, add1);
+    arraylist_test_insert_at(&arrlisttest, add1, 0);
 
     struct test add2;
     test_ctor(&add2, 11, 0.6, "add2");
-    arraylist_test_push_back(&arrlisttest, add2);
+    arraylist_test_insert_at(&arrlisttest, add2, 1);
 
     struct test add3;
     test_ctor(&add3, 12, 0.7, "add3");
-    arraylist_test_push_back(&arrlisttest, add3);
+    arraylist_test_insert_at(&arrlisttest, add3, 2);
 
     assert(arrlisttest.size == 3);
 
@@ -462,6 +462,7 @@ static void test_arraylist_insert_at(void) {
     test_ctor(&add8, 17, 0.7, "add8");
     arraylist_test_insert_at(&arrlisttest, add8, add8_index_pos); // index 7, should be last
     assert(strcmp(arrlisttest.data[arrlisttest.size - 1].objname, add8.objname) == 0);
+    assert(strcmp(arraylist_test_back(&arrlisttest)->objname, add8.objname) == 0);
     assert(arrlisttest.size == 8);
 
     arraylist_test_deinit(&arrlisttest);
