@@ -9,8 +9,6 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 # Set sources and include directories
 include_directories(include)
 
-# Allocator src is needed by allocator header
-set(ALLOCATOR_SRC allocator/src/allocator.c)
 set(ARRAYLIST_TEST_SRC arraylist/src/test.c)
 set(ARRAYLIST_EXAMPLE_SRC arraylist/src/example.c)
 
@@ -69,10 +67,10 @@ endif()
 
 # Executables
 # Arraylist unit tests executable
-add_executable(test_arraylist ${ALLOCATOR_SRC} ${ARRAYLIST_TEST_SRC})
+add_executable(test_arraylist ${ARRAYLIST_TEST_SRC})
 
 # Arraylist examples executable
-add_executable(example_arraylist ${ALLOCATOR_SRC} ${ARRAYLIST_EXAMPLE_SRC})
+add_executable(example_arraylist ${ARRAYLIST_EXAMPLE_SRC})
 
 # Output directory
 set_target_properties(test_arraylist PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
