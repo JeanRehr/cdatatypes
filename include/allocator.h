@@ -1,11 +1,12 @@
 /**
  * @file allocator.h
- * @brief Allocator interface to support custom allocators. 
+ * @brief Single-header allocator interface to support custom allocators. 
  */
 #ifndef ALLOCATOR_H
 #define ALLOCATOR_H
 
 #include <stddef.h>
+#include <stdlib.h>
 
 /**
  * @struct Allocator
@@ -20,19 +21,43 @@ typedef struct Allocator {
 } Allocator;
 
 /**
- * @brief Initializes an Allocator to default free, realloc, and malloc from standard C library
- * 
- * @param alloc An uninitialized Allocator
- *
- * @note ctx pointer is defaulted to nullptr
+ * @brief Default malloc, uses the global malloc standard C function
  */
-void allocator_init_default(Allocator *alloc);
+static inline void *default_malloc(size_t size, void *ctx) {
+    (void)ctx;
+    return malloc(size);
+}
+
+/**
+ * @brief Default realloc, uses the global realloc standard C function
+ */
+static inline void *default_realloc(void *ptr, size_t old_size, size_t new_size, void *ctx) {
+    (void)old_size;
+    (void)ctx;
+    return realloc(ptr, new_size);
+}
+
+/**
+ * @brief Default free, uses the global free standard C function
+ */
+static inline void default_free(void *ptr, size_t size, void *ctx) {
+    (void)size;
+    (void)ctx;
+    free(ptr);
+}
 
 /**
  * @brief function that returns a default allocator
  *
- * @return A global Allocator defaulted to malloc, realloc, and free
+ * @return An Allocator defaulted to malloc, realloc, and free
  */
-Allocator *allocator_get_default(void);
+static inline Allocator allocator_get_default(void) {
+    return (Allocator) {
+        .malloc = default_malloc,
+        .realloc = default_realloc,
+        .free = default_free,
+        .ctx = nullptr,
+    };
+}
 
 #endif // ALLOCATOR_H
