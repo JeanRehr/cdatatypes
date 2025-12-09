@@ -151,7 +151,7 @@ struct arraylist_##name { \
     T *data; \
     size_t size; \
     size_t capacity; \
-    Allocator *alloc; \
+    Allocator alloc; \
     void (*destructor)(T *); \
 };
 
@@ -183,7 +183,7 @@ struct arraylist_##name { \
  * - ARRAYLIST_UNUSED static inline size_t arraylist_##name##_size(const struct arraylist_##name *self);
  * - ARRAYLIST_UNUSED static inline bool arraylist_##name##_is_empty(const struct arraylist_##name *self);
  * - ARRAYLIST_UNUSED static inline size_t arraylist_##name##_capacity(const struct arraylist_##name *self);
- * - ARRAYLIST_UNUSED static inline Allocator* arraylist_##name##_get_allocator(const struct arraylist_##name *self);
+ * - ARRAYLIST_UNUSED static inline Allocator* arraylist_##name##_get_allocator(struct arraylist_##name *self);
  * - ARRAYLIST_UNUSED static inline enum arraylist_error arraylist_##name##_swap(struct arraylist_##name *self, struct arraylist_##name *other);
  * - ARRAYLIST_UNUSED static inline enum arraylist_error arraylist_##name##_clear(struct arraylist_##name *self);
  * - ARRAYLIST_UNUSED static inline enum arraylist_error arraylist_##name##_deinit(struct arraylist_##name *self);
@@ -421,7 +421,7 @@ ARRAYLIST_UNUSED static inline size_t arraylist_##name##_capacity(const struct a
  * @param self Pointer to the arraylist \
  * @return The allocator \
  */ \
-ARRAYLIST_UNUSED static inline Allocator* arraylist_##name##_get_allocator(const struct arraylist_##name *self); \
+ARRAYLIST_UNUSED static inline Allocator* arraylist_##name##_get_allocator(struct arraylist_##name *self); \
 /**
  * @brief Swaps the contents of arraylist self with other \
  * @param self Pointer to the arraylist \
@@ -487,9 +487,9 @@ static inline enum arraylist_error arraylist_##name##_double_capacity(struct arr
     ARRAYLIST_ENSURE(new_capacity <= SIZE_MAX / sizeof(T), ARRAYLIST_ERR_OVERFLOW) \
     T *new_data = nullptr; \
     if (self->data == nullptr) { \
-        new_data = self->alloc->malloc(new_capacity * sizeof(T), self->alloc->ctx); \
+        new_data = self->alloc.malloc(new_capacity * sizeof(T), self->alloc.ctx); \
     } else { \
-        new_data = self->alloc->realloc(self->data, self->capacity * sizeof(T), new_capacity * sizeof(T), self->alloc->ctx); \
+        new_data = self->alloc.realloc(self->data, self->capacity * sizeof(T), new_capacity * sizeof(T), self->alloc.ctx); \
     } \
     ARRAYLIST_ENSURE(new_data != nullptr, ARRAYLIST_ERR_ALLOC) \
     self->data = new_data; \
@@ -501,7 +501,7 @@ static inline enum arraylist_error arraylist_##name##_double_capacity(struct arr
 static inline struct arraylist_##name arraylist_##name##_init(Allocator *alloc, void (*destructor)(T *)) { \
     struct arraylist_##name arraylist = {0}; \
     if (alloc) { \
-        arraylist.alloc = alloc; \
+        arraylist.alloc = *alloc; \
     } else { \
         arraylist.alloc = allocator_get_default(); \
     } \
@@ -533,9 +533,9 @@ static inline enum arraylist_error arraylist_##name##_reserve(struct arraylist_#
     ARRAYLIST_ENSURE(capacity <= SIZE_MAX / sizeof(T), ARRAYLIST_ERR_OVERFLOW); \
     T *new_data = nullptr; \
     if (self->capacity == 0) { \
-        new_data = self->alloc->malloc(capacity * sizeof(T), self->alloc->ctx); \
+        new_data = self->alloc.malloc(capacity * sizeof(T), self->alloc.ctx); \
     } else { \
-        new_data = self->alloc->realloc(self->data, self->capacity * sizeof(T), capacity * sizeof(T), self->alloc->ctx); \
+        new_data = self->alloc.realloc(self->data, self->capacity * sizeof(T), capacity * sizeof(T), self->alloc.ctx); \
     } \
     ARRAYLIST_ENSURE(new_data != nullptr, ARRAYLIST_ERR_ALLOC) \
     self->data = new_data; \
@@ -563,12 +563,12 @@ static inline enum arraylist_error arraylist_##name##_shrink_to_fit(struct array
         return ARRAYLIST_OK; \
     } \
     if (self->size == 0) { \
-        self->alloc->free(self->data, self->capacity * sizeof(T), self->alloc->ctx); \
+        self->alloc.free(self->data, self->capacity * sizeof(T), self->alloc.ctx); \
         self->data = nullptr; \
         self->capacity = 0; \
         return ARRAYLIST_OK; \
     }\
-    T *new_data = self->alloc->realloc(self->data, self->capacity * sizeof(T), self->size * sizeof(T), self->alloc->ctx); \
+    T *new_data = self->alloc.realloc(self->data, self->capacity * sizeof(T), self->size * sizeof(T), self->alloc.ctx); \
     ARRAYLIST_ENSURE(new_data != nullptr, ARRAYLIST_ERR_ALLOC) \
     self->data = new_data; \
     self->capacity = self->size; \
@@ -730,8 +730,8 @@ static inline size_t arraylist_##name##_capacity(const struct arraylist_##name *
     return self->capacity; \
 } \
 \
-static inline Allocator* arraylist_##name##_get_allocator(const struct arraylist_##name *self) { \
-    return self->alloc; \
+static inline Allocator* arraylist_##name##_get_allocator(struct arraylist_##name *self) { \
+    return &self->alloc; \
 } \
 \
 static inline enum arraylist_error arraylist_##name##_swap(struct arraylist_##name *self, struct arraylist_##name *other) { \
@@ -765,7 +765,7 @@ static inline enum arraylist_error arraylist_##name##_deinit(struct arraylist_##
             self->destructor(&self->data[i]); \
         } \
     } \
-    self->alloc->free(self->data, self->capacity * sizeof(T), self->alloc->ctx); \
+    self->alloc.free(self->data, self->capacity * sizeof(T), self->alloc.ctx); \
     self->data = nullptr; \
     self->size = 0; \
     self->capacity = 0; \
@@ -898,7 +898,7 @@ ARRAYLIST_IMPL(T, name)
     ARRAYLIST_UNUSED static inline size_t name##_capacity(const struct arraylist_##name *self) { \
         return arraylist_##name##_capacity(self); \
     } \
-    ARRAYLIST_UNUSED static inline Allocator* name##_get_allocator(const struct arraylist_##name *self) { \
+    ARRAYLIST_UNUSED static inline Allocator* name##_get_allocator(struct arraylist_##name *self) { \
         return arraylist_##name##_get_allocator(self); \
     } \
     ARRAYLIST_UNUSED static inline enum arraylist_error name##_swap(struct arraylist_##name *self, struct arraylist_##name *other) { \
