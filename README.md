@@ -1,12 +1,12 @@
 # C Data Structures
 
-This is (will be) a collection of generic, macro-based container data structures for C, with a custom allocator support and test coverage.
+This is (WIP) a collection of generic, macro-based container data structures for the C language, with a custom allocator support and test coverage.
 
-Currently, only an arraylist (c++ vector) is implemented, can be used with any C (user or not) type, including value types and pointers.
+Currently, only an arraylist (c++ vector) is implemented, can be used with any C (custom user or not) type, including value types and pointers.
 
 The container itself is memory-safe (at least that I know of) with clear destruction patterns and ownership semantics, but the user can write unsafe code to operate on it, like operating directly on the data buffer.
 
-Compiled with C23, but should work with C99 with minimal changes, changing nullptr, bool, false, and true to their counterparts in C99 should do the trick
+Compiled with C23, but should work with C99 with minimal changes, changing nullptr, bool, false, true, and constexpr to their counterparts in C99 should do the trick
 
 # Requirements
 
@@ -15,9 +15,7 @@ Compiled with C23, but should work with C99 with minimal changes, changing nullp
 
 ## Build & Run
 
-By default uses CMake.
-
-## Step-by-step
+### Step-by-step
 
 1. Clone the repo
     - `$ git clone`
@@ -30,7 +28,7 @@ By default uses CMake.
 3. Build
     - `$ cmake --build .`
 4. Run
-    - `$ ./bin/test_arraylist`
+    - `$ ./bin/*(.exe)`
 
 # Extra note for Windows
 
