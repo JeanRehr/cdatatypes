@@ -56,7 +56,7 @@ static inline Allocator allocator_get_default(void) {
         .malloc = default_malloc,
         .realloc = default_realloc,
         .free = default_free,
-        .ctx = nullptr,
+        .ctx = NULL,
     };
 }
 

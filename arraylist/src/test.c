@@ -72,7 +72,7 @@ static void test_ptr_dtor(struct test **t) {
 
     test_dtor(*t);
     free(*t); 
-    *t = nullptr;
+    *t = NULL;
 }
 
 static void test_move_constructor(struct test *dst, struct test *src) {
@@ -80,16 +80,16 @@ static void test_move_constructor(struct test *dst, struct test *src) {
     dst->b = src->b;
     dst->objname = src->objname;
 
-    src->a = nullptr;
-    src->b = nullptr;
-    src->objname = nullptr;
+    src->a = NULL;
+    src->b = NULL;
+    src->objname = NULL;
 }
 
 ARRAYLIST(struct test, test)
 
 static void test_arraylist_init_and_deinit(void) {
     printf("Testing arraylist init and deinit functions.\n");
-    struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
+    struct arraylist_test arrlisttest = arraylist_test_init(NULL, test_dtor);
     assert(arrlisttest.destructor);
     assert(&arrlisttest.alloc);
     assert(arrlisttest.capacity == 0);
@@ -99,7 +99,7 @@ static void test_arraylist_init_and_deinit(void) {
     arraylist_test_deinit(&arrlisttest);
     assert(!arrlisttest.data);
 
-    arrlisttest = arraylist_test_init(nullptr, test_dtor);
+    arrlisttest = arraylist_test_init(NULL, test_dtor);
     assert(arrlisttest.destructor);
     assert(&arrlisttest.alloc);
     assert(arrlisttest.capacity == 0);
@@ -113,7 +113,7 @@ static void test_arraylist_init_and_deinit(void) {
 
 static void test_arraylist_init_with_capacity(void) {
     printf("Testing arraylist init_with_capacity function.\n");
-    struct arraylist_test arrlisttest = arraylist_test_init_with_capacity(nullptr, test_dtor, 10);
+    struct arraylist_test arrlisttest = arraylist_test_init_with_capacity(NULL, test_dtor, 10);
     assert(arrlisttest.destructor);
     assert(&arrlisttest.alloc);
     assert(arrlisttest.capacity == 10);
@@ -124,7 +124,7 @@ static void test_arraylist_init_with_capacity(void) {
     assert(!arrlisttest.data);
     assert(arrlisttest.capacity == 0);
 
-    arrlisttest = arraylist_test_init_with_capacity(nullptr, test_dtor, 0);
+    arrlisttest = arraylist_test_init_with_capacity(NULL, test_dtor, 0);
     assert(arrlisttest.destructor);
     assert(&arrlisttest.alloc);
     assert(arrlisttest.capacity == 0);
@@ -138,7 +138,7 @@ static void test_arraylist_init_with_capacity(void) {
 
 static void test_arraylist_reserve(void) {
     printf("Testing arraylist reserve function.\n");
-    struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
+    struct arraylist_test arrlisttest = arraylist_test_init(NULL, test_dtor);
 
     size_t cap = 10;
 
@@ -151,7 +151,7 @@ static void test_arraylist_reserve(void) {
 
 static void test_arraylist_shrink_size(void) {
     printf("Testing arraylist shrink_size function.\n");
-    struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
+    struct arraylist_test arrlisttest = arraylist_test_init(NULL, test_dtor);
 
     struct test add1;
     struct test add2;
@@ -188,7 +188,7 @@ static void test_arraylist_shrink_size(void) {
 
 static void test_arraylist_shrink_to_fit(void) {
     printf("Testing arraylist shrink_to_fit function.\n");
-    struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
+    struct arraylist_test arrlisttest = arraylist_test_init(NULL, test_dtor);
 
     struct test add1;
     struct test add2;
@@ -223,7 +223,7 @@ static void test_arraylist_shrink_to_fit(void) {
 
 static void test_arraylist_push_back(void) {
     printf("Testing arraylist push_back function.\n");
-    struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
+    struct arraylist_test arrlisttest = arraylist_test_init(NULL, test_dtor);
 
 
     struct test add1;
@@ -306,14 +306,14 @@ static void test_arraylist_push_back(void) {
 
 static void test_arraylist_emplace_back_slot(void) {
     printf("Testing arraylist emplace_back_slot function.\n");
-    struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
+    struct arraylist_test arrlisttest = arraylist_test_init(NULL, test_dtor);
 
     // ways that emplace_back can be used with arraylist of values:
 
     // can be added like this, most efficient as it is constructed inside the container:
     struct test *add1 = arraylist_test_emplace_back_slot(&arrlisttest);
 
-    // emplace_back_slot may return nullptr, needs to be checked in real scenarios
+    // emplace_back_slot may return NULL, needs to be checked in real scenarios
     if (!add1) {
         assert(false && "emplace back returned null");
     }
@@ -412,7 +412,7 @@ static void test_arraylist_emplace_back_slot(void) {
 
 static void test_arraylist_insert_at(void) {
     printf("Testing arraylist insert_at function.\n");
-    struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
+    struct arraylist_test arrlisttest = arraylist_test_init(NULL, test_dtor);
 
     struct test add1;
     test_ctor(&add1, 10, 0.5, "add1");
@@ -471,7 +471,7 @@ static void test_arraylist_insert_at(void) {
 
 static void test_arraylist_pop_back(void) {
     printf("Testing arraylist pop_back function.\n");
-    struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
+    struct arraylist_test arrlisttest = arraylist_test_init(NULL, test_dtor);
 
     struct test add1;
     struct test add2;
@@ -511,7 +511,7 @@ static void test_arraylist_pop_back(void) {
 
 static void test_arraylist_remove_at(void) {
     printf("Testing arraylist remove_at function.\n");
-    struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
+    struct arraylist_test arrlisttest = arraylist_test_init(NULL, test_dtor);
 
     struct test add1;
     test_ctor(&add1, 10, 0.5, "add1");
@@ -580,7 +580,7 @@ static void test_arraylist_remove_at(void) {
 
 static void test_arraylist_remove_from_to(void) {
     printf("Testing arraylist remove_from_to function.\n");
-    struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
+    struct arraylist_test arrlisttest = arraylist_test_init(NULL, test_dtor);
 
     struct test add1;
     test_ctor(&add1, 10, 0.5, "add1");
@@ -653,7 +653,7 @@ static void test_arraylist_remove_from_to(void) {
 
 static void test_arraylist_at(void) {
     printf("Testing arraylist at function.\n");
-    struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
+    struct arraylist_test arrlisttest = arraylist_test_init(NULL, test_dtor);
 
     struct test add1;
     test_ctor(&add1, 10, 0.5, "add1");
@@ -682,7 +682,7 @@ static void test_arraylist_at(void) {
 
 static void test_arraylist_begin(void) {
     printf("Testing arraylist begin function.\n");
-    struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
+    struct arraylist_test arrlisttest = arraylist_test_init(NULL, test_dtor);
 
     struct test add1;
     test_ctor(&add1, 10, 0.5, "add1");
@@ -703,7 +703,7 @@ static void test_arraylist_begin(void) {
 
 static void test_arraylist_back(void) {
     printf("Testing arraylist back function.\n");
-    struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
+    struct arraylist_test arrlisttest = arraylist_test_init(NULL, test_dtor);
 
     struct test add1;
     test_ctor(&add1, 10, 0.5, "add1");
@@ -727,7 +727,7 @@ static void test_arraylist_back(void) {
 
 static void test_arraylist_end(void) {
     printf("Testing arraylist end function.\n");
-    struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
+    struct arraylist_test arrlisttest = arraylist_test_init(NULL, test_dtor);
 
     struct test add1;
     test_ctor(&add1, 10, 0.5, "add1");
@@ -761,7 +761,7 @@ bool test_pred_find_name(struct test *a, void *name) {
 
 static void test_arraylist_find(void) {
     printf("Testing arraylist find function.\n");
-    struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
+    struct arraylist_test arrlisttest = arraylist_test_init(NULL, test_dtor);
 
     struct test add1;
     test_ctor(&add1, 10, 0.5, "add1");
@@ -786,7 +786,7 @@ static void test_arraylist_find(void) {
 
 static void test_arraylist_contains(void) {
     printf("Testing arraylist contains function.\n");
-    struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
+    struct arraylist_test arrlisttest = arraylist_test_init(NULL, test_dtor);
 
     struct test add1;
     test_ctor(&add1, 10, 0.5, "add1");
@@ -813,7 +813,7 @@ static void test_arraylist_contains(void) {
 
 static void test_arraylist_size(void) {
     printf("Testing arraylist end function.\n");
-    struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
+    struct arraylist_test arrlisttest = arraylist_test_init(NULL, test_dtor);
     assert(arraylist_test_size(&arrlisttest) == 0);
 
     struct test add1;
@@ -832,7 +832,7 @@ static void test_arraylist_size(void) {
 
 static void test_arraylist_is_empty(void) {
     printf("Testing arraylist end function.\n");
-    struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
+    struct arraylist_test arrlisttest = arraylist_test_init(NULL, test_dtor);
     assert(arraylist_test_is_empty(&arrlisttest));
 
     struct test add1;
@@ -849,7 +849,7 @@ static void test_arraylist_is_empty(void) {
 
 static void test_arraylist_capacity(void) {
     printf("Testing arraylist end function.\n");
-    struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
+    struct arraylist_test arrlisttest = arraylist_test_init(NULL, test_dtor);
     assert(arraylist_test_capacity(&arrlisttest) == 0);
 
     arraylist_test_reserve(&arrlisttest, 2);
@@ -880,8 +880,8 @@ static void test_arraylist_capacity(void) {
 
 static void test_arraylist_swap(void) {
     printf("Testing arraylist end function.\n");
-    struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
-    struct arraylist_test otherarr = arraylist_test_init(nullptr, test_dtor);
+    struct arraylist_test arrlisttest = arraylist_test_init(NULL, test_dtor);
+    struct arraylist_test otherarr = arraylist_test_init(NULL, test_dtor);
 
     struct test add1;
     test_ctor(&add1, 10, 0.5, "add1");
@@ -936,7 +936,7 @@ static void test_arraylist_swap(void) {
 
 static void test_arraylist_clear(void) {
     printf("Testing arraylist end function.\n");
-    struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
+    struct arraylist_test arrlisttest = arraylist_test_init(NULL, test_dtor);
 
     struct test add1;
     test_ctor(&add1, 10, 0.5, "add1");
@@ -966,7 +966,7 @@ static bool allocator_test_equality(const Allocator *a, const Allocator *b) {
 
 static void test_arraylist_get_allocator_default(void) {
     printf("Testing arraylist get_allocator default function.\n");
-    struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor); // Init default allocator
+    struct arraylist_test arrlisttest = arraylist_test_init(NULL, test_dtor); // Init default allocator
 
     Allocator def = allocator_get_default();
 
@@ -980,7 +980,7 @@ static void test_arraylist_get_allocator_default(void) {
 /*
 static void test_arraylist_insert_from_to(void) {
     printf("Testing arraylist insert_from_to function.\n");
-    struct arraylist_test arrlisttest = arraylist_test_init(nullptr, test_dtor);
+    struct arraylist_test arrlisttest = arraylist_test_init(NULL, test_dtor);
 
     arraylist_test_deinit(&arrlisttest);
     assert(false);
@@ -993,7 +993,7 @@ ARRAYLIST(struct test*, test_ptr)
 
 static void test_arraylist_ptr_push_back(void) {
     printf("Testing arraylist_ptr push_back function.\n");
-    struct arraylist_test_ptr arrlisttestptr = arraylist_test_ptr_init(nullptr, test_ptr_dtor);
+    struct arraylist_test_ptr arrlisttestptr = arraylist_test_ptr_init(NULL, test_ptr_dtor);
 
     struct test *add1 = malloc(sizeof(struct test));
     test_ctor(add1, 10, 0.5, "add1");
@@ -1041,7 +1041,7 @@ static void test_arraylist_ptr_push_back(void) {
 
 static void test_arraylist_ptr_emplace_back_slot(void) {
     printf("Testing arraylist_ptr emplace_back_slot function.\n");
-    struct arraylist_test_ptr arrlisttestptr = arraylist_test_ptr_init(nullptr, test_ptr_dtor);
+    struct arraylist_test_ptr arrlisttestptr = arraylist_test_ptr_init(NULL, test_ptr_dtor);
 
     // ways that emplace_back can be used with arraylist of pointers to values:
 
@@ -1104,14 +1104,14 @@ static void test_simple_ptr_dtor(struct test_simple **t) {
     }
 
     free(*t); 
-    *t = nullptr;
+    *t = NULL;
 }
 
 ARRAYLIST(struct test_simple, test_simple)
 
 static void test_simple_arraylist_push_back(void) {
     printf("Testing arraylist push_back function.\n");
-    struct arraylist_test_simple arrlisttest = arraylist_test_simple_init(nullptr, nullptr);
+    struct arraylist_test_simple arrlisttest = arraylist_test_simple_init(NULL, NULL);
 
 
     struct test_simple add1;
@@ -1194,14 +1194,14 @@ static void test_simple_arraylist_push_back(void) {
 
 static void test_simple_arraylist_emplace_back_slot(void) {
     printf("Testing arraylist emplace_back_slot function.\n");
-    struct arraylist_test_simple arrlisttest = arraylist_test_simple_init(nullptr, nullptr);
+    struct arraylist_test_simple arrlisttest = arraylist_test_simple_init(NULL, NULL);
 
     // ways that emplace_back can be used with arraylist of values:
 
     // can be added like this, most efficient as it is constructed inside the container:
     struct test_simple *add1 = arraylist_test_simple_emplace_back_slot(&arrlisttest);
 
-    // emplace_back_slot may return nullptr, needs to be checked in real scenarios
+    // emplace_back_slot may return NULL, needs to be checked in real scenarios
     if (!add1) {
         assert(false && "emplace back returned null");
     }
@@ -1301,7 +1301,7 @@ ARRAYLIST(struct test_simple*, test_simple_ptr)
 
 static void test_simple_arraylist_ptr_push_back(void) {
     printf("Testing arraylist_ptr push_back function.\n");
-    struct arraylist_test_simple_ptr arrlisttestptr = arraylist_test_simple_ptr_init(nullptr, test_simple_ptr_dtor);
+    struct arraylist_test_simple_ptr arrlisttestptr = arraylist_test_simple_ptr_init(NULL, test_simple_ptr_dtor);
 
     struct test_simple *add1 = malloc(sizeof(struct test_simple));
     test_simple_ctor(add1, 10, 0.5, 1);
@@ -1351,7 +1351,7 @@ static void test_simple_arraylist_ptr_push_back(void) {
 
 static void test_simple_arraylist_ptr_emplace_back_slot(void) {
     printf("Testing arraylist_ptr emplace_back_slot function.\n");
-    struct arraylist_test_simple_ptr arrlisttestptr = arraylist_test_simple_ptr_init(nullptr, test_simple_ptr_dtor);
+    struct arraylist_test_simple_ptr arrlisttestptr = arraylist_test_simple_ptr_init(NULL, test_simple_ptr_dtor);
 
     // ways that emplace_back can be used with arraylist of pointers to values:
 
@@ -1402,8 +1402,8 @@ static void test_arraylist_bufferoverflow() {
 }
 
 void *my_malloc(size_t n, void *p) { return n ? 0 : p; }
-void *my_realloc(void *, size_t, size_t n, void *p) { return n ? 0 : p; }
-void my_free(void *, size_t, void *) {}
+void *my_realloc(void *p, size_t s, size_t n, void *ctx) { return n ? 0 : p; (void)ctx; (void)s; }
+void my_free(void *p, size_t s, void *ctx) { (void)p; (void)s; (void)ctx; }
 Allocator alloc = {my_malloc, my_realloc, my_free, (void *)16};
 
 static void test_arraylist_allocating_zero() {
@@ -1428,31 +1428,31 @@ static void test_arraylist_get_custom_allocator() {
 }
 
 static void test_passing_nullptr_to_functions() {
-    printf("test passing nullptr to functions.\n");
+    printf("test passing NULL to functions.\n");
     // If using asserts instead of return codes in the library, then the following functions
     // will fail not here, but inside the library, at the first call to reserve
-    assert(arraylist_long_reserve(nullptr, 0) == ARRAYLIST_ERR_NULL);
-    assert(arraylist_long_shrink_size(nullptr, 0) == ARRAYLIST_ERR_NULL);
-    assert(arraylist_long_shrink_to_fit(nullptr) == ARRAYLIST_ERR_NULL);
-    assert(arraylist_long_push_back(nullptr, 0) == ARRAYLIST_ERR_NULL);
-    assert(arraylist_long_emplace_back_slot(nullptr) == nullptr);
-    assert(arraylist_long_insert_at(nullptr, 0, 0) == ARRAYLIST_ERR_NULL);
-    assert(arraylist_long_pop_back(nullptr) == ARRAYLIST_ERR_NULL);
-    assert(arraylist_long_remove_at(nullptr, 0) == ARRAYLIST_ERR_NULL);
-    assert(arraylist_long_remove_from_to(nullptr, 0, 0) == ARRAYLIST_ERR_NULL);
-    assert(arraylist_long_at(nullptr, 0) == nullptr);
-    assert(arraylist_long_begin(nullptr) == nullptr);
-    assert(arraylist_long_back(nullptr) == nullptr);
-    assert(arraylist_long_end(nullptr) == nullptr);
-    assert(arraylist_long_find(nullptr, nullptr, nullptr) == nullptr);
-    assert(arraylist_long_contains(nullptr, nullptr, nullptr, nullptr) == false);
-    assert(arraylist_long_size(nullptr) == 0);
-    assert(arraylist_long_is_empty(nullptr) == false);
-    assert(arraylist_long_capacity(nullptr) == 0);
-    assert(arraylist_long_swap(nullptr, nullptr) == ARRAYLIST_ERR_NULL);
-    assert(arraylist_long_clear(nullptr) == ARRAYLIST_OK);
-    assert(arraylist_long_deinit(nullptr) == ARRAYLIST_OK);
-    printf("test passing nullptr to functions passed.\n");
+    assert(arraylist_long_reserve(NULL, 0) == ARRAYLIST_ERR_NULL);
+    assert(arraylist_long_shrink_size(NULL, 0) == ARRAYLIST_ERR_NULL);
+    assert(arraylist_long_shrink_to_fit(NULL) == ARRAYLIST_ERR_NULL);
+    assert(arraylist_long_push_back(NULL, 0) == ARRAYLIST_ERR_NULL);
+    assert(arraylist_long_emplace_back_slot(NULL) == NULL);
+    assert(arraylist_long_insert_at(NULL, 0, 0) == ARRAYLIST_ERR_NULL);
+    assert(arraylist_long_pop_back(NULL) == ARRAYLIST_ERR_NULL);
+    assert(arraylist_long_remove_at(NULL, 0) == ARRAYLIST_ERR_NULL);
+    assert(arraylist_long_remove_from_to(NULL, 0, 0) == ARRAYLIST_ERR_NULL);
+    assert(arraylist_long_at(NULL, 0) == NULL);
+    assert(arraylist_long_begin(NULL) == NULL);
+    assert(arraylist_long_back(NULL) == NULL);
+    assert(arraylist_long_end(NULL) == NULL);
+    assert(arraylist_long_find(NULL, NULL, NULL) == NULL);
+    assert(arraylist_long_contains(NULL, NULL, NULL, NULL) == false);
+    assert(arraylist_long_size(NULL) == 0);
+    assert(arraylist_long_is_empty(NULL) == false);
+    assert(arraylist_long_capacity(NULL) == 0);
+    assert(arraylist_long_swap(NULL, NULL) == ARRAYLIST_ERR_NULL);
+    assert(arraylist_long_clear(NULL) == ARRAYLIST_OK);
+    assert(arraylist_long_deinit(NULL) == ARRAYLIST_OK);
+    printf("test passing NULL to functions passed.\n");
 }
 
 int main(void) {

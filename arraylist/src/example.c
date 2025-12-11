@@ -52,10 +52,10 @@ int main(void) {
     /* == Example with a simple type like int == */
 {
     // Creates a zero initialized arraylist that holds ints named int_vec with default allocator and no destructor
-    struct arraylist_ints int_vec = arraylist_ints_init(nullptr, nullptr);
+    struct arraylist_ints int_vec = arraylist_ints_init(NULL, NULL);
     // May be created with capacity if wanted, but can't be tested for failure
     // if reserving fails due to buffer overflow or allocation failure, it will zero initialize
-    // struct arraylist_ints int_vec = arraylist_ints_init_with_capacity(nullptr, nullptr, 10);
+    // struct arraylist_ints int_vec = arraylist_ints_init_with_capacity(NULL, NULL, 10);
 
     // Alternatively capacity may be reserved to minimize allocations
     arraylist_ints_reserve(&int_vec, 16);
@@ -86,7 +86,7 @@ int main(void) {
 
     // may use an additional variable for testing before usage
     int *slot = arraylist_ints_emplace_back_slot(&int_vec);
-    assert(slot != nullptr);
+    assert(slot != NULL);
 
     *slot = 30;
 
@@ -182,7 +182,7 @@ int main(void) {
 
     // Swaps arraylists
     
-    struct arraylist_ints other = arraylist_ints_init(nullptr, nullptr);
+    struct arraylist_ints other = arraylist_ints_init(NULL, NULL);
     *arraylist_ints_emplace_back_slot(&other) = 1000;
     *arraylist_ints_emplace_back_slot(&other) = 2000;
 

@@ -6,11 +6,9 @@ Currently, only an arraylist (c++ vector) is implemented, can be used with any C
 
 The container itself is memory-safe (at least that I know of) with clear destruction patterns and ownership semantics, but the user can write unsafe code to operate on it, like operating directly on the data buffer.
 
-Compiled with C23, but should work with C99 with minimal changes, changing nullptr, bool, false, true, and constexpr to their counterparts in C99 should do the trick
-
 # Requirements
 
-- C Compiler supporting C23 (or C99 with minimal changes)
+- C Compiler (compiled with C99)
 - CMake (3.20+)
 
 ## Build & Run
@@ -49,14 +47,14 @@ ARRAYLIST(struct mytype, mytype)
 ### Initialize:
 
 ```c
-struct arraylist_mytype arr = arraylist_mytype_init(nullptr, mytype_dtor);
+struct arraylist_mytype arr = arraylist_mytype_init(NULL, mytype_dtor);
 // use arr
 arraylist_mytyoe_deinit(&arr);
 ```
 
 Destructor functions are critical for correct memory handling of heap allocated fields inside structs, if your type doesn't allocate anything inside it, no need for a destructor.
 
-All arraylist functions are safe to call on nullptr or deinitialized arraylist, unless assert is decided to be used.
+All arraylist functions are safe to call on NULL or deinitialized arraylist, unless assert is decided to be used.
 
 Unit tests on arraylist/src/test.c
 
