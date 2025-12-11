@@ -1389,7 +1389,7 @@ static void test_simple_arraylist_ptr_emplace_back_slot(void) {
 
 ARRAYLIST(long, long)
 
-static void test_arraylist_bufferoverflow() {
+static void test_arraylist_bufferoverflow(void) {
     printf("arraylist size_t buffer overflow test.\n");
     struct arraylist_long xs = arraylist_long_init(0, 0);
     assert(arraylist_long_reserve(&xs, 0x8000000000000001) == ARRAYLIST_ERR_OVERFLOW);
@@ -1406,7 +1406,7 @@ void *my_realloc(void *p, size_t s, size_t n, void *ctx) { return n ? 0 : p; (vo
 void my_free(void *p, size_t s, void *ctx) { (void)p; (void)s; (void)ctx; }
 Allocator alloc = {my_malloc, my_realloc, my_free, (void *)16};
 
-static void test_arraylist_allocating_zero() {
+static void test_arraylist_allocating_zero(void) {
     printf("arraylist custom alloc allocating zero.\n");
     struct arraylist_long xs_alloc = arraylist_long_init(&alloc, 0);
 
@@ -1416,7 +1416,7 @@ static void test_arraylist_allocating_zero() {
     printf("arraylist custom alloc allocating zero passed.\n");
 }
 
-static void test_arraylist_get_custom_allocator() {
+static void test_arraylist_get_custom_allocator(void) {
     printf("test arraylist getting custom allocator.\n");
     struct arraylist_long xs_alloc = arraylist_long_init(&alloc, 0);
 
@@ -1427,7 +1427,7 @@ static void test_arraylist_get_custom_allocator() {
     printf("arraylist getting custom allocator passed.\n");
 }
 
-static void test_passing_nullptr_to_functions() {
+static void test_passing_nullptr_to_functions(void) {
     printf("test passing NULL to functions.\n");
     // If using asserts instead of return codes in the library, then the following functions
     // will fail not here, but inside the library, at the first call to reserve
