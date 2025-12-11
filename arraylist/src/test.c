@@ -812,7 +812,7 @@ static void test_arraylist_contains(void) {
 }
 
 static void test_arraylist_size(void) {
-    printf("Testing arraylist end function.\n");
+    printf("Testing arraylist size function.\n");
     struct arraylist_test arrlisttest = arraylist_test_init(NULL, test_dtor);
     assert(arraylist_test_size(&arrlisttest) == 0);
 
@@ -827,11 +827,11 @@ static void test_arraylist_size(void) {
     assert(arraylist_test_size(&arrlisttest) == 2);
 
     arraylist_test_deinit(&arrlisttest);
-    printf("arraylist end passed all tests.\n");
+    printf("arraylist size passed all tests.\n");
 }
 
 static void test_arraylist_is_empty(void) {
-    printf("Testing arraylist end function.\n");
+    printf("Testing arraylist is empty function.\n");
     struct arraylist_test arrlisttest = arraylist_test_init(NULL, test_dtor);
     assert(arraylist_test_is_empty(&arrlisttest));
 
@@ -844,11 +844,11 @@ static void test_arraylist_is_empty(void) {
     assert(arraylist_test_is_empty(&arrlisttest));
 
     arraylist_test_deinit(&arrlisttest);
-    printf("arraylist end passed all tests.\n");
+    printf("arraylist is empty passed all tests.\n");
 }
 
 static void test_arraylist_capacity(void) {
-    printf("Testing arraylist end function.\n");
+    printf("Testing arraylist capacity function.\n");
     struct arraylist_test arrlisttest = arraylist_test_init(NULL, test_dtor);
     assert(arraylist_test_capacity(&arrlisttest) == 0);
 
@@ -875,11 +875,11 @@ static void test_arraylist_capacity(void) {
     assert(arraylist_test_capacity(&arrlisttest) == 4);
 
     arraylist_test_deinit(&arrlisttest);
-    printf("arraylist end passed all tests.\n");
+    printf("arraylist capacity passed all tests.\n");
 }
 
 static void test_arraylist_swap(void) {
-    printf("Testing arraylist end function.\n");
+    printf("Testing arraylist swap function.\n");
     struct arraylist_test arrlisttest = arraylist_test_init(NULL, test_dtor);
     struct arraylist_test otherarr = arraylist_test_init(NULL, test_dtor);
 
@@ -923,15 +923,58 @@ static void test_arraylist_swap(void) {
     assert(arrlisttest_first_p == arraylist_test_begin(&otherarr));
     assert(otherarr_first_p == arraylist_test_begin(&arrlisttest));
 
-    size_t i = 0;
-    for (struct test *it = arraylist_test_begin(&arrlisttest); it < arraylist_test_end(&arrlisttest); ++it) {
-        test_print(&arrlisttest.data[i]);
-        ++i;
+    {
+        size_t i = 0;
+        for (struct test *it = arraylist_test_begin(&arrlisttest); it < arraylist_test_end(&arrlisttest); ++it) {
+            test_print(&arrlisttest.data[i]);
+            ++i;
+        }
     }
 
     arraylist_test_deinit(&arrlisttest);
     arraylist_test_deinit(&otherarr);
-    printf("arraylist end passed all tests.\n");
+    printf("arraylist swap passed all tests.\n");
+}
+
+static bool comparator_test(struct test *a, struct test *b) {
+    return *a->a < *b->a;
+}
+
+static void test_arraylist_qsort(void) {
+    printf("Testing arraylist qsort function.\n");
+    struct arraylist_test arrlisttest = arraylist_test_init(NULL, test_dtor);
+
+    // Should be second after sort
+    *arraylist_test_emplace_back_slot(&arrlisttest) = test_ctor_by_val(1, 0.1, "add1");
+    // Should be fourth after sort
+    *arraylist_test_emplace_back_slot(&arrlisttest) = test_ctor_by_val(3, 0.2, "add2");
+    // Should be sixth after sort
+    *arraylist_test_emplace_back_slot(&arrlisttest) = test_ctor_by_val(5, 0.3, "add3");
+    // Should be fifth after sort
+    *arraylist_test_emplace_back_slot(&arrlisttest) = test_ctor_by_val(4, 0.4, "add4");
+    // Should be third after sort
+    *arraylist_test_emplace_back_slot(&arrlisttest) = test_ctor_by_val(2, 0.5, "add5");
+    // Should be first after sort
+    *arraylist_test_emplace_back_slot(&arrlisttest) = test_ctor_by_val(-1, 0.6, "add6");
+
+    assert(strcmp(arrlisttest.data[0].objname, "add1") == 0);
+    assert(strcmp(arrlisttest.data[1].objname, "add2") == 0);
+    assert(strcmp(arrlisttest.data[2].objname, "add3") == 0);
+    assert(strcmp(arrlisttest.data[3].objname, "add4") == 0);
+    assert(strcmp(arrlisttest.data[4].objname, "add5") == 0);
+    assert(strcmp(arrlisttest.data[5].objname, "add6") == 0);
+
+    arraylist_test_qsort(&arrlisttest, comparator_test);
+
+    assert(strcmp(arrlisttest.data[0].objname, "add6") == 0);
+    assert(strcmp(arrlisttest.data[1].objname, "add1") == 0);
+    assert(strcmp(arrlisttest.data[2].objname, "add5") == 0);
+    assert(strcmp(arrlisttest.data[3].objname, "add2") == 0);
+    assert(strcmp(arrlisttest.data[4].objname, "add4") == 0);
+    assert(strcmp(arrlisttest.data[5].objname, "add3") == 0);
+
+    arraylist_test_deinit(&arrlisttest);
+    printf("arraylist qsort passed all tests.\n");
 }
 
 static void test_arraylist_clear(void) {
@@ -1478,6 +1521,7 @@ int main(void) {
     test_arraylist_capacity();
     test_arraylist_get_allocator_default();
     test_arraylist_swap();
+    test_arraylist_qsort();
     test_arraylist_clear();
 
     test_simple_arraylist_push_back();
