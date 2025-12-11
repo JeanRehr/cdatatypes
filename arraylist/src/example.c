@@ -47,6 +47,16 @@ bool find_arraylist_int(int *t, void *find) {
     return false;
 }
 
+// To test the sorting algorithm
+bool comp_ascend(int *i, int *j) {
+    return *i < *j;
+}
+
+// To test the sorting algorithm
+bool comp_descend(int *i, int *j) {
+    return *i > *j;
+}
+
 int main(void) {
 
     /* == Example with a simple type like int == */
@@ -218,6 +228,36 @@ int main(void) {
 
     if (found) {
         printf("value found at index %lu\n", index);
+    }
+
+    /* == SORT FUNCTION == */
+    arraylist_ints_clear(&int_vec);
+    arraylist_ints_reserve(&int_vec, 5);
+
+    *arraylist_ints_emplace_back_slot(&int_vec) = 3;
+    *arraylist_ints_emplace_back_slot(&int_vec) = 5;
+    *arraylist_ints_emplace_back_slot(&int_vec) = 1;
+    *arraylist_ints_emplace_back_slot(&int_vec) = -2;
+    *arraylist_ints_emplace_back_slot(&int_vec) = 6;
+
+    for (size_t i = 0; i < int_vec.size; i++) {
+        printf("index %lu value %d\n", i, int_vec.data[i]);
+    }
+
+    arraylist_ints_qsort(&int_vec, comp_ascend);
+
+    printf("\n");
+
+    for (size_t i = 0; i < int_vec.size; i++) {
+        printf("index %lu value %d\n", i, int_vec.data[i]);
+    }
+
+    arraylist_ints_qsort(&int_vec, comp_descend);
+
+    printf("\n");
+
+    for (size_t i = 0; i < int_vec.size; i++) {
+        printf("index %lu value %d\n", i, int_vec.data[i]);
     }
 
     // Must be called when done
