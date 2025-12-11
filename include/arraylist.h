@@ -432,6 +432,14 @@ ARRAYLIST_UNUSED static inline Allocator* arraylist_##name##_get_allocator(struc
  */ \
 ARRAYLIST_UNUSED static inline enum arraylist_error arraylist_##name##_swap(struct arraylist_##name *self, struct arraylist_##name *other); \
 /**
+ * @brief Sorts the self based on the given comp function \
+ * @param self Pointer to the arraylist \
+ * @return ARRAYLIST_ERR_NULL if self == null, otherwise ARRAYLIST_OK \
+ * \
+ * @note Performs a simple quicksort, pivot is always the last element, if performance matters, roll your own sort functions \
+ */ \
+ARRAYLIST_UNUSED static inline enum arraylist_error arraylist_##name##_qsort(struct arraylist_##name *self, bool (*comp)(T*, T*)); \
+/**
  * @brief Clears the arraylist's data \
  * @param self Pointer to the arraylist \
  * @return ARRAYLIST_ERR_NULL in case of NULL being passed, or ARRAYLIST_OK \
@@ -466,7 +474,7 @@ ARRAYLIST_UNUSED static inline enum arraylist_error arraylist_##name##_deinit(st
  */ 
 #define ARRAYLIST_IMPL(T, name) \
 /* =========================== PRIVATE FUNCTIONS =========================== */ \
-/** \
+/**
  * @brief Static function that deals with capacity and (re)alloc if necessary \
  * @param self Pointer to the arraylist to deinit \
  * @return ARRAYLIST_OK if successful, ARRAYLIST_ERR_OVERFLOW if buffer will overflow, \
@@ -499,6 +507,52 @@ static inline enum arraylist_error arraylist_##name##_double_capacity(struct arr
     return ARRAYLIST_OK; \
 } \
 \
+/** \
+ * @brief Simple swap function \
+ */ \
+static inline void arraylist_##name##_swap_elems(T *a, T *b) { \
+    T tmp = *a; \
+    *a = *b; \
+    *b = tmp; \
+} \
+\
+/** \
+ * @brief Helper function to use in the sort algo \
+ */ \
+static inline size_t arraylist_##name##_partition_buffer(struct arraylist_##name *self, size_t low, size_t high, bool (*comp)(T*, T*)) { \
+    T *pivot = &self->data[high]; \
+    size_t i = low; \
+    \
+    /* Traverse buffer */ \
+    for (size_t j = low; j < high; ++j) { \
+        if (comp(&self->data[j], pivot)) { \
+            /* Move elements to the left side */ \
+            arraylist_##name##_swap_elems(&self->data[i], &self->data[j]); \
+            ++i; \
+        } \
+    } \
+    \
+    /* Move pivot after smaller elements and return its position */ \
+    arraylist_##name##_swap_elems(&self->data[i], &self->data[high]); \
+    return i; \
+} \
+\
+/** \
+ * @brief Helper recursive function for the sort algo \
+ */ \
+static inline void arraylist_##name##_helper_qsort(struct arraylist_##name *self, size_t low, size_t high, bool (*comp)(T*, T*)) { \
+    if (low < high) { \
+        /* part_idx is the parition return index of pivot */ \
+        size_t part_idx = arraylist_##name##_partition_buffer(self, low, high, comp); \
+        /* prevent a size_t underflow */ \
+        if (part_idx > 0) { \
+            /* recursion calls for smaller elements */ \
+            arraylist_##name##_helper_qsort(self, low, part_idx - 1, comp); \
+        } \
+        /* greater elements */ \
+        arraylist_##name##_helper_qsort(self, part_idx + 1, high, comp); \
+    } \
+} \
 /* =========================== PUBLIC FUNCTIONS =========================== */ \
 static inline struct arraylist_##name arraylist_##name##_init(Allocator *alloc, void (*destructor)(T *)) { \
     struct arraylist_##name arraylist = {0}; \
@@ -743,6 +797,13 @@ static inline enum arraylist_error arraylist_##name##_swap(struct arraylist_##na
     struct arraylist_##name temp = *other; \
     *other = *self; \
     *self = temp; \
+    return ARRAYLIST_OK; \
+} \
+ARRAYLIST_UNUSED static inline enum arraylist_error arraylist_##name##_qsort(struct arraylist_##name *self, bool (*comp)(T*, T*)) { \
+    ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL) \
+    if (self->size > 1) { \
+        arraylist_##name##_helper_qsort(self, 0, self->size - 1, comp); \
+    } \
     return ARRAYLIST_OK; \
 } \
 \
