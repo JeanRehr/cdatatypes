@@ -973,6 +973,9 @@ ARRAYLIST_IMPL(T, name)
     ARRAYLIST_UNUSED static inline enum arraylist_error name##_swap(struct arraylist_##name *self, struct arraylist_##name *other) { \
         return arraylist_##name##_swap(self, other); \
     } \
+    ARRAYLIST_UNUSED static inline enum arraylist_error name##_qsort(struct arraylist_##name *self, bool (*comp)(T*, T*)) { \
+        return arraylist_##name##_qsort(self, comp); \
+    } \
     ARRAYLIST_UNUSED static inline enum arraylist_error name##_clear(struct arraylist_##name *self) { \
         return arraylist_##name##_clear(self); \
     } \
