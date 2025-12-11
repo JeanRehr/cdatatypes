@@ -436,7 +436,8 @@ ARRAYLIST_UNUSED static inline enum arraylist_error arraylist_##name##_swap(stru
  * @param self Pointer to the arraylist \
  * @return ARRAYLIST_ERR_NULL if self == null, otherwise ARRAYLIST_OK \
  * \
- * @note Performs a simple quicksort, pivot is always the last element, if performance matters, roll your own sort functions \
+ * @note Performs a simple quicksort, non-stable, pivot is always the last element, \
+ *       if performance matters, roll your own sort functions \
  */ \
 ARRAYLIST_UNUSED static inline enum arraylist_error arraylist_##name##_qsort(struct arraylist_##name *self, bool (*comp)(T*, T*)); \
 /**
@@ -475,7 +476,8 @@ ARRAYLIST_UNUSED static inline enum arraylist_error arraylist_##name##_deinit(st
 #define ARRAYLIST_IMPL(T, name) \
 /* =========================== PRIVATE FUNCTIONS =========================== */ \
 /**
- * @brief Static function that deals with capacity and (re)alloc if necessary \
+ * @private \
+ * @brief Function that deals with capacity and (re)alloc if necessary \
  * @param self Pointer to the arraylist to deinit \
  * @return ARRAYLIST_OK if successful, ARRAYLIST_ERR_OVERFLOW if buffer will overflow, \
  *         or ARRAYLIST_ERR_NULL if allocation failure \
@@ -508,6 +510,7 @@ static inline enum arraylist_error arraylist_##name##_double_capacity(struct arr
 } \
 \
 /** \
+ * @private \
  * @brief Simple swap function \
  */ \
 static inline void arraylist_##name##_swap_elems(T *a, T *b) { \
@@ -517,6 +520,7 @@ static inline void arraylist_##name##_swap_elems(T *a, T *b) { \
 } \
 \
 /** \
+ * @private \
  * @brief Helper function to use in the sort algo \
  */ \
 static inline size_t arraylist_##name##_partition_buffer(struct arraylist_##name *self, size_t low, size_t high, bool (*comp)(T*, T*)) { \
@@ -538,6 +542,7 @@ static inline size_t arraylist_##name##_partition_buffer(struct arraylist_##name
 } \
 \
 /** \
+ * @private \
  * @brief Helper recursive function for the sort algo \
  */ \
 static inline void arraylist_##name##_helper_qsort(struct arraylist_##name *self, size_t low, size_t high, bool (*comp)(T*, T*)) { \
