@@ -91,10 +91,10 @@
 #   define ARRAYLIST_UNUSED
 #endif
 
-#include <stdbool.h>
-#include <stdint.h>
+#include <stdbool.h> // For bool, true, false
+#include <stdint.h> // For SIZE_MAX
 
-#include "allocator.h"
+#include <allocator.h> // For a custom Allocator interface
 
 #define initial_cap 1
 

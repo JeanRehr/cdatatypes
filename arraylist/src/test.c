@@ -11,7 +11,7 @@
 // variable ARRAYLIST_USE_ASSERT as 1, it must be before arraylist.h is included
 // Uncomment next line to use asserts
 //#define ARRAYLIST_USE_ASSERT 1
-#include "arraylist.h"
+#include <arraylist.h>
 
 struct test {
     char *objname;
@@ -75,15 +75,15 @@ static void test_ptr_dtor(struct test **t) {
     *t = NULL;
 }
 
-static void test_move_constructor(struct test *dst, struct test *src) {
-    dst->a = src->a;
-    dst->b = src->b;
-    dst->objname = src->objname;
+// static void test_move_constructor(struct test *dst, struct test *src) {
+//     dst->a = src->a;
+//     dst->b = src->b;
+//     dst->objname = src->objname;
 
-    src->a = NULL;
-    src->b = NULL;
-    src->objname = NULL;
-}
+//     src->a = NULL;
+//     src->b = NULL;
+//     src->objname = NULL;
+// }
 
 ARRAYLIST(struct test, test)
 
