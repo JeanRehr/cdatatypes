@@ -91,7 +91,7 @@ char *read_line(FILE *stream, Allocator const *const alloc) {
     size_t len = 0;
     char *buf = alloc->malloc(bufsize, alloc->ctx);
 
-    if (!buf) return NULL;
+    if (!buf) {return NULL;}
 
     int c;
     while ((c = fgetc(stream)) != EOF) {
@@ -166,7 +166,7 @@ void vec_str_print(struct arraylist_vec_str const * const vec_str) {
 int main(void) {
     Allocator gpa = allocator_get_default();
 
-    /* == Example with a vector of strings == */
+    /* == Example with a vector of strings (char *, not a "type" string) == */
 {
     struct arraylist_vec_str names = vec_str_init(&gpa, vec_str_destructor);
 
@@ -182,7 +182,7 @@ int main(void) {
     size_t len;
     char *str;
     {
-        const static char *s = "TESTING";
+        static const char *s = "TESTING";
         len = strlen(s);
         str = gpa.malloc(sizeof(len + 1), gpa.ctx);
         memcpy(str, s, len + 1);
