@@ -1,6 +1,22 @@
 cmake_minimum_required(VERSION 3.20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Add an option for the user to use MSVC or clang
+option(USE_CLANG_CL "Use clang-cl as a compiler on Windows (if available)" ON)
+
+# Detect compiler on Windows
+if(WIN32)
+    find_program(CLANG_CL_EXE clang-cl)
+    if(CLANG_CL_EXE AND USE_CLANG_CL)
+        message(STATUS "clang-cl detected and USE_CLANG_CL=ON: using clang as C compiler on Windows")
+        set(CMAKE_C_COMPILER "${CLANG_CL_EXE}" CACHE STRING "C Compiler" FORCE)
+    elseif(CLANG_CL_EXE AND NOT USE_CLANG_CL)
+        message(STATUS "USE_CLANG_CL=OFF: using MSVC")
+    elseif(NOT CLANG_CL_EXE)
+        message(STATUS "clang-cl not detected, using MSVC")
+    endif()
+endif()
+
 project(cdatatypes LANGUAGES C)
 
 set(CMAKE_C_STANDARD 99)
@@ -15,22 +31,24 @@ set(ARRAYLIST_EXAMPLE_SRC arraylist/src/example.c)
 # Build types
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release;Sanitizer" CACHE STRING "" FORCE)
 
-if(WIN32)
-    find_program(CLANG_CL_EXECUTABLE clang-cl)
-    if(CLANG_CL_EXECUTABLE)
-        set(CMAKE_C_COMPILER "${CLANG_CL_EXECUTABLE}")
-        message(STATUS "Using clang-cl as C compiler on Windows")
-    else()
-        message(FATAL_ERROR "clang-cl not found! Install LLVM/Clang for Windows and ensure clang-cl on PATH")
-    endif()
-
+# Compiler and flags
+if (MSVC AND CMAKE_C_COMPILER_ID MATCHES "Clang")
     # MSVC/clang-cl flags
+    message(STATUS "Configuring flags for clang-cl on Windows")
+    set(BASE_FLAGS "/W4 /Zi")
+    set(DEBUG_FLAGS "/Od /RTC1 /MDd")
+    set(RELEASE_FLAGS "/O2 /DNDEBUG /MD")
+    set(SAN_FLAGS "/fsanitize=address /Zi /Od /MDd")
+elseif(MSVC)
+    # MSVC flags
+    message(STATUS "Configuring flags for MSVC on Windows")
     set(BASE_FLAGS "/W4 /Zi")
     set(DEBUG_FLAGS "/Od /RTC1 /MDd")
     set(RELEASE_FLAGS "/O2 /DNDEBUG /MD")
     set(SAN_FLAGS "/fsanitize=address /Zi /Od /MDd")
 else()
     # gcc/clang flags
+    message(STATUS "Configuring flags for GCC/Clang on *nix")
 
     # All possible sanitizers, as far as I searched:
     #-fsanitize=address -fsanitize=leak -fsanitize=undefined -fsanitize=memory -fsanitize=thread
@@ -51,6 +69,11 @@ else()
     set(SAN_FLAGS "-fsanitize=address,undefined -fno-omit-frame-pointer -O0")
 endif()
 
+# Set default build type
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Debug CACHE STRING "Choose the type of build." FORCE)
+endif()
+
 # Set flags depending on build type
 if(CMAKE_BUILD_TYPE MATCHES "[Dd]ebug")
     set(CMAKE_C_FLAGS "${BASE_FLAGS} ${DEBUG_FLAGS}")
@@ -64,6 +87,8 @@ elseif(CMAKE_BUILD_TYPE MATCHES "[Ss]anitizer")
 else()
     message(WARNING "Unknown build type: ${CMAKE_BUILD_TYPE}")
 endif()
+
+message(STATUS "Used build type: ${CMAKE_BUILD_TYPE}")
 
 # Executables
 # Arraylist unit tests executable
@@ -80,7 +105,7 @@ set_target_properties(example_arraylist PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CM
 target_include_directories(test_arraylist PRIVATE "${PROJECT_SOURCE_DIR}/include")
 target_include_directories(example_arraylist PRIVATE "${PROJECT_SOURCE_DIR}/include")
 
-# Debug build is default
+# The default is set on the section "# Set default build type"
 # $cmake ..
 
 # For Release build:
@@ -88,6 +113,11 @@ target_include_directories(example_arraylist PRIVATE "${PROJECT_SOURCE_DIR}/incl
 
 # For Sanitizer build (ASan/UBSan):
 # $cmake -DCMAKE_BUILD_TYPE=Sanitizer ..
+
+# For Debug build:
+# $cmake -DCMAKE_BUILD_TYPE=Debug ..
+
+# If on Windows and want to force MSVC use the option -DUSE_CLANG_CL=OFF
 
 # $cmake --build .
 # Executables will be on build/bin/*(.exe)

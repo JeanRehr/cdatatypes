@@ -104,7 +104,7 @@ bool find_partial_string(char **a, void *find) {
 // Reads a line from a stream into a dynamically allocated string (without \n)
 // Will read until EOF
 // Returns malloced char* on success which the caller must free, or null on eof or error
-char *read_line(FILE *stream, Allocator const *const alloc) {
+char *read_line(FILE *stream, Allocator const * const alloc) {
     size_t bufsize = 2;
     size_t len = 0;
     char *buf = alloc->malloc(bufsize, alloc->ctx);
