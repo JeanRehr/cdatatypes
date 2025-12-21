@@ -2,6 +2,7 @@
  * @file test.c
  * @brief Unit tests for the arraylist.h file
  */
+#include "allocator.h"
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -55,23 +56,23 @@ static void test_print(struct test *t) {
     printf("t->objname = %s\n", t->objname);
 }
 
-static void test_dtor(struct test *t) {
+static void test_dtor(struct test *t, Allocator *alloc) {
     //printf("Destructor called for obj named %s!\n", t->objname);
     if(!t) {
         return;
     }
     
-    free(t->a);
-    free(t->b);
+    alloc->free(t->a, sizeof(t->a), alloc->ctx);
+    alloc->free(t->b, sizeof(t->b), alloc->ctx);
 }
 
-static void test_ptr_dtor(struct test **t) {
+static void test_ptr_dtor(struct test **t, Allocator *alloc) {
     if(!t || !*t) {
         return;
     }
 
-    test_dtor(*t);
-    free(*t); 
+    test_dtor(*t, alloc);
+    alloc->free(*t, sizeof(*t), alloc->ctx); 
     *t = NULL;
 }
 
@@ -1141,12 +1142,12 @@ static struct test_simple test_simple_ctor_by_val(int a, float b, size_t id) {
     return t;
 }
 
-static void test_simple_ptr_dtor(struct test_simple **t) {
+static void test_simple_ptr_dtor(struct test_simple **t, Allocator *alloc) {
     if(!t || !*t) {
         return;
     }
 
-    free(*t); 
+    alloc->free(*t, sizeof(*t), alloc->ctx); 
     *t = NULL;
 }
 

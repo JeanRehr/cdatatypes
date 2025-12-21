@@ -141,6 +141,9 @@ enum arraylist_error {
  * - "alloc": Pointer to custom alloc, if not provided, def alloc from allocator.h will be used
  * - "destructor": Function pointer to a destructor that knows how to free type T
  *
+ * @note Allocator passed to destructor function must be the same as the Allocator in the init
+ *       function
+ *
  * @code
  * // Example: Define an arraylist for integers
  * ARRAYLIST_DEF(int, ints)
@@ -153,7 +156,7 @@ struct arraylist_##name { \
     size_t size; \
     size_t capacity; \
     Allocator alloc; \
-    void (*destructor)(T *); \
+    void (*destructor)(T *, Allocator *alloc); \
 };
 
 /**
@@ -201,7 +204,7 @@ struct arraylist_##name { \
  * \
  * @warning Call arraylist_##name##deinit() when done. \
  */ \
-ARRAYLIST_UNUSED static inline struct arraylist_##name arraylist_##name##_init(Allocator *alloc, void (*destructor)(T *)); \
+ARRAYLIST_UNUSED static inline struct arraylist_##name arraylist_##name##_init(Allocator *alloc, void (*destructor)(T *, Allocator *alloc)); \
 /**
  * @brief Creates a new arraylist with a given capacity \
  * @param alloc Custom allocator instance, if null, default alloc will be used \
@@ -216,7 +219,7 @@ ARRAYLIST_UNUSED static inline struct arraylist_##name arraylist_##name##_init(A
  * \
  * @warning Call arraylist_##name##deinit() when done. \
  */ \
-ARRAYLIST_UNUSED static inline struct arraylist_##name arraylist_##name##_init_with_capacity(Allocator *alloc, void (*destructor)(T *), size_t capacity); \
+ARRAYLIST_UNUSED static inline struct arraylist_##name arraylist_##name##_init_with_capacity(Allocator *alloc, void (*destructor)(T *, Allocator *alloc), size_t capacity); \
 /**
  * @brief Reserves the capacity of an arraylist \
  * @param self Pointer to the arraylist \
@@ -559,7 +562,7 @@ static inline void arraylist_##name##_helper_qsort(struct arraylist_##name *self
     } \
 } \
 /* =========================== PUBLIC FUNCTIONS =========================== */ \
-static inline struct arraylist_##name arraylist_##name##_init(Allocator *alloc, void (*destructor)(T *)) { \
+static inline struct arraylist_##name arraylist_##name##_init(Allocator *alloc, void (*destructor)(T *, Allocator *alloc)) { \
     struct arraylist_##name arraylist = {0}; \
     if (alloc) { \
         arraylist.alloc = *alloc; \
@@ -573,7 +576,7 @@ static inline struct arraylist_##name arraylist_##name##_init(Allocator *alloc, 
     return arraylist; \
 } \
 \
-static inline struct arraylist_##name arraylist_##name##_init_with_capacity(Allocator *alloc, void (*destructor)(T *), size_t capacity) { \
+static inline struct arraylist_##name arraylist_##name##_init_with_capacity(Allocator *alloc, void (*destructor)(T *, Allocator *alloc), size_t capacity) { \
     struct arraylist_##name arraylist = {0}; \
     arraylist = arraylist_##name##_init(alloc, destructor); \
     if (capacity > 0) { \
@@ -611,7 +614,7 @@ static inline enum arraylist_error arraylist_##name##_shrink_size(struct arrayli
     } \
     if (self->destructor) { \
         for (size_t i = size; i < self->size; i++) { \
-            self->destructor(&self->data[i]); \
+            self->destructor(&self->data[i], &self->alloc); \
         } \
     } \
     self->size = size; \
@@ -684,7 +687,7 @@ static inline enum arraylist_error arraylist_##name##_pop_back(struct arraylist_
         return ARRAYLIST_OK; \
     } \
     if (self->destructor) { \
-        self->destructor(&self->data[self->size - 1]); \
+        self->destructor(&self->data[self->size - 1], &self->alloc); \
     } \
     --self->size; \
     return ARRAYLIST_OK; \
@@ -696,7 +699,7 @@ static inline enum arraylist_error arraylist_##name##_remove_at(struct arraylist
         return arraylist_##name##_pop_back(self); \
     } \
     if (self->destructor) { \
-        self->destructor(&self->data[index]); \
+        self->destructor(&self->data[index], &self->alloc); \
     } \
     for (size_t i = index; i <= self->size - 1; ++i) { \
         self->data[i] = self->data[i + 1]; \
@@ -719,7 +722,7 @@ static inline enum arraylist_error arraylist_##name##_remove_from_to(struct arra
     size_t num_to_remove = to - from + 1; \
     if (self->destructor) { \
         for (size_t i = from; i <= to; ++i) { \
-            self->destructor(&self->data[i]); \
+            self->destructor(&self->data[i], &self->alloc); \
         } \
     } \
     \
@@ -818,7 +821,7 @@ static inline enum arraylist_error arraylist_##name##_clear(struct arraylist_##n
     } \
     if (self->destructor) { \
         for (size_t i = 0; i < self->size; ++i) { \
-            self->destructor(&self->data[i]); \
+            self->destructor(&self->data[i], &self->alloc); \
         } \
     } \
     self->size = 0; \
@@ -831,7 +834,7 @@ static inline enum arraylist_error arraylist_##name##_deinit(struct arraylist_##
     } \
     if (self->destructor) { \
         for (size_t i = 0; i < self->size; ++i) { \
-            self->destructor(&self->data[i]); \
+            self->destructor(&self->data[i], &self->alloc); \
         } \
     } \
     self->alloc.free(self->data, self->capacity * sizeof(T), self->alloc.ctx); \
@@ -907,10 +910,10 @@ ARRAYLIST_IMPL(T, name)
  * @param name The name suffix for the arraylist type
  */
 #define ARRAYLIST_STRIP_PREFIX(T, name) \
-    ARRAYLIST_UNUSED static inline struct arraylist_##name name##_init(Allocator *alloc, void (*destructor)(T *)) { \
+    ARRAYLIST_UNUSED static inline struct arraylist_##name name##_init(Allocator *alloc, void (*destructor)(T *, Allocator *alloc)) { \
         return arraylist_##name##_init(alloc, destructor); \
     } \
-    ARRAYLIST_UNUSED static inline struct arraylist_##name name##_init_with_capacity(Allocator *alloc, void (*destructor)(T *), size_t capacity) { \
+    ARRAYLIST_UNUSED static inline struct arraylist_##name name##_init_with_capacity(Allocator *alloc, void (*destructor)(T *, Allocator *alloc), size_t capacity) { \
         return arraylist_##name##_init_with_capacity(alloc, destructor, capacity); \
     } \
     ARRAYLIST_UNUSED static inline enum arraylist_error name##_reserve(struct arraylist_##name *self, const size_t capacity) { \
