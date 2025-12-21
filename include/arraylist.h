@@ -189,6 +189,7 @@ struct arraylist_##name { \
  * - ARRAYLIST_UNUSED static inline size_t arraylist_##name##_capacity(const struct arraylist_##name *self);
  * - ARRAYLIST_UNUSED static inline Allocator* arraylist_##name##_get_allocator(struct arraylist_##name *self);
  * - ARRAYLIST_UNUSED static inline enum arraylist_error arraylist_##name##_swap(struct arraylist_##name *self, struct arraylist_##name *other);
+ * - ARRAYLIST_UNUSED static inline enum arraylist_error arraylist_##name##_qsort(struct arraylist_##name *self, bool (*comp)(T*, T*));
  * - ARRAYLIST_UNUSED static inline enum arraylist_error arraylist_##name##_clear(struct arraylist_##name *self);
  * - ARRAYLIST_UNUSED static inline enum arraylist_error arraylist_##name##_deinit(struct arraylist_##name *self);
  */
@@ -397,9 +398,6 @@ ARRAYLIST_UNUSED static inline T* arraylist_##name##_find(const struct arraylist
  * \
  * @note Performs a simple linear search, if performance matters, roll your own \
  *       sort and/or find functions \
- * \
- * @warning Return should be checked for null before usage, dereferencing it leads to UB if \
-            value is not found \
  */ \
 ARRAYLIST_UNUSED static inline bool arraylist_##name##_contains(const struct arraylist_##name *self, bool (*predicate)(T*, void *), void *ctx, size_t *out_index); \
 /**
