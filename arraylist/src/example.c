@@ -2,6 +2,7 @@
  * @file example.c
  * @brief Example usage on how to use the arraylist.h
  */
+#include <ctype.h>
 #include <inttypes.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -67,6 +68,14 @@ ARRAYLIST_DECL(char *, vec_str)
 ARRAYLIST_IMPL(char *, vec_str)
 ARRAYLIST_STRIP_PREFIX(char *, vec_str)
 
+// Allocates a char * from src, caller must free it
+static char *heap_alloc_from_str_lit(const char *src, Allocator *alloc) {
+    size_t len = strlen(src);
+    char *dup = alloc->malloc(len+1, alloc->ctx);
+    if (dup) memcpy(dup, src, len+1);
+    return dup;
+}
+
 void vec_str_destructor(char **p, Allocator *alloc) {
     if (p && *p) {
         alloc->free(*p, sizeof(**p), alloc->ctx);
@@ -127,6 +136,16 @@ int vec_str_read_lines(struct arraylist_vec_str *vec_str, FILE *stream, Allocato
     char *line;
     printf("Enter the strings (press CTRL+D to stop)> ");
     while ((line = read_line(stream, alloc)) != NULL) {
+        // To check if it is whitespace only.
+        char *p = line;
+        while (*p && isspace((unsigned char)*p)) { p++; }
+        // If the last whitespace is a null char, skip it and don't insert
+        if (*p == '\0') {
+            // not insert the empty line, free it and continue
+            alloc->free(line, strlen(line) + 1, alloc->ctx);
+            printf("Enter the strings> ");
+            continue;
+        }
         printf("Enter the strings> ");
         // emplace_back or push_back could only fail during reallocation of internal buffer
         // ownership of line allocated by read_line is passed onto the arraylist
@@ -160,13 +179,20 @@ int main(void) {
     // *vec_str_emplace_back_slot(&names) = "Testing";
 
     // manually constructing and allocating a string
-    size_t len = strlen("TESTING");
-    char *str = gpa.malloc(sizeof(len + 1), gpa.ctx);
+    size_t len;
+    char *str;
+    {
+        const static char *s = "TESTING";
+        len = strlen(s);
+        str = gpa.malloc(sizeof(len + 1), gpa.ctx);
+        memcpy(str, s, len + 1);
+    }
 
-    memcpy(str, "TESTING", len + 1);
-
+    // Once str is passed onto the arraylist, if it is provided a destructor, there is no need to worry about freeing the str
     *vec_str_emplace_back_slot(&names) = str;
 
+    // Using a constructor
+    *vec_str_emplace_back_slot(&names) = heap_alloc_from_str_lit("Full Name", &gpa);
 
     vec_str_print(&names);
 
