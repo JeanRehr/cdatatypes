@@ -2,11 +2,15 @@
  * @file example.c
  * @brief Example usage on how to use the arraylist.h
  */
+#include <inttypes.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 // If wanted to use asserts:
 // #define ARRAYLIST_USE_ASSERT 1
+#include "allocator.h"
 #include "arraylist.h"
 
 // The following ARRAYLIST_DEFINE and ARRAYLIST_DECLARE may be declared on the header
@@ -57,7 +61,117 @@ bool comp_descend(int *i, int *j) {
     return *i > *j;
 }
 
+// Example for an arraylist of strings
+ARRAYLIST_DEF(char *, vec_str)
+ARRAYLIST_DECL(char *, vec_str)
+ARRAYLIST_IMPL(char *, vec_str)
+ARRAYLIST_STRIP_PREFIX(char *, vec_str)
+
+void vec_str_destructor(char **p, Allocator *alloc) {
+    if (p && *p) {
+        alloc->free(*p, sizeof(**p), alloc->ctx);
+        *p = NULL;
+    }
+}
+
+// Reads a line from a stream into a dynamically allocated string (without \n)
+// Will read until EOF
+// Returns malloced char* on success which the caller must free, or null on eof or error
+char *read_line(FILE *stream, Allocator const *const alloc) {
+    size_t bufsize = 2;
+    size_t len = 0;
+    char *buf = alloc->malloc(bufsize, alloc->ctx);
+
+    if (!buf) return NULL;
+
+    int c;
+    while ((c = fgetc(stream)) != EOF) {
+        if (c == '\n') {
+            break;
+        }
+
+        if (len + 1 >= bufsize) { // +1 for the \0
+            size_t newsize = bufsize * 2;
+            if (newsize < bufsize) {
+                // size_t overflow
+                alloc->free(buf, bufsize, alloc->ctx);
+                return NULL;
+            }
+            char *tmp = alloc->realloc(buf, bufsize, newsize, alloc->ctx);
+            if (!tmp) {
+                alloc->free(buf, bufsize, alloc->ctx);
+                return NULL;
+            }
+            buf = tmp;
+            bufsize = newsize;
+        }
+        buf[len++] = (char) c;
+    }
+
+    // if nothing is read (user pressed enter only)
+    if (len == 0 && c == EOF) {
+        alloc->free(buf, bufsize, alloc->ctx);
+        return NULL;
+    }
+
+    buf[len] = '\0';
+    // shrink to fit
+    char *result = alloc->realloc(buf, bufsize, len+1, alloc->ctx);
+    return result ? result : buf;
+}
+
+// This will read the lines from stream and insert into the vec_str
+// Returns number of lines inserted
+int vec_str_read_lines(struct arraylist_vec_str *vec_str, FILE *stream, Allocator *alloc) {
+    size_t num_lines = 0;
+    char *line;
+    printf("Enter the strings (press CTRL+D to stop)> ");
+    while ((line = read_line(stream, alloc)) != NULL) {
+        printf("Enter the strings> ");
+        // emplace_back or push_back could only fail during reallocation of internal buffer
+        // ownership of line allocated by read_line is passed onto the arraylist
+        *vec_str_emplace_back_slot(vec_str) = line;
+        num_lines++;
+    }
+    printf("\n");
+    return (int)num_lines;
+}
+
+// Helper function to print contents of the vec_str
+void vec_str_print(struct arraylist_vec_str const * const vec_str) {
+    for (size_t i = 0; i < vec_str->size; ++i) {
+        printf("String number %zu: %s\n", i, vec_str->data[i]);
+    }
+}
+
 int main(void) {
+    Allocator gpa = allocator_get_default();
+
+    /* == Example with a vector of strings == */
+{
+    struct arraylist_vec_str names = vec_str_init(&gpa, vec_str_destructor);
+
+    // Uncomment the following line to read from terminal
+    // vec_str_read_lines(&names, stdin, &gpa);
+
+    // Inseting inside the arraylist of strings:
+
+    // The following cannot be done, it needs to be allocated on heap
+    // *vec_str_emplace_back_slot(&names) = "Testing";
+
+    // manually constructing and allocating a string
+    size_t len = strlen("TESTING");
+    char *str = gpa.malloc(sizeof(len + 1), gpa.ctx);
+
+    memcpy(str, "TESTING", len + 1);
+
+    *vec_str_emplace_back_slot(&names) = str;
+
+
+    vec_str_print(&names);
+
+    vec_str_deinit(&names);
+}
 
     /* == Example with a simple type like int == */
 {
