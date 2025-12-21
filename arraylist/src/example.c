@@ -83,6 +83,24 @@ void vec_str_destructor(char **p, Allocator *alloc) {
     }
 }
 
+bool sort_strings(char **a, char **b) {
+    return strcmp(*a, *b) < 0;
+}
+
+bool find_abs_string(char **a, void *find) {
+    if (strcmp(*a, (char *) find) == 0) {
+        return true;
+    }
+    return false;
+}
+
+bool find_partial_string(char **a, void *find) {
+    if (strstr(*a, (char *) find) != NULL) {
+        return true;
+    }
+    else return false;
+}
+
 // Reads a line from a stream into a dynamically allocated string (without \n)
 // Will read until EOF
 // Returns malloced char* on success which the caller must free, or null on eof or error
@@ -194,7 +212,27 @@ int main(void) {
     // Using a constructor
     *vec_str_emplace_back_slot(&names) = heap_alloc_from_str_lit("Full Name", &gpa);
 
+    printf("UNSORTED:\n");
     vec_str_print(&names);
+
+    vec_str_qsort(&names, sort_strings);
+    
+    printf("\n");
+
+    printf("SORTED:\n");
+    vec_str_print(&names);
+
+    if (vec_str_contains(&names, find_abs_string, "ABCSD", 0)) {
+        printf("NAME <ABCSD> FOUND!!!!!!\n");
+    } else {
+        printf("NOT FOUND!!!!!\n");
+    }
+
+    if (vec_str_contains(&names, find_partial_string, "TEST", 0)) {
+        printf("PARTIALLY FOUND <TEST>\n");
+    } else {
+        printf("NOT FOUND!!!!!\n");
+    }
 
     vec_str_deinit(&names);
 }
