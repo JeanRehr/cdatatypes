@@ -14,11 +14,13 @@
 #include "allocator.h"
 #include "arraylist.h"
 
-// The following ARRAYLIST_DEFINE and ARRAYLIST_DECLARE may be declared on the header
+/* === For arraylist of ints start === */
+
+// The following ARRAYLIST_DEF and ARRAYLIST_DECL may be declared on the header
 ARRAYLIST_DEF(int, ints)
 ARRAYLIST_DECL(int, ints)
 
-// ARRAYLIST_DEFINE just defined a struct that hold the type int with "ints" appended on the name
+// ARRAYLIST_DEF just defined a struct that hold the type int with "ints" appended on the name
 // struct arraylist_ints
 
 // This must always be on a .c file
@@ -62,6 +64,9 @@ bool comp_descend(int *i, int *j) {
     return *i > *j;
 }
 
+/* === For arraylist of ints end === */
+
+/* === For arraylist of char * start === */
 // Example for an arraylist of strings
 ARRAYLIST_DEF(char *, vec_str)
 ARRAYLIST_DECL(char *, vec_str)
@@ -98,7 +103,7 @@ bool find_partial_string(char **a, void *find) {
     if (strstr(*a, (char *) find) != NULL) {
         return true;
     }
-    else return false;
+    return false;
 }
 
 // Reads a line from a stream into a dynamically allocated string (without \n)
@@ -149,7 +154,7 @@ char *read_line(FILE *stream, Allocator const * const alloc) {
 
 // This will read the lines from stream and insert into the vec_str
 // Returns number of lines inserted
-int vec_str_read_lines(struct arraylist_vec_str *vec_str, FILE *stream, Allocator *alloc) {
+size_t vec_str_read_lines(struct arraylist_vec_str *vec_str, FILE *stream, Allocator *alloc) {
     size_t num_lines = 0;
     char *line;
     printf("Enter the strings (press CTRL+D to stop)> ");
@@ -171,7 +176,7 @@ int vec_str_read_lines(struct arraylist_vec_str *vec_str, FILE *stream, Allocato
         num_lines++;
     }
     printf("\n");
-    return (int)num_lines;
+    return num_lines;
 }
 
 // Helper function to print contents of the vec_str
@@ -181,61 +186,87 @@ void vec_str_print(struct arraylist_vec_str const * const vec_str) {
     }
 }
 
+/* === For arraylist of char * end == */
+
+/* === For arraylist of pointers to a non pod type start == */
+
+struct non_pod {
+    int *_number;
+    int *add;
+    int *sub;
+};
+
+ARRAYLIST(struct non_pod*, np)
+
+// Returns a stack allocated struct itself, with allocated members on the heap
+struct non_pod non_pod_init(Allocator *alloc, const int n, const int add, const int sub) {
+    struct non_pod np = {0};
+    np._number = alloc->malloc(sizeof(*np._number), alloc->ctx);
+    *np._number = n;
+
+    np.add = alloc->malloc(sizeof(*np.add), alloc->ctx);
+    *np.add = add;
+
+    np.sub = alloc->malloc(sizeof(*np.sub), alloc->ctx);
+    *np.sub = sub;
+
+    return np;
+}
+
+// Returns a heap allocated struct, with heap allocated members
+struct non_pod *non_pod_init_alloc(Allocator *alloc, const int n, const int add, const int sub) {
+    struct non_pod *np = alloc->malloc(sizeof(struct non_pod), alloc->ctx);
+    np->_number = malloc(sizeof(*np->_number));
+    *np->_number = n;
+
+    np->add = malloc(sizeof(*np->add));
+    *np->add = add;
+
+    np->sub = malloc(sizeof(*np->sub));
+    *np->sub = sub;
+
+    return np;
+}
+
+// Frees members of the struct
+void non_pod_deinit(struct non_pod *self, Allocator *alloc) {
+    if (!self)
+        return;
+
+    alloc->free(self->_number, sizeof(self->_number), alloc->ctx);
+    alloc->free(self->add, sizeof(self->add), alloc->ctx);
+    alloc->free(self->sub, sizeof(self->sub), alloc->ctx);
+}
+
+// Frees the heap allocated struct itself and the members of the struct
+void non_pod_deinit_ptr(struct non_pod **self, Allocator *alloc) {
+    if (!self || !*self)
+        return;
+
+    non_pod_deinit(*self, alloc);
+
+    alloc->free(*self, sizeof(*self), alloc->ctx);
+
+    *self = NULL;
+}
+
+// Example for sorting
+bool non_pod_sort(const struct non_pod * const np1, const struct non_pod * const np2) {
+    return np1->_number < np2->_number;
+}
+
+// Example for finding
+bool non_pod_find(const struct non_pod * const self, void *find) {
+    if (*self->_number == (int)(intptr_t) find) {
+        return true;
+    }
+    return false;
+}
+
+/* === For arraylist of pointers to a non pod type end == */
+
 int main(void) {
     Allocator gpa = allocator_get_default();
-
-    /* == Example with a vector of strings (char *, not a "type" string) == */
-{
-    struct arraylist_vec_str names = vec_str_init(&gpa, vec_str_destructor);
-
-    // Uncomment the following line to read from terminal
-    // vec_str_read_lines(&names, stdin, &gpa);
-
-    // Inseting inside the arraylist of strings:
-
-    // The following cannot be done, it needs to be allocated on heap
-    // *vec_str_emplace_back_slot(&names) = "Testing";
-
-    // manually constructing and allocating a string
-    size_t len;
-    char *str;
-    {
-        static const char *s = "TESTING";
-        len = strlen(s);
-        str = gpa.malloc(sizeof(len + 1), gpa.ctx);
-        memcpy(str, s, len + 1);
-    }
-
-    // Once str is passed onto the arraylist, if it is provided a destructor, there is no need to worry about freeing the str
-    *vec_str_emplace_back_slot(&names) = str;
-
-    // Using a constructor
-    *vec_str_emplace_back_slot(&names) = heap_alloc_from_str_lit("Full Name", &gpa);
-
-    printf("UNSORTED:\n");
-    vec_str_print(&names);
-
-    vec_str_qsort(&names, sort_strings);
-    
-    printf("\n");
-
-    printf("SORTED:\n");
-    vec_str_print(&names);
-
-    if (vec_str_contains(&names, find_abs_string, "ABCSD", 0)) {
-        printf("NAME <ABCSD> FOUND!!!!!!\n");
-    } else {
-        printf("NOT FOUND!!!!!\n");
-    }
-
-    if (vec_str_contains(&names, find_partial_string, "TEST", 0)) {
-        printf("PARTIALLY FOUND <TEST>\n");
-    } else {
-        printf("NOT FOUND!!!!!\n");
-    }
-
-    vec_str_deinit(&names);
-}
 
     /* == Example with a simple type like int == */
 {
@@ -440,6 +471,121 @@ int main(void) {
 
     // Must be called when done
     arraylist_ints_deinit(&int_vec);
+}
+
+    /* == Example with a vector of strings (char *, not a "type" string) == */
+{
+    struct arraylist_vec_str names = vec_str_init(&gpa, vec_str_destructor);
+
+    // Uncomment the following line to read from terminal
+    // vec_str_read_lines(&names, stdin, &gpa);
+
+    // Inseting inside the arraylist of strings:
+
+    // The following cannot be done, it needs to be allocated on heap
+    // *vec_str_emplace_back_slot(&names) = "Testing";
+
+    // manually constructing and allocating a string
+    size_t len;
+    char *str;
+    {
+        static const char *s = "TESTING";
+        len = strlen(s);
+        str = gpa.malloc(sizeof(len + 1), gpa.ctx);
+        memcpy(str, s, len + 1);
+    }
+
+    // Once str is passed onto the arraylist, if it is provided a destructor, there is no need to worry about freeing the str
+    *vec_str_emplace_back_slot(&names) = str;
+
+    // Using a constructor
+    *vec_str_emplace_back_slot(&names) = heap_alloc_from_str_lit("Full Name", &gpa);
+
+    printf("UNSORTED:\n");
+    vec_str_print(&names);
+
+    vec_str_qsort(&names, sort_strings);
+    
+    printf("\n");
+
+    printf("SORTED:\n");
+    vec_str_print(&names);
+
+    if (vec_str_contains(&names, find_abs_string, "ABCSD", 0)) {
+        printf("NAME <ABCSD> FOUND!!!!!!\n");
+    } else {
+        printf("NOT FOUND!!!!!\n");
+    }
+
+    if (vec_str_contains(&names, find_partial_string, "TEST", 0)) {
+        printf("PARTIALLY FOUND <TEST>\n");
+    } else {
+        printf("NOT FOUND!!!!!\n");
+    }
+
+    vec_str_deinit(&names);
+}
+
+    /* == Example with a vector for a pointer to non pod type == */
+{
+    struct arraylist_np vec_np = arraylist_np_init(&gpa, non_pod_deinit_ptr);
+    arraylist_np_reserve(&vec_np, 40);
+
+    // Inserting into it with emplace back slot one liner
+    // Note, slot given back must always be checked in real scenarios
+    struct non_pod **slot1 = arraylist_np_emplace_back_slot(&vec_np);
+    if (!slot1) {
+        fprintf(stderr, "Failed to get the slot\n");
+        return -1;
+    }
+    // A constructor that returns an allocated and initialized struct acts like new
+    *slot1 = non_pod_init_alloc(&gpa, 90, 80, 70);
+    if (!*slot1) {
+        fprintf(stderr, "Allocation failure\n");
+        return -1;
+    }
+
+    // One liner not testing slot or allocation
+    *arraylist_np_emplace_back_slot(&vec_np) = non_pod_init_alloc(&gpa, 940, 820, 710);
+
+    // Inserting into it with emplace back slot with a constructor that does not
+    // return an allocated struct itself
+    struct non_pod *non_pod1 = gpa.malloc(sizeof(struct non_pod), NULL);
+    // Can be tested for allocation failure
+    if (!non_pod1) {
+        fprintf(stderr, "allocation failure\n");
+        return -1;
+    }
+    
+    *non_pod1 = non_pod_init(&gpa, 999, 987, 781);
+
+    // Warning: Not checking slot here
+    *arraylist_np_emplace_back_slot(&vec_np) = non_pod1;
+
+    // Inserting into it with push_back one liner, not checking for allocation failure here
+    arraylist_np_push_back(&vec_np, non_pod_init_alloc(&gpa, 464, 422, 180));
+
+    // Inserting into it with push_back constructing first and then inserting
+    // Warning: Not testing the malloc failure here
+    struct non_pod *add1 = gpa.malloc(sizeof(struct non_pod), NULL);
+    *add1 = non_pod_init(&gpa, 228, 421, 244);
+    // Testing the result of push_back
+    if (arraylist_np_push_back(&vec_np, add1) != ARRAYLIST_OK) {
+        fprintf(stderr, "error occurred at line %d, file %s\n", __LINE__, __FILE__);
+        return -1;
+    }
+    
+    // Inserting into it with insert_at is basically the same as push_back
+
+    // inserting some values
+    for (size_t i = 0; i < vec_np.capacity; ++i) {
+        *arraylist_np_emplace_back_slot(&vec_np) = non_pod_init_alloc(&gpa, i, i * 3, i / 2);
+    }
+
+    // Rest of the functions are essentially the same thing
+
+    arraylist_np_deinit(&vec_np);
+
 }
     return 0;
 }
