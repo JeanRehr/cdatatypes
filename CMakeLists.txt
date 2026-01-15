@@ -44,7 +44,7 @@ elseif(MSVC)
     message(STATUS "Configuring flags for MSVC on Windows")
     set(BASE_FLAGS "/W4 /Zi")
     set(DEBUG_FLAGS "/Od /RTC1 /MDd")
-    set(RELEASE_FLAGS "/O2 /DNDEBUG /MD")
+    set(RELEASE_FLAGS "/O2 /DNDEBUG /LTCG /GL /MD")
     set(SAN_FLAGS "/fsanitize=address /Zi /Od /MDd")
 else()
     # gcc/clang flags
@@ -65,7 +65,7 @@ else()
 
     set(BASE_FLAGS "-Wall -Wextra -pedantic")
     set(DEBUG_FLAGS "-g3 -O0 -fno-sanitize=all")
-    set(RELEASE_FLAGS "-O3 -DNDEBUG -fno-sanitize=all")
+    set(RELEASE_FLAGS "-O3 -DNDEBUG -flto -fno-sanitize=all")
     set(SAN_FLAGS "-fsanitize=address,undefined -fno-omit-frame-pointer -O0")
 endif()
 
