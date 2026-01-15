@@ -276,7 +276,7 @@ ARRAYLIST_UNUSED static inline enum arraylist_error arraylist_##name##_push_back
  * slot->a = 42; // or call a constructor on slot \
  * @endcode \
  * \
- * For pointer types, this returns a slot for storing the pointer \
+ * For pointer types (T*), returns T** pointing to uninitialized pointer. \
  * \
  * @warning Return should be checked for null before usage \
  */ \
@@ -848,7 +848,7 @@ static inline enum arraylist_error arraylist_##name##_deinit(struct arraylist_##
  * @param T The type arraylist will hold
  * @param name The name suffix for the arraylist type
  */
-#define ARRAYLIST(T, name)\
+#define ARRAYLIST(T, name) \
 ARRAYLIST_DEF(T, name) \
 ARRAYLIST_DECL(T, name) \
 ARRAYLIST_IMPL(T, name)
