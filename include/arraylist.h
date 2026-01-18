@@ -94,7 +94,7 @@
 #include <stdbool.h> // For bool, true, false
 #include <stdint.h> // For SIZE_MAX
 
-#include <allocator.h> // For a custom Allocator interface
+#include "allocator.h" // For a custom Allocator interface
 
 #define initial_cap 1
 
