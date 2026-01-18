@@ -578,7 +578,7 @@ int main(void) {
     // Inserting into it with insert_at is basically the same as push_back
 
     // inserting some values
-    for (size_t i = 0; i < vec_np.capacity; ++i) {
+    for (size_t i = 0; i < 100; ++i) {
         *arraylist_np_emplace_back_slot(&vec_np) = non_pod_init_alloc(&gpa, i, i * 3, i / 2);
     }
 
