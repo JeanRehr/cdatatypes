@@ -11,7 +11,6 @@
 
 // If wanted to use asserts:
 // #define ARRAYLIST_USE_ASSERT 1
-#include "allocator.h"
 #include "arraylist.h"
 
 /* === For arraylist of ints start === */
