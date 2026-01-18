@@ -1,6 +1,7 @@
 **/.*
 !/.gitignore
 !/.clang-format
+!/.clangd
 
 build/*
 !build/.gitkeep
