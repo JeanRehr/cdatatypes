@@ -21,7 +21,6 @@ struct test {
 };
 
 static struct test *test_alloc_ctor(int a, float b, char *objname, Allocator *alloc) {
-    //printf("Constructor called! Creating object named %s\n", objname);
     struct test *t = alloc->malloc(sizeof(struct test), alloc->ctx);
     t->a = alloc->malloc(sizeof(a), alloc->ctx);
     *t->a = a;
@@ -34,10 +33,9 @@ static struct test *test_alloc_ctor(int a, float b, char *objname, Allocator *al
 }
 
 static void test_ctor(struct test *t, int a, float b, char *objname, Allocator *alloc) {
-    //printf("Constructor called! Creating object named %s\n", objname);
     t->a = alloc->malloc(sizeof(a), alloc->ctx);
     *t->a = a;
-    
+
     t->b = alloc->malloc(sizeof(b), alloc->ctx);
     *t->b = b;
     t->objname = objname;
@@ -58,7 +56,6 @@ static void test_print(struct test *t) {
 }
 
 static inline void test_dtor(struct test *t, Allocator *alloc) {
-    //printf("Destructor called for obj named %s!\n", t->objname);
     if (!t) {
         return;
     }
@@ -343,10 +340,10 @@ static void test_arraylist_emplace_back_slot(void) {
     if (!add3) {
         assert(false && "allocation failure");
     }
-    
+
     *add3 = test_ctor_by_val(12, 0.7, "add3", &gpa);
     printf("segmentation fault core dumped here\n");
-    
+
     // Warning: Not checking slot here
     *arraylist_test_emplace_back_slot(&arrlisttest) = add3;
 
@@ -367,7 +364,7 @@ static void test_arraylist_emplace_back_slot(void) {
 
     struct test **add6 = arraylist_test_emplace_back_slot(&arrlisttest);
     *add6 = test_alloc_ctor(16, 1.0, "add6", &gpa);
-    
+
     assert(arrlisttest.size == 6);
     assert(arrlisttest.capacity == 8);
 
@@ -820,7 +817,7 @@ static void test_arraylist_size(void) {
     printf("Testing arraylist size function.\n");
     struct Allocator gpa = allocator_get_default();
     struct arraylist_test arrlisttest = arraylist_test_init(&gpa);
-    
+
     assert(arraylist_test_size(&arrlisttest) == 0);
 
     struct test *add1 = test_alloc_ctor(10, 0.5, "add1", &gpa);
