@@ -66,6 +66,8 @@
  *     // Free internal allocated members if needed
  *     alloc->free(t->member, sizeof(t->member), alloc->ctx);
  *     // Do not free t itself, arraylist owns it
+ *     // Optionally set members to null
+ *     t->member = NULL;
  * }
  * @endcode
  *
@@ -87,6 +89,22 @@
  * The destructor function may be macro based for the non function pointer arraylist type, most
  * probably the compiler will optimize either function or macro equally, but the macro is more
  * guaranteed to be inlined.
+ *
+ * Exmaple for a destructor macro:
+ * @code
+ * #define Foo_ptr_dtor_macro(foo_dptr, alloc) \
+ * do { \
+ *     if (!foo_dptr || !*foo_dptr) { \
+ *         break; \
+ *     } \
+ *     (alloc)->free((void *)(*foo_dptr)->member, sizeof((*foo_dptr)->member), (alloc)->ctx); \
+ *     (alloc)->free(*foo_dptr, sizeof(*foo_dptr), (alloc)->ctx); \
+ *     (foo_dptr) = NULL; \
+ * } while (0)
+ * @endcode
+ *
+ * C23 typeof with _Generic and static_assert/assert may make the code safer by checking if
+ * foo_dptr is indeed of type Foo **.
  *
  * @warning Always assume that pointers are invalid after adding them to pointer containers and
  *          don't hold pointers to elements across operations that may reallocate.
@@ -1725,11 +1743,11 @@ ARRAYLIST_IMPL_FP(T, name)
  * Usage:
  * @code{.c}
  * // In a header, or at the top of a .c file:
- * ARRAYLIST_DEF(int, int_list)
- * ARRAYLIST_DECL(int, int_list)
+ * ARRAYLIST_DEF_FP(int, int_list)
+ * ARRAYLIST_DECL_FP(int, int_list)
  * // In a .c file:
- * ARRAYLIST_IMPL(int, int_list)
- * ARRAYLIST_STRIP_PREFIX(int, int_list)
+ * ARRAYLIST_IMPL_FP(int, int_list)
+ * ARRAYLIST_STRIP_PREFIX_FP(int, int_list)
  * // All of them must have the same T type and name, now both naming works:
  * struct arraylist_ints list = int_list_init(&list, ...); // Short
  * arraylist_int_list_pushback(...); // Full
@@ -1744,24 +1762,24 @@ ARRAYLIST_IMPL_FP(T, name)
  * void strings_init(...) {...}
  *
  * // This creates a collision
- * ARRAYLIST_STRIP_PREFIX(char *, strings) // Tries to define strings_init(...)
+ * ARRAYLIST_STRIP_PREFIX_FP(char *, strings) // Tries to define strings_init(...)
  * @endcode
  *
  * @warning Using the same name multiple times will cause redefinition errors
  * @code{.c}
  * // Different names for same or different types works
- * ARRAYLIST(int, int_list)
- * ARRAYLIST_STRIP_PREFIX(int, int_list)
+ * ARRAYLIST_FP(int, int_list)
+ * ARRAYLIST_STRIP_PREFIX_FP(int, int_list)
  * 
- * ARRAYLIST(int, int_array)
- * ARRAYLIST_STRIP_PREFIX(int, int_array)
+ * ARRAYLIST_FP(int, int_array)
+ * ARRAYLIST_STRIP_PREFIX_FP(int, int_array)
  * 
  * // Same name for different types doesn't work
- * ARRAYLIST(int, numbers)
- * ARRAYLIST_STRIP_PREFIX(int, numbers)
+ * ARRAYLIST_FP(int, numbers)
+ * ARRAYLIST_STRIP_PREFIX_FP(int, numbers)
  * 
- * ARRAYLIST(float, numbers) // Error, confliting types with the above
- * ARRAYLIST_STRIP_PREFIX(float, numbers) // Redefinition, tries to create items_init(...), etc.
+ * ARRAYLIST_FP(float, numbers) // Error, confliting types with the above
+ * ARRAYLIST_STRIP_PREFIX_FP(float, numbers) // Redefinition, tries to create items_init(...), etc.
  * @endcode
  * @note The macro inline wrappers, compiler will eliminate wrapper overhead with optimizations enabled
  *
