@@ -15,11 +15,11 @@ struct non_pod {
     int *sub;
 };
 
-ARRAYLISTFP(struct non_pod*, np)
+ARRAYLISTFP(struct non_pod *, np)
 
 // Returns a stack allocated struct itself, with allocated members on the heap
 struct non_pod non_pod_init(Allocator *alloc, const int n, const int add, const int sub) {
-    struct non_pod np = {0};
+    struct non_pod np = { 0 };
     np._number = alloc->malloc(sizeof(*np._number), alloc->ctx);
     *np._number = n;
 
@@ -57,7 +57,7 @@ void non_pod_deinit(struct non_pod *self, Allocator *alloc) {
     alloc->free(self->sub, sizeof(self->sub), alloc->ctx);
 }
 
-// Frees the members of the struct and then the heap allocated struct itself 
+// Frees the members of the struct and then the heap allocated struct itself
 void non_pod_deinit_ptr(struct non_pod **self, Allocator *alloc) {
     if (!self || !*self)
         return;
@@ -70,13 +70,13 @@ void non_pod_deinit_ptr(struct non_pod **self, Allocator *alloc) {
 }
 
 // Example for sorting
-bool non_pod_sort(const struct non_pod * const np1, const struct non_pod * const np2) {
+bool non_pod_sort(const struct non_pod *const np1, const struct non_pod *const np2) {
     return np1->_number < np2->_number;
 }
 
 // Example for finding
-bool non_pod_find(const struct non_pod * const self, void *find) {
-    if (*self->_number == (int)(intptr_t) find) {
+bool non_pod_find(const struct non_pod *const self, void *find) {
+    if (*self->_number == (int)(intptr_t)find) {
         return true;
     }
     return false;
@@ -112,7 +112,7 @@ int main(void) {
         fprintf(stderr, "allocation failure\n");
         return -1;
     }
-    
+
     *non_pod1 = non_pod_init(&gpa, 999, 987, 781);
 
     // Warning: Not checking slot here
@@ -130,7 +130,7 @@ int main(void) {
         fprintf(stderr, "error occurred at line %d, file %s\n", __LINE__, __FILE__);
         return -1;
     }
-    
+
     // Inserting into it with insert_at is basically the same as push_back
 
     // inserting some values

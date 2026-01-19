@@ -19,14 +19,16 @@ ARRAYLIST_STRIP_PREFIX_FP(char *, vec_str)
 // Allocates a char * from src, caller must free it
 static char *heap_alloc_from_str_lit(const char *src, Allocator *alloc) {
     size_t len = strlen(src);
-    char *dup = alloc->malloc(len+1, alloc->ctx);
-    if (dup) memcpy(dup, src, len+1);
+    char *dup = alloc->malloc(len + 1, alloc->ctx);
+    if (dup) {
+        memcpy(dup, src, len + 1);
+    }
     return dup;
 }
 
 void char_ptr_deinit(char **p, Allocator *alloc) {
     if (p && *p) {
-        alloc->free(*p, strlen(*p)+1, alloc->ctx);
+        alloc->free(*p, strlen(*p) + 1, alloc->ctx);
         *p = NULL;
     }
 }
@@ -36,14 +38,14 @@ bool vec_str_sort(char **a, char **b) {
 }
 
 bool vec_str_find_abs(char **a, void *find) {
-    if (strcmp(*a, (char *) find) == 0) {
+    if (strcmp(*a, (char *)find) == 0) {
         return true;
     }
     return false;
 }
 
 bool vec_str_find_partial(char **a, void *find) {
-    if (strstr(*a, (char *) find) != NULL) {
+    if (strstr(*a, (char *)find) != NULL) {
         return true;
     }
     return false;
@@ -52,12 +54,14 @@ bool vec_str_find_partial(char **a, void *find) {
 // Reads a line from a stream into a dynamically allocated string (without \n)
 // Will read until EOF
 // Returns malloced char* on success which the caller must free, or null on eof or error
-char *read_line(FILE *stream, Allocator const * const alloc) {
+char *read_line(FILE *stream, Allocator const *const alloc) {
     size_t bufsize = 2;
     size_t len = 0;
     char *buf = alloc->malloc(bufsize, alloc->ctx);
 
-    if (!buf) {return NULL;}
+    if (!buf) {
+        return NULL;
+    }
 
     int c;
     while ((c = fgetc(stream)) != EOF) {
@@ -80,7 +84,7 @@ char *read_line(FILE *stream, Allocator const * const alloc) {
             buf = tmp;
             bufsize = newsize;
         }
-        buf[len++] = (char) c;
+        buf[len++] = (char)c;
     }
 
     // if nothing is read (user pressed enter only)
@@ -91,7 +95,7 @@ char *read_line(FILE *stream, Allocator const * const alloc) {
 
     buf[len] = '\0';
     // shrink to fit
-    char *result = alloc->realloc(buf, bufsize, len+1, alloc->ctx);
+    char *result = alloc->realloc(buf, bufsize, len + 1, alloc->ctx);
     return result ? result : buf;
 }
 
@@ -104,7 +108,9 @@ size_t fp_vec_str_read_lines(struct arraylistfp_vec_str *vec_str, FILE *stream, 
     while ((line = read_line(stream, alloc)) != NULL) {
         // To check if it is whitespace only.
         char *p = line;
-        while (*p && isspace((unsigned char)*p)) { p++; }
+        while (*p && isspace((unsigned char)*p)) {
+            p++;
+        }
         // If the last whitespace is a null char, skip it and don't insert
         if (*p == '\0') {
             // not insert the empty line, free it and continue
@@ -123,7 +129,7 @@ size_t fp_vec_str_read_lines(struct arraylistfp_vec_str *vec_str, FILE *stream, 
 }
 
 // Helper function to print contents of the vec_str
-void vec_str_print(struct arraylistfp_vec_str const * const vec_str) {
+void vec_str_print(struct arraylistfp_vec_str const *const vec_str) {
     for (size_t i = 0; i < vec_str->size; ++i) {
         printf("String number %zu: %s\n", i, vec_str->data[i]);
     }
@@ -162,7 +168,7 @@ int main(void) {
     vec_str_print(&names);
 
     fp_vec_str_qsort(&names, vec_str_sort);
-    
+
     printf("\n");
 
     printf("SORTED:\n");
