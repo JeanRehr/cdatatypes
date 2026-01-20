@@ -27,6 +27,9 @@ include_directories(include)
 
 # Arraylist test and example sources
 set(ARRAYLIST_TEST_SRC arraylist/src/test.c)
+set(ARRAYLIST_EXAMPLE_1_SRC arraylist/src/example_1.c)
+set(ARRAYLIST_EXAMPLE_2_SRC arraylist/src/example_2.c)
+set(ARRAYLIST_EXAMPLE_3_SRC arraylist/src/example_3.c)
 set(ARRAYLIST_EXAMPLE_FP1_SRC arraylist/src/example_fp1.c)
 set(ARRAYLIST_EXAMPLE_FP2_SRC arraylist/src/example_fp2.c)
 set(ARRAYLIST_EXAMPLE_FP3_SRC arraylist/src/example_fp3.c)
@@ -98,18 +101,27 @@ message(STATUS "Used build type: ${CMAKE_BUILD_TYPE}")
 add_executable(test_arraylist ${ARRAYLIST_TEST_SRC})
 
 # Arraylist examples executable
+add_executable(example_arraylist1 ${ARRAYLIST_EXAMPLE_1_SRC})
+add_executable(example_arraylist2 ${ARRAYLIST_EXAMPLE_2_SRC})
+add_executable(example_arraylist3 ${ARRAYLIST_EXAMPLE_3_SRC})
 add_executable(example_arraylistfp1 ${ARRAYLIST_EXAMPLE_FP1_SRC})
 add_executable(example_arraylistfp2 ${ARRAYLIST_EXAMPLE_FP2_SRC})
 add_executable(example_arraylistfp3 ${ARRAYLIST_EXAMPLE_FP3_SRC})
 
 # Output directory
 set_target_properties(test_arraylist PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set_target_properties(example_arraylist1 PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set_target_properties(example_arraylist2 PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set_target_properties(example_arraylist3 PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set_target_properties(example_arraylistfp1 PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set_target_properties(example_arraylistfp2 PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set_target_properties(example_arraylistfp3 PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 # Include directory
 target_include_directories(test_arraylist PRIVATE "${PROJECT_SOURCE_DIR}/include")
+target_include_directories(example_arraylist1 PRIVATE "${PROJECT_SOURCE_DIR}/include")
+target_include_directories(example_arraylist2 PRIVATE "${PROJECT_SOURCE_DIR}/include")
+target_include_directories(example_arraylist3 PRIVATE "${PROJECT_SOURCE_DIR}/include")
 target_include_directories(example_arraylistfp1 PRIVATE "${PROJECT_SOURCE_DIR}/include")
 target_include_directories(example_arraylistfp2 PRIVATE "${PROJECT_SOURCE_DIR}/include")
 target_include_directories(example_arraylistfp3 PRIVATE "${PROJECT_SOURCE_DIR}/include")
