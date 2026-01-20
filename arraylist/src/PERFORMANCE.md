@@ -1,4 +1,8 @@
-### Hardware characteristics:
+# Performance Characteristics of the ARRAYLIST
+
+## This was tested on the following:
+
+### Hardware:
 
  - AMD Ryzen 5 8400F 6-Core Processor.
  - Caches (sum of all):         
@@ -13,11 +17,14 @@
 
  - 6.18.5-arch1-1
 
-Compiler version: `clang version 21.1.6`
+### Compiler version:
+`clang version 21.1.6`
+
+# Code:
 
 All code was compiled with the following flags: `-O3 -DNDEBUG -flto`
 
-Code is, for `ARRAYLIST` macro:
+## C `ARRAYLIST` Macro:
 ```c
 #include <stdio.h>
 #include "arraylist.h"
@@ -111,7 +118,10 @@ int main(void) {
 }
 ```
 
+## C `ARRAYLISTFP` function pointer:
+
 For `ARRAYLISTFP` macro, exactly the same, but uses a function pointer for destructor internally:
+
 ```c
 #include <stdio.h>
 #include "arraylist.h"
@@ -195,7 +205,10 @@ int main(void) {
 }
 ```
 
+## C++ STL `std::vector<unique_ptr<T>>`:
+
 C++ version is exactly the same, but with STL:
+
 ```c++
 #include <cstdio>
 #include <string.h>
@@ -243,7 +256,9 @@ int main(void) {
 
 All of these types are custom non-pod types.
 
-Results with the following perf command:
+# Results of the perf command:
+
+The following perf command was used:
 
 `perf record perf stat -r 100`:
 
@@ -269,7 +284,7 @@ Results with the following perf command:
 [ perf record: Captured and wrote 19,184 MB perf.data (501162 samples) ]
 ```
 
-## Second time:
+### Second time:
 ```
  Performance counter stats for './c' (100 runs):
 
@@ -312,7 +327,7 @@ Results with the following perf command:
 [ perf record: Captured and wrote 19,380 MB perf.data (506267 samples) ]
 ```
 
-## Second time:
+### Second time:
 ```
  Performance counter stats for './cfp' (100 runs):
 
@@ -355,7 +370,7 @@ Results with the following perf command:
 [ perf record: Captured and wrote 19,251 MB perf.data (502037 samples) ]
 ```
 
-## Second time:
+### Second time:
 ```txt
  Performance counter stats for './cpp' (100 runs):
 
@@ -384,6 +399,123 @@ The `ARRAYLIST` function pointer is a bit slower than the macro and C++ version,
 
 As for the executable size on my machine, the `ARRAYLIST` is 15.7KiB, `ARRAYLIST` function pointer is 15.9KiB, while C++ `std::vector<unique_ptr<T>>` is 16.3KiB, compiling the C++ version with `-fno-exceptions -fno-rtti` it gets to 15.8KiB, which is not bad, all of this while I did not compile for binary size performance.
 
-Note that I did not put much thought into the performance of the ARRAYLIST, particularly in the Custom Allocator interface, which are function pointers that the compiler can't optimize. These tests where done with plain libc malloc/realloc/free through this function pointer interface, while the new and delete from C++ may pool quick and fast allocations.
+Note that I did not put much thought into the performance of the ARRAYLIST, particularly in the Custom Allocator interface, which are function pointers that the compiler can't optimize. These tests where done with plain libc malloc/realloc/free through this function pointer interface, while the new and delete from C++ may pool quick and fast allocations, so may be apples to oranges comparison here, with new/delete being natively more performant (maybe).
+
+Even then, with plain malloc and with non pod types, `ARRAYLIST` is the same, sometimes faster than `std::vector`.
 
 A custom allocator like jemalloc/tcmalloc/mimalloc may speed runtime performance here.
+
+# Using a custom Allocator like jemalloc:
+
+Quick test with jemalloc on the C ARRAYLIST version, code is minimally changed to add a custom allocator to use jemalloc, rest of the code is the same:
+
+## Code for ARRAYLIST using jemalloc
+```c
+#include <stdio.h>
+
+#define JEMALLOC_NO_DEMANGLE
+#include <jemalloc/jemalloc.h>
+
+#include "arraylist.h"
+
+static inline void *jemalloc_malloc(size_t size, void *ctx) {
+    (void)ctx;
+    return je_malloc(size);
+}
+
+static inline void *jemalloc_realloc(void *ptr, size_t old_size, size_t new_size, void *ctx) {
+    (void)ctx;
+    (void)old_size;
+    return je_realloc(ptr, new_size);
+}
+
+static inline void jemalloc_free(void *ptr, size_t size, void *ctx) {
+    (void)ctx;
+    (void)size;
+    return je_free(ptr);
+}
+
+static inline Allocator allocator_get_jemalloc(void) {
+    return (Allocator) {
+        .malloc = jemalloc_malloc,
+        .realloc = jemalloc_realloc,
+        .free = jemalloc_free,
+        .ctx = NULL,
+    };
+}
+
+struct non_pod {
+    int *_number;
+    int *add;
+    int *sub;
+};
+
+// -- snip --
+
+ARRAYLIST(struct non_pod*, np, nptrdeinit_ptr_macro)
+
+int main(void) {
+    Allocator jemalloc_allocator = allocator_get_jemalloc();
+
+    struct arraylist_np vec_np = arraylist_np_init(&jemalloc_allocator);
+    arraylist_np_reserve(&vec_np, 1000000);
+    for (volatile size_t i = 0; i < 1000000; i++) {
+        *arraylist_np_emplace_back_slot(&vec_np) = non_pod_init_alloc(&jemalloc_allocator, i, i * 3, i / 2);
+    }
+
+    // -- snip --
+}
+```
+
+Compiled with: `-O3 -DNDEBUG -flto -ljemalloc`
+
+Command used: `perf record perf stat -r 100`
+
+## C Macro using jemalloc:
+### First time (already did a run before this to make it hot on the cache):
+```txt
+
+ Performance counter stats for './c' (100 runs):
+
+     1.247.097.316      task-clock:u                     #    0,936 CPUs utilized               ( +-  0,13% )
+                 0      context-switches:u               #    0,000 /sec                      
+                 0      cpu-migrations:u                 #    0,000 /sec                      
+               199      page-faults:u                    #  159,571 /sec                        ( +-  0,05% )
+     1.680.869.863      instructions:u                   #    1,87  insn per cycle            
+                                                  #    0,22  stalled cycles per insn     ( +-  0,01% )
+       898.335.034      cycles:u                         #    0,720 GHz                         ( +-  0,32% )
+       373.551.599      stalled-cycles-frontend:u        #   41,58% frontend cycles idle        ( +-  0,35% )
+       292.200.526      branches:u                       #  234,305 M/sec                       ( +-  0,01% )
+        12.155.504      branch-misses:u                  #    4,16% of all branches             ( +-  0,05% )
+
+           1,33166 +- 0,00182 seconds time elapsed  ( +-  0,14% )
+
+[ perf record: Woken up 69 times to write data ]
+[ perf record: Captured and wrote 18,729 MB perf.data (488078 samples) ]
+```
+
+### Second time:
+```
+
+ Performance counter stats for './c' (100 runs):
+
+     1.242.906.156      task-clock:u                     #    0,937 CPUs utilized               ( +-  0,14% )
+                 0      context-switches:u               #    0,000 /sec                      
+                 0      cpu-migrations:u                 #    0,000 /sec                      
+               198      page-faults:u                    #  159,304 /sec                        ( +-  0,04% )
+     1.680.678.592      instructions:u                   #    1,88  insn per cycle            
+                                                  #    0,22  stalled cycles per insn     ( +-  0,01% )
+       894.793.298      cycles:u                         #    0,720 GHz                         ( +-  0,38% )
+       371.860.118      stalled-cycles-frontend:u        #   41,56% frontend cycles idle        ( +-  0,43% )
+       292.178.183      branches:u                       #  235,077 M/sec                       ( +-  0,01% )
+        12.149.868      branch-misses:u                  #    4,16% of all branches             ( +-  0,01% )
+
+           1,32663 +- 0,00201 seconds time elapsed  ( +-  0,15% )
+
+[ perf record: Woken up 70 times to write data ]
+[ perf record: Captured and wrote 18,601 MB perf.data (484715 samples) ]
+```
+
+## Results of the jemalloc allocator
+
+As can be seen, it is now significantly faster than `std::vector`, being extremely easy to add custom allocator support.
