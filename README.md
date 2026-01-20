@@ -28,9 +28,9 @@ The container itself is memory-safe (at least that I know of) with clear destruc
 4. Run
     - `$ ./bin/*(.exe)`
 
-# Extra note for Windows
+#### Extra note for Windows
 
-The build system will search for `clang-cl`. CMake can be changed to use MSVC.
+The build system will search for `clang-cl`, then fallback to MSVC. To force MSVC use the option -DUSE_CLANG_CL=OFF.
 
 # Usage
 
@@ -42,23 +42,32 @@ The build system will search for `clang-cl`. CMake can be changed to use MSVC.
 #include "arraylist.h"
 
 struct mytype { int x; float y; };
-ARRAYLIST(struct mytype, mytype)
+ARRAYLIST(struct mytype, mytype, mytype_macro_dtor)
 ```
 ### Initialize:
 
 ```c
-struct arraylist_mytype arr = arraylist_mytype_init(NULL, mytype_dtor);
+struct arraylist_mytype arr = arraylist_mytype_init(NULL);
 // use arr
-arraylist_mytyoe_deinit(&arr);
+arraylist_mytype_deinit(&arr);
 ```
 
-Destructor functions are critical for correct memory handling of heap allocated fields inside structs, if your type doesn't allocate anything inside it, no need for a destructor.
+Destructor functions are critical for correct memory handling of heap allocated fields inside structs, if your type doesn't allocate anything inside it, or it isn't a pointer type, no need for a destructor.
+
+You are also free to not use a destructor at all and manage all the memory.
 
 All arraylist functions are safe to call on NULL or deinitialized arraylist, unless assert is decided to be used.
 
-Unit tests on arraylist/src/test.c
+Unit tests on [arraylist/src/test.c](arraylist/src/test.c).
 
-Examples on arraylist/src/example.c
+Examples are on arraylist/src/example_*.c.
+
+### Performance:
+
+The `arraylist` implementation provides performance nearly identical (sometimes beating) to C++ STL `std::vector<unique_ptr<T>>`.
+Overheads for the "function pointer" destructor version are very small (less than 1% for heavy pointer use).
+
+For more details and benchmarking code, see [arraylist/src/PERFORMANCE.md](arraylist/src/PERFORMANCE.md).
 
 # Custom Allocators
 
