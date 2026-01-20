@@ -21,17 +21,17 @@ ARRAYLIST_DECL_FP(int, ints)
 ARRAYLIST_IMPL_FP(int, ints)
 
 // Or with the all in one macro, must be in a .c file
-// ARRAYLIST(int, ints)
+// ARRAYLISTFP(int, ints)
 
 // If wanted to strip the arraylist_ prefix:
 // ARRAYLIST_STRIP_PREFIX(int, ints)
 // Creates ints_init(...), etc...
-// T and name must match exactly with the ARRAYLIST definitions above
+// T and name must match exactly with the ARRAYLISTFP definitions above
 // Can be used with same type and different names:
-// ARRAYLIST(int, array)
+// ARRAYLISTFP(int, array)
 // ARRAYLIST_STRIP_PREFIX(int, array)
 // The same name for different types cannot be used:
-// ARRAYLIST(float, ints)
+// ARRAYLISTFP(float, ints)
 // ARRAYLIST_STRIP_PREFIX(float, ints)
 
 // All three macros must have the same type T and name (int and ints in this case)
@@ -197,7 +197,7 @@ int main(void) {
 
     // Swaps arraylists
 
-    struct arraylistfp_ints other = arraylistfp_ints_init(NULL, NULL);
+    struct arraylistfp_ints other = arraylistfp_ints_init(&gpa, NULL);
     *arraylistfp_ints_emplace_back_slot(&other) = 1000;
     *arraylistfp_ints_emplace_back_slot(&other) = 2000;
 
