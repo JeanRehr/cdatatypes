@@ -2440,7 +2440,9 @@ static void test_arraylistfp_get_custom_allocator(void) {
     printf("arraylist getting custom allocator passed.\n");
 }
 
-ARRAYLIST(long, long, (void))
+#define noop_dtor(ptr, alloc) (void)0
+
+ARRAYLIST(long, long, noop_dtor)
 
 static void test_passing_nullptr_to_functions(void) {
     printf("test passing NULL to functions.\n");
