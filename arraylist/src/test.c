@@ -109,6 +109,8 @@ static inline void test_ptr_dtor(struct test **t, Allocator *alloc) {
 #endif
 
 // now this macro, on C23, will check that dptr_non_pod is indeed a double pointer to non_pod struct
+// As this is a macro just to be used inside the arraylist, there is no way I can think of that can
+// be misused as the arraylist is typesafe, unless used outside of the arraylist
 #define test_ptr_dtor_macro2(dptr_non_pod, alloc) \
     do { \
         check_same_types(dptr_non_pod, struct non_pod **); \
@@ -116,8 +118,8 @@ static inline void test_ptr_dtor(struct test **t, Allocator *alloc) {
         if (!dptr_non_pod || !*dptr_non_pod) { \
             break; \
         } \
-        (alloc)->free((void *)(*dptr_non_pod)->a, sizeof((*dptr_non_pod)->a), (alloc)->ctx); \
-        (alloc)->free((void *)(*dptr_non_pod)->b, sizeof((*dptr_non_pod)->b), (alloc)->ctx); \
+        (alloc)->free((*dptr_non_pod)->a, sizeof((*dptr_non_pod)->a), (alloc)->ctx); \
+        (alloc)->free((*dptr_non_pod)->b, sizeof((*dptr_non_pod)->b), (alloc)->ctx); \
         (alloc)->free(*dptr_non_pod, sizeof(*dptr_non_pod), (alloc)->ctx); \
         *(dptr_non_pod) = NULL; \
     } while (0);
