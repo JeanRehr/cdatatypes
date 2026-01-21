@@ -85,15 +85,15 @@ static inline void test_ptr_dtor(struct test **t, Allocator *alloc) {
 // }
 
 // Macro based destructor
-#define test_ptr_dtor_macro(dptr_non_pod, alloc) \
+#define test_ptr_dtor_macro(dptr_test, alloc) \
     do { \
-        if (!dptr_non_pod || !*dptr_non_pod) { \
+        if (!dptr_test || !*dptr_test) { \
             break; \
         } \
-        (alloc)->free((void *)(*dptr_non_pod)->a, sizeof((*dptr_non_pod)->a), (alloc)->ctx); \
-        (alloc)->free((void *)(*dptr_non_pod)->b, sizeof((*dptr_non_pod)->b), (alloc)->ctx); \
-        (alloc)->free(*dptr_non_pod, sizeof(*dptr_non_pod), (alloc)->ctx); \
-        *(dptr_non_pod) = NULL; \
+        (alloc)->free((*dptr_test)->a, sizeof(*(*dptr_test)->a), (alloc)->ctx); \
+        (alloc)->free((*dptr_test)->b, sizeof(*(*dptr_test)->b), (alloc)->ctx); \
+        (alloc)->free(*dptr_test, sizeof(struct test), (alloc)->ctx); \
+        *(dptr_test) = NULL; \
     } while (0)
 
 // C23 typeof could also be used to prevent misuses of this macro, example:
