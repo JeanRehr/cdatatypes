@@ -374,7 +374,7 @@ static void test_arraylist_emplace_back_slot(void) {
     assert(*add6_same == *add6);
 
     struct test **add7 = arraylist_test_emplace_back_slot(&arrlisttest);
-    *add6 = test_alloc_ctor(14, 0.9, "add7", &gpa);
+    *add7 = test_alloc_ctor(14, 0.9, "add7", &gpa);
     assert(arrlisttest.size == 7);
     assert(arrlisttest.capacity == 8);
     struct test **add7_same = arraylist_test_at(&arrlisttest, 6);
