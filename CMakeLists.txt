@@ -26,13 +26,13 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 include_directories(include)
 
 # Arraylist test and example sources
-set(ARRAYLIST_TEST_SRC arraylist/src/test.c)
-set(ARRAYLIST_EXAMPLE_1_SRC arraylist/src/example_1.c)
-set(ARRAYLIST_EXAMPLE_2_SRC arraylist/src/example_2.c)
-set(ARRAYLIST_EXAMPLE_3_SRC arraylist/src/example_3.c)
-set(ARRAYLIST_EXAMPLE_FP1_SRC arraylist/src/example_fp1.c)
-set(ARRAYLIST_EXAMPLE_FP2_SRC arraylist/src/example_fp2.c)
-set(ARRAYLIST_EXAMPLE_FP3_SRC arraylist/src/example_fp3.c)
+set(ARRAYLIST_TEST_SRC arraylist/tests/test.c)
+set(ARRAYLIST_EXAMPLE_1_SRC arraylist/examples/example_1.c)
+set(ARRAYLIST_EXAMPLE_2_SRC arraylist/examples/example_2.c)
+set(ARRAYLIST_EXAMPLE_3_SRC arraylist/examples/example_3.c)
+set(ARRAYLIST_EXAMPLE_FP1_SRC arraylist/examples/example_fp1.c)
+set(ARRAYLIST_EXAMPLE_FP2_SRC arraylist/examples/example_fp2.c)
+set(ARRAYLIST_EXAMPLE_FP3_SRC arraylist/examples/example_fp3.c)
 
 # Build types
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release;Sanitizer" CACHE STRING "" FORCE)

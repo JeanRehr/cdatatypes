@@ -58,16 +58,16 @@ You are also free to not use a destructor at all and manage all the memory.
 
 All arraylist functions are safe to call on NULL or deinitialized arraylist, unless assert is decided to be used.
 
-Unit tests on [arraylist/src/test.c](arraylist/src/test.c).
+Unit tests on [arraylist/src/test.c](arraylist/tests/test.c).
 
-Examples are on arraylist/src/example_*.c.
+Examples are on arraylist/examples/example_*.c.
 
 ### Performance:
 
 The `arraylist` implementation provides performance nearly identical (sometimes beating) to C++ STL `std::vector<unique_ptr<T>>`.
 Overheads for the "function pointer" destructor version are very small (less than 1% for heavy pointer use).
 
-For more details and benchmarking code, see [arraylist/src/PERFORMANCE.md](arraylist/src/PERFORMANCE.md).
+For more details and benchmarking code, see [arraylist/src/PERFORMANCE.md](arraylist/PERFORMANCE.md).
 
 # Custom Allocators
 
