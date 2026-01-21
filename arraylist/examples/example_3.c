@@ -217,7 +217,8 @@ int main(void) {
 
     // Inserting elements again
     for (size_t i = 0; i < 10; ++i) {
-        arraylist_np_insert_at(&vec_np, 0, i);
+        struct non_pod *tmp = non_pod_init_alloc(&gpa, i+1, i-1, i+2);
+        arraylist_np_insert_at(&vec_np, tmp, i);
     }
     // Capacity and size after reinserting some elements:
     printf("Capacity again after reinstering elements: %lu\n", arraylist_np_capacity(&vec_np));
