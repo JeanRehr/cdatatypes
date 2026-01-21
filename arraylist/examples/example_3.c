@@ -33,13 +33,13 @@ struct non_pod non_pod_init(Allocator *alloc, const int n, const int add, const 
 // Returns a heap allocated struct, with heap allocated members
 struct non_pod *non_pod_init_alloc(Allocator *alloc, const int n, const int add, const int sub) {
     struct non_pod *np = alloc->malloc(sizeof(struct non_pod), alloc->ctx);
-    np->_number = malloc(sizeof(*np->_number));
+    np->_number = alloc->malloc(sizeof(*np->_number), alloc->ctx);
     *np->_number = n;
 
-    np->add = malloc(sizeof(*np->add));
+    np->add = alloc->malloc(sizeof(*np->add), alloc->ctx);
     *np->add = add;
 
-    np->sub = malloc(sizeof(*np->sub));
+    np->sub = alloc->malloc(sizeof(*np->sub), alloc->ctx);
     *np->sub = sub;
 
     return np;
