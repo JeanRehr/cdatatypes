@@ -69,12 +69,12 @@ void non_pod_deinit_ptr(struct non_pod **self, Allocator *alloc) {
 
 #define non_pod_ptr_deinit_macro(non_pod_double_ptr, allocptr) \
 do { \
-    if (!non_pod_double_ptr && !*non_pod_double_ptr) { \
+    if (!non_pod_double_ptr || !*non_pod_double_ptr) { \
         break; \
     } \
-    (allocptr)->free((*non_pod_double_ptr)->_number, sizeof((*non_pod_double_ptr)->_number), (allocptr)->ctx); \
-    (allocptr)->free((*non_pod_double_ptr)->add, sizeof((*non_pod_double_ptr)->add), (allocptr)->ctx); \
-    (allocptr)->free((*non_pod_double_ptr)->sub, sizeof((*non_pod_double_ptr)->sub), (allocptr)->ctx); \
+    (allocptr)->free((*non_pod_double_ptr)->_number, sizeof(*(*non_pod_double_ptr)->_number), (allocptr)->ctx); \
+    (allocptr)->free((*non_pod_double_ptr)->add, sizeof(*(*non_pod_double_ptr)->add), (allocptr)->ctx); \
+    (allocptr)->free((*non_pod_double_ptr)->sub, sizeof(*(*non_pod_double_ptr)->sub), (allocptr)->ctx); \
     \
     (allocptr)->free(*non_pod_double_ptr, sizeof(*non_pod_double_ptr), (allocptr)->ctx); \
     *non_pod_double_ptr = NULL; \
