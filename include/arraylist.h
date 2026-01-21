@@ -724,7 +724,7 @@ static inline enum arraylist_error arraylist_##name##_remove_at(struct arraylist
         return arraylist_##name##_pop_back(self); \
     } \
     fn_dtor(&self->data[index], &self->alloc); \
-    for (size_t i = index; i <= self->size - 1; ++i) { \
+    for (size_t i = index; i < self->size - 1; ++i) { \
         self->data[i] = self->data[i + 1]; \
     } \
     --self->size; \
@@ -1578,7 +1578,7 @@ static inline enum arraylist_error arraylistfp_##name##_remove_at(struct arrayli
     if (self->destructor) { \
         self->destructor(&self->data[index], &self->alloc); \
     } \
-    for (size_t i = index; i <= self->size - 1; ++i) { \
+    for (size_t i = index; i < self->size - 1; ++i) { \
         self->data[i] = self->data[i + 1]; \
     } \
     --self->size; \
