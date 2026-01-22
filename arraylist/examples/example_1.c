@@ -60,13 +60,12 @@ int main(void) {
     struct Allocator gpa = allocator_get_default();
 
     // Creates a zero initialized arraylist that holds ints named int_vec with default allocator and no destructor
-    struct arraylist_ints int_vec = ints_init(&gpa);
+    struct arraylist_ints int_vec = ints_init(gpa);
 
-    // May be created with capacity if wanted, but can't be tested for failure
-    // if reserving fails due to buffer overflow or allocation failure, it will zero initialize
-    // struct ints int_vec = ints_init_with_capacity(NULL, 10);
+    // Can create directly with allocator_get_default()
+    // struct arraylist_ints int_vec = ints_init(allocator_get_default());
 
-    // Alternatively capacity may be reserved to minimize allocations
+    // Capacity may be reserved to minimize allocations
     ints_reserve(&int_vec, 16);
 
     // This way, reserve can be tested for allocation failure or buffer overflow if needed
@@ -191,7 +190,7 @@ int main(void) {
 
     // Swaps arraylists
 
-    struct arraylist_ints other = ints_init(&gpa);
+    struct arraylist_ints other = ints_init(gpa);
     *ints_emplace_back_slot(&other) = 1000;
     *ints_emplace_back_slot(&other) = 2000;
 

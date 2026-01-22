@@ -179,7 +179,7 @@ void names_print(struct arraylist_names_arr const *const names) {
 int main(void) {
     struct Allocator gpa = allocator_get_default();
 
-    struct arraylist_names_arr names_arr = arraylist_names_arr_init(&gpa);
+    struct arraylist_names_arr names_arr = arraylist_names_arr_init(gpa);
 
     // Uncomment the following line to read from terminal
     // names_read_lines(&names, stdin, &gpa);

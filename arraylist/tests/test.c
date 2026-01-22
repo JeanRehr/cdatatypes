@@ -131,7 +131,8 @@ ARRAYLIST(struct test *, test, test_ptr_dtor_macro2)
 
 static void test_arraylist_init_and_deinit(void) {
     printf("Testing arraylist init and deinit functions.\n");
-    struct arraylist_test arrlisttest = test_init(NULL);
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_test arrlisttest = test_init(gpa);
     assert(&arrlisttest.alloc);
     assert(arrlisttest.capacity == 0);
     assert(!arrlisttest.data);
@@ -140,7 +141,7 @@ static void test_arraylist_init_and_deinit(void) {
     test_deinit(&arrlisttest);
     assert(!arrlisttest.data);
 
-    arrlisttest = test_init(NULL);
+    arrlisttest = test_init(gpa);
     assert(&arrlisttest.alloc);
     assert(arrlisttest.capacity == 0);
     assert(!arrlisttest.data);
@@ -153,7 +154,8 @@ static void test_arraylist_init_and_deinit(void) {
 
 static void test_arraylist_reserve(void) {
     printf("Testing arraylist reserve function.\n");
-    struct arraylist_test arrlisttest = test_init(NULL);
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_test arrlisttest = test_init(gpa);
 
     size_t cap = 10;
 
@@ -167,10 +169,13 @@ static void test_arraylist_reserve(void) {
 static void test_arraylist_shrink_size(void) {
     printf("Testing arraylist shrink_size function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_test arrlisttest = test_init(&gpa);
+    struct arraylist_test arrlisttest = test_init(gpa);
 
     struct test *add1 = test_alloc_ctor(10, 0.5, "add1", &gpa);
-    struct test *add2 = test_alloc_ctor(11, 0.6, "add2", &gpa);
+
+    // Or use arraylist allocator if wanted
+    // They must use the same allocator to not invoke UB in some custom allocator cases
+    struct test *add2 = test_alloc_ctor(11, 0.6, "add2", &arrlisttest.alloc);
 
     *test_emplace_back_slot(&arrlisttest) = add1;
     *test_emplace_back_slot(&arrlisttest) = add2;
@@ -196,7 +201,7 @@ static void test_arraylist_shrink_size(void) {
 static void test_arraylist_shrink_to_fit(void) {
     printf("Testing arraylist shrink_to_fit function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_test arrlisttest = test_init(&gpa);
+    struct arraylist_test arrlisttest = test_init(gpa);
 
     test_reserve(&arrlisttest, 10);
     assert(arrlisttest.capacity == 10);
@@ -223,7 +228,7 @@ static void test_arraylist_shrink_to_fit(void) {
 static void test_arraylist_push_back(void) {
     printf("Testing arraylist push_back function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_test arrlisttest = test_init(&gpa);
+    struct arraylist_test arrlisttest = test_init(gpa);
 
     struct test *add1 = gpa.malloc(sizeof(struct test), gpa.ctx);
     test_ctor(add1, 10, 0.5, "add1", &gpa);
@@ -294,7 +299,7 @@ static void test_arraylist_push_back(void) {
 static void test_arraylist_emplace_back_slot(void) {
     printf("Testing arraylist emplace_back_slot function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_test arrlisttest = test_init(&gpa);
+    struct arraylist_test arrlisttest = test_init(gpa);
 
     // ways that emplace_back can be used with arraylist of pointer to values:
     // Note, slot given back must always be checked in real scenarios
@@ -416,7 +421,7 @@ static void test_arraylist_emplace_back_slot(void) {
 static void test_arraylist_insert_at(void) {
     printf("Testing arraylist insert_at function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_test arrlisttest = test_init(&gpa);
+    struct arraylist_test arrlisttest = test_init(gpa);
 
     struct test *add1;
     add1 = test_alloc_ctor(10, 0.5, "add1", &gpa);
@@ -476,7 +481,7 @@ static void test_arraylist_insert_at(void) {
 static void test_arraylist_pop_back(void) {
     printf("Testing arraylist pop_back function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_test arrlisttest = test_init(&gpa);
+    struct arraylist_test arrlisttest = test_init(gpa);
 
     struct test *add1 = test_alloc_ctor(10, 0.5, "add1", &gpa);
     struct test *add2 = test_alloc_ctor(11, 0.6, "add2", &gpa);
@@ -513,7 +518,7 @@ static void test_arraylist_pop_back(void) {
 static void test_arraylist_remove_at(void) {
     printf("Testing arraylist remove_at function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_test arrlisttest = test_init(&gpa);
+    struct arraylist_test arrlisttest = test_init(gpa);
 
     struct test *add1 = test_alloc_ctor(10, 0.5, "add1", &gpa);
     struct test *add2 = test_alloc_ctor(11, 0.6, "add2", &gpa);
@@ -577,7 +582,7 @@ static void test_arraylist_remove_at(void) {
 static void test_arraylist_remove_from_to(void) {
     printf("Testing arraylist remove_from_to function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_test arrlisttest = test_init(&gpa);
+    struct arraylist_test arrlisttest = test_init(gpa);
 
     struct test *add1 = test_alloc_ctor(10, 0.5, "add1", &gpa);
     test_push_back(&arrlisttest, add1);
@@ -644,7 +649,7 @@ static void test_arraylist_remove_from_to(void) {
 static void test_arraylist_at(void) {
     printf("Testing arraylist at function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_test arrlisttest = test_init(&gpa);
+    struct arraylist_test arrlisttest = test_init(gpa);
 
     struct test *add1 = test_alloc_ctor(10, 0.5, "add1", &gpa);
     *test_emplace_back_slot(&arrlisttest) = add1;
@@ -671,7 +676,7 @@ static void test_arraylist_at(void) {
 static void test_arraylist_begin(void) {
     printf("Testing arraylist begin function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_test arrlisttest = test_init(&gpa);
+    struct arraylist_test arrlisttest = test_init(gpa);
 
     struct test *add1 = test_alloc_ctor(10, 0.5, "add1", &gpa);
     test_push_back(&arrlisttest, add1);
@@ -691,7 +696,7 @@ static void test_arraylist_begin(void) {
 static void test_arraylist_back(void) {
     printf("Testing arraylist back function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_test arrlisttest = test_init(&gpa);
+    struct arraylist_test arrlisttest = test_init(gpa);
 
     struct test *add1 = test_alloc_ctor(10, 0.5, "add1", &gpa);
     test_push_back(&arrlisttest, add1);
@@ -714,7 +719,7 @@ static void test_arraylist_back(void) {
 static void test_arraylist_end(void) {
     printf("Testing arraylist end function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_test arrlisttest = test_init(&gpa);
+    struct arraylist_test arrlisttest = test_init(gpa);
 
     struct test *add1 = test_alloc_ctor(10, 0.5, "add1", &gpa);
     test_push_back(&arrlisttest, add1);
@@ -746,7 +751,7 @@ bool test_pred_find_name_ptr(struct test **a, void *name) {
 static void test_arraylist_find(void) {
     printf("Testing arraylist find function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_test arrlisttest = test_init(&gpa);
+    struct arraylist_test arrlisttest = test_init(gpa);
 
     struct test *add1 = test_alloc_ctor(10, 0.5, "add1", &gpa);
     test_push_back(&arrlisttest, add1);
@@ -770,7 +775,7 @@ static void test_arraylist_find(void) {
 static void test_arraylist_contains(void) {
     printf("Testing arraylist contains function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_test arrlisttest = test_init(&gpa);
+    struct arraylist_test arrlisttest = test_init(gpa);
 
     struct test *add1 = test_alloc_ctor(10, 0.5, "add1", &gpa);
     test_push_back(&arrlisttest, add1);
@@ -796,7 +801,7 @@ static void test_arraylist_contains(void) {
 static void test_arraylist_size(void) {
     printf("Testing arraylist size function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_test arrlisttest = test_init(&gpa);
+    struct arraylist_test arrlisttest = test_init(gpa);
 
     assert(test_size(&arrlisttest) == 0);
 
@@ -815,7 +820,7 @@ static void test_arraylist_size(void) {
 static void test_arraylist_is_empty(void) {
     printf("Testing arraylist is empty function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_test arrlisttest = test_init(&gpa);
+    struct arraylist_test arrlisttest = test_init(gpa);
     assert(test_is_empty(&arrlisttest));
 
     struct test *add1 = test_alloc_ctor(10, 0.5, "add1", &gpa);
@@ -832,7 +837,7 @@ static void test_arraylist_is_empty(void) {
 static void test_arraylist_capacity(void) {
     printf("Testing arraylist capacity function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_test arrlisttest = test_init(&gpa);
+    struct arraylist_test arrlisttest = test_init(gpa);
     assert(test_capacity(&arrlisttest) == 0);
 
     test_reserve(&arrlisttest, 2);
@@ -861,8 +866,8 @@ static void test_arraylist_capacity(void) {
 static void test_arraylist_swap(void) {
     printf("Testing arraylist swap function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_test arrlisttest = test_init(&gpa);
-    struct arraylist_test otherarr = test_init(&gpa);
+    struct arraylist_test arrlisttest = test_init(gpa);
+    struct arraylist_test otherarr = test_init(gpa);
 
     struct test *add1 = test_alloc_ctor(10, 0.5, "add1", &gpa);
     test_push_back(&arrlisttest, add1);
@@ -919,7 +924,7 @@ static bool comparator_test_ptr(struct test **a, struct test **b) {
 static void test_arraylist_qsort(void) {
     printf("Testing arraylist qsort function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_test arrlisttest = test_init(&gpa);
+    struct arraylist_test arrlisttest = test_init(gpa);
 
     // Should be second after sort
     *test_emplace_back_slot(&arrlisttest) = test_alloc_ctor(1, 0.1, "add1", &gpa);
@@ -957,7 +962,7 @@ static void test_arraylist_qsort(void) {
 static void test_arraylist_clear(void) {
     printf("Testing arraylist end function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_test arrlisttest = test_init(&gpa);
+    struct arraylist_test arrlisttest = test_init(gpa);
 
     struct test *add1 = test_alloc_ctor(10, 0.5, "add1", &gpa);
     test_push_back(&arrlisttest, add1);
@@ -984,7 +989,7 @@ static bool allocator_test_equality(const struct Allocator *a, const struct Allo
 
 static void test_arraylist_get_allocator_default(void) {
     printf("Testing arraylist get_allocator default function.\n");
-    struct arraylist_test arrlisttest = test_init(NULL); // Init default allocator
+    struct arraylist_test arrlisttest = test_init(allocator_get_default()); // Init default allocator
 
     Allocator def = allocator_get_default();
 
@@ -998,7 +1003,7 @@ static void test_arraylist_get_allocator_default(void) {
 /*
 static void test_arraylist_insert_from_to(void) {
     printf("Testing arraylist insert_from_to function.\n");
-    struct arraylist_test arrlisttest = test_init(&gpa);
+    struct arraylist_test arrlisttest = test_init(gpa);
 
     test_deinit(&arrlisttest);
     assert(false);
@@ -1012,7 +1017,8 @@ ARRAYLIST_DYN(struct test, test)
 
 static void test_arraylist_dyn_init_and_deinit(void) {
     printf("Testing arraylist init and deinit functions.\n");
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(NULL, test_dtor);
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
     assert(arrlisttest.destructor);
     assert(&arrlisttest.alloc);
     assert(arrlisttest.capacity == 0);
@@ -1022,7 +1028,7 @@ static void test_arraylist_dyn_init_and_deinit(void) {
     dyn_test_deinit(&arrlisttest);
     assert(!arrlisttest.data);
 
-    arrlisttest = dyn_test_init(NULL, test_dtor);
+    arrlisttest = dyn_test_init(gpa, test_dtor);
     assert(arrlisttest.destructor);
     assert(&arrlisttest.alloc);
     assert(arrlisttest.capacity == 0);
@@ -1036,7 +1042,8 @@ static void test_arraylist_dyn_init_and_deinit(void) {
 
 static void test_arraylist_dyn_reserve(void) {
     printf("Testing arraylist reserve function.\n");
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(NULL, test_dtor);
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
 
     size_t cap = 10;
 
@@ -1050,7 +1057,7 @@ static void test_arraylist_dyn_reserve(void) {
 static void test_arraylist_dyn_shrink_size(void) {
     printf("Testing arraylist shrink_size function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(&gpa, test_dtor);
+    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
 
     struct test add1;
     struct test add2;
@@ -1088,7 +1095,7 @@ static void test_arraylist_dyn_shrink_size(void) {
 static void test_arraylist_dyn_shrink_to_fit(void) {
     printf("Testing arraylist shrink_to_fit function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(&gpa, test_dtor);
+    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
 
     struct test add1;
     struct test add2;
@@ -1124,7 +1131,7 @@ static void test_arraylist_dyn_shrink_to_fit(void) {
 static void test_arraylist_dyn_push_back(void) {
     printf("Testing arraylist push_back function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(&gpa, test_dtor);
+    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
 
     struct test add1;
     test_ctor(&add1, 10, 0.5, "add1", &gpa);
@@ -1207,7 +1214,7 @@ static void test_arraylist_dyn_push_back(void) {
 static void test_arraylist_dyn_emplace_back_slot(void) {
     printf("Testing arraylist emplace_back_slot function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(&gpa, test_dtor);
+    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
 
     // ways that emplace_back can be used with arraylist of values:
 
@@ -1314,7 +1321,7 @@ static void test_arraylist_dyn_emplace_back_slot(void) {
 static void test_arraylist_dyn_insert_at(void) {
     printf("Testing arraylist insert_at function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(&gpa, test_dtor);
+    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
 
     struct test add1;
     test_ctor(&add1, 10, 0.5, "add1", &gpa);
@@ -1374,7 +1381,7 @@ static void test_arraylist_dyn_insert_at(void) {
 static void test_arraylist_dyn_pop_back(void) {
     printf("Testing arraylist pop_back function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(&gpa, test_dtor);
+    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
 
     struct test add1;
     struct test add2;
@@ -1415,7 +1422,7 @@ static void test_arraylist_dyn_pop_back(void) {
 static void test_arraylist_dyn_remove_at(void) {
     printf("Testing arraylist remove_at function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(&gpa, test_dtor);
+    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
 
     struct test add1;
     test_ctor(&add1, 10, 0.5, "add1", &gpa);
@@ -1485,7 +1492,7 @@ static void test_arraylist_dyn_remove_at(void) {
 static void test_arraylist_dyn_remove_from_to(void) {
     printf("Testing arraylist remove_from_to function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(&gpa, test_dtor);
+    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
 
     struct test add1;
     test_ctor(&add1, 10, 0.5, "add1", &gpa);
@@ -1558,7 +1565,7 @@ static void test_arraylist_dyn_remove_from_to(void) {
 static void test_arraylist_dyn_at(void) {
     printf("Testing arraylist at function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(&gpa, test_dtor);
+    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
 
     struct test add1;
     test_ctor(&add1, 10, 0.5, "add1", &gpa);
@@ -1588,7 +1595,7 @@ static void test_arraylist_dyn_at(void) {
 static void test_arraylist_dyn_begin(void) {
     printf("Testing arraylist begin function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(&gpa, test_dtor);
+    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
 
     struct test add1;
     test_ctor(&add1, 10, 0.5, "add1", &gpa);
@@ -1610,7 +1617,7 @@ static void test_arraylist_dyn_begin(void) {
 static void test_arraylist_dyn_back(void) {
     printf("Testing arraylist back function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(&gpa, test_dtor);
+    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
 
     struct test add1;
     test_ctor(&add1, 10, 0.5, "add1", &gpa);
@@ -1635,7 +1642,7 @@ static void test_arraylist_dyn_back(void) {
 static void test_arraylist_dyn_end(void) {
     printf("Testing arraylist end function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(&gpa, test_dtor);
+    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
 
     struct test add1;
     test_ctor(&add1, 10, 0.5, "add1", &gpa);
@@ -1669,7 +1676,7 @@ bool test_pred_find_name(struct test *a, void *name) {
 static void test_arraylist_dyn_find(void) {
     printf("Testing arraylist find function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(&gpa, test_dtor);
+    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
 
     struct test add1;
     test_ctor(&add1, 10, 0.5, "add1", &gpa);
@@ -1695,7 +1702,7 @@ static void test_arraylist_dyn_find(void) {
 static void test_arraylist_dyn_contains(void) {
     printf("Testing arraylist contains function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(&gpa, test_dtor);
+    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
 
     struct test add1;
     test_ctor(&add1, 10, 0.5, "add1", &gpa);
@@ -1723,7 +1730,7 @@ static void test_arraylist_dyn_contains(void) {
 static void test_arraylist_dyn_size(void) {
     printf("Testing arraylist size function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(&gpa, test_dtor);
+    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
     assert(dyn_test_size(&arrlisttest) == 0);
 
     struct test add1;
@@ -1743,7 +1750,7 @@ static void test_arraylist_dyn_size(void) {
 static void test_arraylist_dyn_is_empty(void) {
     printf("Testing arraylist is empty function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(&gpa, test_dtor);
+    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
     assert(dyn_test_is_empty(&arrlisttest));
 
     struct test add1;
@@ -1761,7 +1768,7 @@ static void test_arraylist_dyn_is_empty(void) {
 static void test_arraylist_dyn_capacity(void) {
     printf("Testing arraylist capacity function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(&gpa, test_dtor);
+    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
     assert(dyn_test_capacity(&arrlisttest) == 0);
 
     dyn_test_reserve(&arrlisttest, 2);
@@ -1793,8 +1800,8 @@ static void test_arraylist_dyn_capacity(void) {
 static void test_arraylist_dyn_swap(void) {
     printf("Testing arraylist swap function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(&gpa, test_dtor);
-    struct arraylist_dyn_test otherarr = dyn_test_init(&gpa, test_dtor);
+    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
+    struct arraylist_dyn_test otherarr = dyn_test_init(gpa, test_dtor);
 
     struct test add1;
     test_ctor(&add1, 10, 0.5, "add1", &gpa);
@@ -1856,7 +1863,7 @@ static bool comparator_test(struct test *a, struct test *b) {
 static void test_arraylist_dyn_qsort(void) {
     printf("Testing arraylist qsort function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(&gpa, test_dtor);
+    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
 
     // Should be second after sort
     *dyn_test_emplace_back_slot(&arrlisttest) = test_ctor_by_val(1, 0.1, "add1", &gpa);
@@ -1894,7 +1901,7 @@ static void test_arraylist_dyn_qsort(void) {
 static void test_arraylist_dyn_clear(void) {
     printf("Testing arraylist end function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(&gpa, test_dtor);
+    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
 
     struct test add1;
     test_ctor(&add1, 10, 0.5, "add1", &gpa);
@@ -1920,7 +1927,7 @@ static void test_arraylist_dyn_clear(void) {
 
 static void test_arraylist_dyn_get_allocator_default(void) {
     printf("Testing arraylist get_allocator default function.\n");
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(NULL, test_dtor); // Init default allocator
+    struct arraylist_dyn_test arrlisttest = dyn_test_init(allocator_get_default(), test_dtor); // Init default allocator
 
     Allocator def = allocator_get_default();
 
@@ -1948,7 +1955,7 @@ ARRAYLIST_DYN(struct test *, test_ptr)
 static void test_arraylist_dyn_ptr_push_back(void) {
     printf("Testing arraylist_ptr push_back function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test_ptr arrlisttestptr = dyn_test_ptr_init(&gpa, test_ptr_dtor);
+    struct arraylist_dyn_test_ptr arrlisttestptr = dyn_test_ptr_init(gpa, test_ptr_dtor);
 
     struct test *add1 = malloc(sizeof(struct test));
     test_ctor(add1, 10, 0.5, "add1", &gpa);
@@ -1996,7 +2003,7 @@ static void test_arraylist_dyn_ptr_push_back(void) {
 static void test_arraylist_dyn_ptr_emplace_back_slot(void) {
     printf("Testing arraylist_ptr emplace_back_slot function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test_ptr arrlisttestptr = dyn_test_ptr_init(&gpa, test_ptr_dtor);
+    struct arraylist_dyn_test_ptr arrlisttestptr = dyn_test_ptr_init(gpa, test_ptr_dtor);
 
     // ways that emplace_back can be used with arraylist of pointers to values:
 
@@ -2067,7 +2074,7 @@ ARRAYLIST_DYN(struct test_simple, test_simple)
 static void test_simple_arraylist_dyn_push_back(void) {
     printf("Testing arraylist push_back function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test_simple arrlisttest = dyn_test_simple_init(&gpa, NULL);
+    struct arraylist_dyn_test_simple arrlisttest = dyn_test_simple_init(gpa, NULL);
 
     struct test_simple add1;
     test_simple_ctor(&add1, 10, 0.5, 1);
@@ -2150,7 +2157,7 @@ static void test_simple_arraylist_dyn_push_back(void) {
 static void test_simple_arraylist_dyn_emplace_back_slot(void) {
     printf("Testing arraylist emplace_back_slot function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test_simple arrlisttest = dyn_test_simple_init(&gpa, NULL);
+    struct arraylist_dyn_test_simple arrlisttest = dyn_test_simple_init(gpa, NULL);
 
     // ways that emplace_back can be used with arraylist of values:
 
@@ -2259,7 +2266,7 @@ ARRAYLIST_DYN(struct test_simple *, test_simple_ptr)
 static void test_simple_arraylist_dyn_ptr_push_back(void) {
     printf("Testing arraylist_ptr push_back function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test_simple_ptr arrlisttestptr = dyn_test_simple_ptr_init(&gpa, test_simple_ptr_dtor);
+    struct arraylist_dyn_test_simple_ptr arrlisttestptr = dyn_test_simple_ptr_init(gpa, test_simple_ptr_dtor);
 
     struct test_simple *add1 = malloc(sizeof(struct test_simple));
     test_simple_ctor(add1, 10, 0.5, 1);
@@ -2309,7 +2316,7 @@ static void test_simple_arraylist_dyn_ptr_push_back(void) {
 static void test_simple_arraylist_dyn_ptr_emplace_back_slot(void) {
     printf("Testing arraylist_ptr emplace_back_slot function.\n");
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test_simple_ptr arrlisttestptr = dyn_test_simple_ptr_init(&gpa, test_simple_ptr_dtor);
+    struct arraylist_dyn_test_simple_ptr arrlisttestptr = dyn_test_simple_ptr_init(gpa, test_simple_ptr_dtor);
 
     // ways that emplace_back can be used with arraylist of pointers to values:
 
@@ -2350,7 +2357,8 @@ ARRAYLIST_DYN(long, long)
 
 static void test_arraylist_dyn_bufferoverflow(void) {
     printf("arraylist size_t buffer overflow test.\n");
-    struct arraylist_dyn_long xs = dyn_long_init(0, 0);
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_long xs = dyn_long_init(gpa, 0);
     assert(dyn_long_reserve(&xs, 0x8000000000000001) == ARRAYLIST_ERR_OVERFLOW);
     dyn_long_push_back(&xs, 0);
     dyn_long_push_back(&xs, 0);
@@ -2376,7 +2384,7 @@ Allocator alloc = { my_malloc, my_realloc, my_free, (void *)16 };
 
 static void test_arraylist_dyn_allocating_zero(void) {
     printf("arraylist custom alloc allocating zero.\n");
-    struct arraylist_dyn_long xs_alloc = dyn_long_init(&alloc, 0);
+    struct arraylist_dyn_long xs_alloc = dyn_long_init(alloc, 0);
 
     dyn_long_push_back(&xs_alloc, 0);
 
@@ -2386,7 +2394,7 @@ static void test_arraylist_dyn_allocating_zero(void) {
 
 static void test_arraylist_dyn_get_custom_allocator(void) {
     printf("test arraylist getting custom allocator.\n");
-    struct arraylist_dyn_long xs_alloc = dyn_long_init(&alloc, 0);
+    struct arraylist_dyn_long xs_alloc = dyn_long_init(alloc, 0);
 
     assert(allocator_test_equality(&alloc, dyn_long_get_allocator(&xs_alloc)));
     assert(allocator_test_equality(&alloc, &xs_alloc.alloc)); // should be same as above

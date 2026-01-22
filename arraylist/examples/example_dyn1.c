@@ -55,7 +55,7 @@ int main(void) {
     /* == Example with a simple type like int == */
 
     // Creates a zero initialized arraylist that holds ints named int_vec with default allocator and no destructor
-    struct arraylist_dyn_ints int_vec = dyn_ints_init(&gpa, NULL);
+    struct arraylist_dyn_ints int_vec = dyn_ints_init(gpa, NULL);
 
     // May be created with capacity if wanted, but can't be tested for failure
     // if reserving fails due to buffer overflow or allocation failure, it will zero initialize
@@ -186,7 +186,7 @@ int main(void) {
 
     // Swaps arraylists
 
-    struct arraylist_dyn_ints other = dyn_ints_init(&gpa, NULL);
+    struct arraylist_dyn_ints other = dyn_ints_init(gpa, NULL);
     *dyn_ints_emplace_back_slot(&other) = 1000;
     *dyn_ints_emplace_back_slot(&other) = 2000;
 

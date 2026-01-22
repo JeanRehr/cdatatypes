@@ -84,7 +84,7 @@ bool non_pod_find(const struct non_pod *const self, void *find) {
 
 int main(void) {
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_np vec_np = dyn_np_init(&gpa, non_pod_deinit_ptr);
+    struct arraylist_dyn_np vec_np = dyn_np_init(gpa, non_pod_deinit_ptr);
     dyn_np_reserve(&vec_np, 40);
 
     // Inserting into it with emplace back slot

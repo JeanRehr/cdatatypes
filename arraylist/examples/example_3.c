@@ -97,7 +97,7 @@ bool non_pod_find(struct non_pod **self, void *find) {
 
 int main(void) {
     struct Allocator gpa = allocator_get_default();
-    struct arraylist_np vec_np = np_init(&gpa);
+    struct arraylist_np vec_np = np_init(gpa);
     np_reserve(&vec_np, 40);
 
     // Inserting into it with emplace back slot
@@ -113,6 +113,10 @@ int main(void) {
         fprintf(stderr, "Allocation failure\n");
         return -1;
     }
+
+    // For allocating constructors, the allocator struct must be the same passed in the arraylist
+    // to guarantee, if possible, one may use the arraylist alloc to allocate them, like so:
+    // non_pod_init_alloc(&vec_np.alloc, 90, 80, 70);
 
     // One liner not testing slot or allocation
     *np_emplace_back_slot(&vec_np) = non_pod_init_alloc(&gpa, 940, 820, 710);
@@ -249,7 +253,7 @@ int main(void) {
 
     // Swaps arraylists
 
-    struct arraylist_np other = np_init(&gpa);
+    struct arraylist_np other = np_init(gpa);
     *np_emplace_back_slot(&other) = non_pod_init_alloc(&gpa, 10000, -80, -70);
     *np_emplace_back_slot(&other) = non_pod_init_alloc(&gpa, 11992, -1000, 101010);
 

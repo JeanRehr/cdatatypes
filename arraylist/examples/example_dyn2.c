@@ -140,7 +140,7 @@ void names_print(struct arraylist_dyn_names_arr const *const names) {
 int main(void) {
     struct Allocator gpa = allocator_get_default();
 
-    struct arraylist_dyn_names_arr names_arr = arraylist_dyn_names_arr_init(&gpa, char_ptr_deinit);
+    struct arraylist_dyn_names_arr names_arr = arraylist_dyn_names_arr_init(gpa, char_ptr_deinit);
 
     // Uncomment the following line to read from terminal
     // names_read_lines(&names, stdin, &gpa);
