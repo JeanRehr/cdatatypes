@@ -18,7 +18,20 @@
  * needed, this works due to all functions being static inlined (tested on clang with -O3 -flto)
  *
  * Prefer the ARRAYLIST version if the runtime flexibility of a destructor function pointer is not
- * needed. 
+ * needed.
+ *
+ * This arraylist requires a file named "allocator.h", which is a simple allocator interface which
+ * defines a struct Allocator with 4 fields:
+ * - void *(*malloc)(size_t size, void *ctx);
+ * - void *(*realloc)(void *ptr, size_t old_size, size_t new_size, void *ctx)
+ * - void (*free)(void *ptr, size_t size, void *ctx);
+ * - void *ctx;
+ *
+ * And defines a function named allocator_get_default which returns a struct Allocator with
+ * initialized fields to a default allocator of choice (std libc memory functions in this case).
+ *
+ * Very easy to provide your own arraylist.h and/or custom allocators by
+ * implementing the Allocator interface
  *
  * @details
  * This arraylist implementation provides similar functionality to cpp std::vector, with explicit
