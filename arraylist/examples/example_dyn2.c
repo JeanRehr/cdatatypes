@@ -10,7 +10,7 @@
 
 // Usually names_arr may collide with your userbase, as it is quite common name
 // of course just for showing/testing purposes
-#define ARRAYLIST_USE_PREFIX_DYN
+#define ARRAYLIST_DYN_USE_PREFIX
 #include "arraylist.h"
 
 // Example for an arraylist of strings (char *)
