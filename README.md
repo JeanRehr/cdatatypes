@@ -78,7 +78,8 @@ To use a custom allocator, you have to implement the three function pointers as 
 
 I tried to document everything with doxygen comments, macros are very hard to document properly, but it is generating some of them.
 
-To run it, install doxygen and also GraphViz, then run from the root project directory:
-`$ doxygen` 
+To run it, install doxygen and GraphViz, then run from the root project directory:
+
+`$ doxygen`
 
 The [Doxyfile](Doxyfile) may be altered to not need GraphViz.
