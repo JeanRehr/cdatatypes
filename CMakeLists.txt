@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+enable_testing()
+
 # Add an option for the user to use MSVC or clang
 option(USE_CLANG_CL "Use clang-cl as a compiler on Windows (if available)" ON)
 
@@ -126,6 +128,24 @@ target_include_directories(example_arraylistdyn1 PRIVATE "${PROJECT_SOURCE_DIR}/
 target_include_directories(example_arraylistdyn2 PRIVATE "${PROJECT_SOURCE_DIR}/include")
 target_include_directories(example_arraylistdyn3 PRIVATE "${PROJECT_SOURCE_DIR}/include")
 
+# ctest
+add_test(NAME unit_test COMMAND test_arraylist)
+
+add_custom_target(
+    run_all_binaries
+    COMMAND $<TARGET_FILE:example_arraylist1>
+    COMMAND $<TARGET_FILE:example_arraylist2>
+    COMMAND $<TARGET_FILE:example_arraylist3>
+    COMMAND $<TARGET_FILE:example_arraylistdyn1>
+    COMMAND $<TARGET_FILE:example_arraylistdyn2>
+    COMMAND $<TARGET_FILE:example_arraylistdyn3>
+    COMMAND $<TARGET_FILE:test_arraylist>
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    COMMENT "Running all project executables..."
+    # Add a dependency so 'run_all_binaries' is built (though it doesn't create a file)
+    # DEPENDS MyApp1 MyApp2
+)
+
 # The default is set on the section "# Set default build type"
 # $cmake ..
 
@@ -142,3 +162,9 @@ target_include_directories(example_arraylistdyn3 PRIVATE "${PROJECT_SOURCE_DIR}/
 
 # $cmake --build .
 # Executables will be on build/bin/*(.exe)
+
+# To run tests:
+# $ctest
+
+# To run all binaries (including the test)
+# $cmake --build . --target run_all_binaries
