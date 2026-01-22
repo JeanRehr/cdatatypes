@@ -49,7 +49,7 @@ static inline struct non_pod non_pod_init(const int n, const int add, const int 
     return np;
 }
 
-static inline struct non_pod *non_pod_init_alloc(Allocator *alloc, const int n, const int add, const int sub) {
+static inline struct non_pod *non_pod_init_alloc(struct Allocator *alloc, const int n, const int add, const int sub) {
     struct non_pod *np = alloc->malloc(sizeof(struct non_pod), alloc->ctx);
     np->_number = malloc(sizeof(*np->_number));
     *np->_number = n;
@@ -63,7 +63,7 @@ static inline struct non_pod *non_pod_init_alloc(Allocator *alloc, const int n, 
     return np;
 }
 
-static inline void non_pod_deinit(struct non_pod *self, Allocator *alloc) {
+static inline void non_pod_deinit(struct non_pod *self, struct Allocator *alloc) {
     if (!self)
         return;
 
@@ -82,7 +82,7 @@ static inline void non_pod_deinit(struct non_pod *self, Allocator *alloc) {
     *(ptr) = NULL;                                                                \
   } while (0)
 
-static inline void non_pod_deinit_ptr(struct non_pod **self, Allocator *alloc) {
+static inline void non_pod_deinit_ptr(struct non_pod **self, struct Allocator *alloc) {
     if (!self || !*self)
         return;
 
@@ -101,7 +101,7 @@ static inline int non_pod_calculate(struct non_pod *self) {
 ARRAYLIST(struct non_pod*, np, non_pod_deinit_ptr_macro)
 
 int main(void) {
-    Allocator gpa = allocator_get_default();
+    struct Allocator gpa = allocator_get_default();
 
     struct arraylist_np vec_np = arraylist_np_init(&gpa);
     arraylist_np_reserve(&vec_np, 1000000);
@@ -146,7 +146,7 @@ static inline struct non_pod non_pod_init(const int n, const int add, const int 
     return np;
 }
 
-static inline struct non_pod *non_pod_init_alloc(Allocator *alloc, const int n, const int add, const int sub) {
+static inline struct non_pod *non_pod_init_alloc(struct Allocator *alloc, const int n, const int add, const int sub) {
     struct non_pod *np = alloc->malloc(sizeof(struct non_pod), alloc->ctx);
     np->_number = malloc(sizeof(*np->_number));
     *np->_number = n;
@@ -160,7 +160,7 @@ static inline struct non_pod *non_pod_init_alloc(Allocator *alloc, const int n, 
     return np;
 }
 
-static inline void non_pod_deinit(struct non_pod *self, Allocator *alloc) {
+static inline void non_pod_deinit(struct non_pod *self, struct Allocator *alloc) {
     if (!self)
         return;
 
@@ -169,7 +169,7 @@ static inline void non_pod_deinit(struct non_pod *self, Allocator *alloc) {
     alloc->free(self->sub, sizeof(self->sub), NULL);
 }
 
-static inline void non_pod_deinit_ptr(struct non_pod **self, Allocator *alloc) {
+static inline void non_pod_deinit_ptr(struct non_pod **self, struct Allocator *alloc) {
     if (!self || !*self)
         return;
 
@@ -188,7 +188,7 @@ static inline int non_pod_calculate(struct non_pod *self) {
 ARRAYLIST_DYN(struct non_pod*, np)
 
 int main(void) {
-    Allocator gpa = allocator_get_default();
+    struct Allocator gpa = allocator_get_default();
 
     struct arraylistfp_np vec_np = arraylistfp_np_init(&gpa, non_pod_deinit_ptr);
     arraylistfp_np_reserve(&vec_np, 1000000);
