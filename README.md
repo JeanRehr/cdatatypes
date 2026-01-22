@@ -47,9 +47,9 @@ ARRAYLIST(struct mytype, mytype, mytype_macro_dtor)
 ### Initialize:
 
 ```c
-struct arraylist_mytype arr = arraylist_mytype_init(NULL);
+struct arraylist_mytype arr = mytype_init(NULL);
 // use arr
-arraylist_mytype_deinit(&arr);
+mytype_deinit(&arr);
 ```
 
 Destructor functions are critical for correct memory handling of heap allocated fields inside structs, if your type doesn't allocate anything inside it, or it isn't a pointer type, no need for a destructor.
@@ -73,3 +73,12 @@ For more details and benchmarking code, see [arraylist/src/PERFORMANCE.md](array
 
 Allocator is a pluggable interface via the Allocator struct, by default malloc/realloc/free are used.
 To use a custom allocator, you have to implement the three function pointers as described in allocator.h, then create and pass an Allocator instance to init function
+
+# Documentation
+
+I tried to document everything with doxygen comments, macros are very hard to document properly, but it is generating some of them.
+
+To run it, install doxygen and also GraphViz, then run from the root project directory:
+`$ doxygen` 
+
+The [Doxyfile](Doxyfile) may be altered to not need GraphViz.

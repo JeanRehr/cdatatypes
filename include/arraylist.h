@@ -187,8 +187,8 @@ enum arraylist_error {
  * Must be defined before including the arraylist.h header, it will be per TU/file, so once defined
  * can't be undef in the same TU for different arraylist types and names.
  * The struct generated will always have the prefix arraylist_##name to them.
- * Inspiration taken from the Tsoding's nob.h lib, and some other libs which I took a look at the
- * source code and can't remember its name, but did something similar.
+ * Inspiration taken from the Tsoding's nob.h lib, and some other libs like jemalloc which also does
+ * something similar.
  *
  * The default is without prefixes, as the "name" parameter already acts like a user defined prefix:
  * @code
