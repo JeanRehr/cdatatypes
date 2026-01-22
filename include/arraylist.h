@@ -249,7 +249,7 @@ struct arraylist_##name { \
  *
  * @details
  * The following functions are declared:
- * - ARRAYLIST_UNUSED static inline struct arraylist_##name ARRAYLIST_FN(name, init)(struct Allocator *alloc);
+ * - ARRAYLIST_UNUSED static inline struct arraylist_##name ARRAYLIST_FN(name, init)(const struct Allocator alloc);
  * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, reserve)(struct arraylist_##name *self, const size_t capacity);
  * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, shrink_size)(struct arraylist_##name *self, const size_t size);
  * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, shrink_to_fit)(struct arraylist_##name *self);
@@ -292,7 +292,7 @@ struct arraylist_##name { \
  * \
  * @warning Call arraylist_##name##deinit() when done. \
  */ \
-ARRAYLIST_UNUSED static inline struct arraylist_##name ARRAYLIST_FN(name, init)(struct Allocator *alloc); \
+ARRAYLIST_UNUSED static inline struct arraylist_##name ARRAYLIST_FN(name, init)(const struct Allocator alloc); \
 /**
  * @brief reserve: Reserves the capacity of an arraylist \
  * @param self Pointer to the arraylist \
@@ -638,13 +638,9 @@ static inline void ARRAYLIST_FN(name, helper_qsort)(struct arraylist_##name *sel
     } \
 } \
 /* =========================== PUBLIC FUNCTIONS =========================== */ \
-static inline struct arraylist_##name ARRAYLIST_FN(name, init)(struct Allocator *alloc) { \
+static inline struct arraylist_##name ARRAYLIST_FN(name, init)(const struct Allocator alloc) { \
     struct arraylist_##name arraylist = {0}; \
-    if (alloc) { \
-        arraylist.alloc = *alloc; \
-    } else { \
-        arraylist.alloc = allocator_get_default(); \
-    } \
+    arraylist.alloc = alloc; \
     arraylist.size = 0; \
     arraylist.capacity = 0; \
     arraylist.data = NULL; \
@@ -983,7 +979,7 @@ struct arraylist_dyn_##name { \
  *
  * @details
  * The following functions are declared:
- * - ARRAYLIST_UNUSED static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, init)(struct Allocator *alloc, void (*destructor)(T *));
+ * - ARRAYLIST_UNUSED static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, init)(const struct Allocator alloc, void (*destructor)(T *));
  * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, reserve)(struct arraylist_dyn_##name *self, const size_t capacity);
  * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, shrink_size)(struct arraylist_dyn_##name *self, const size_t size);
  * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, shrink_to_fit)(struct arraylist_dyn_##name *self);
@@ -1028,7 +1024,7 @@ struct arraylist_dyn_##name { \
  * \
  * @warning Call arraylist_dyn_##name##deinit() when done. \
  */ \
-ARRAYLIST_UNUSED static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, init)(struct Allocator *alloc, void (*destructor)(T *, struct Allocator *alloc)); \
+ARRAYLIST_UNUSED static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, init)(const struct Allocator alloc, void (*destructor)(T *, struct Allocator *alloc)); \
 /**
  * @brief reserve: Reserves the capacity of an arraylist \
  * @param self Pointer to the arraylist \
@@ -1368,13 +1364,9 @@ static inline void ARRAYLIST_DYN_FN(name, helper_qsort)(struct arraylist_dyn_##n
     } \
 } \
 /* =========================== PUBLIC FUNCTIONS =========================== */ \
-static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, init)(struct Allocator *alloc, void (*destructor)(T *, struct Allocator *alloc)) { \
+static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, init)(const struct Allocator alloc, void (*destructor)(T *, struct Allocator *alloc)) { \
     struct arraylist_dyn_##name arraylist = {0}; \
-    if (alloc) { \
-        arraylist.alloc = *alloc; \
-    } else { \
-        arraylist.alloc = allocator_get_default(); \
-    } \
+    arraylist.alloc = alloc; \
     arraylist.destructor = destructor; \
     arraylist.size = 0; \
     arraylist.capacity = 0; \
