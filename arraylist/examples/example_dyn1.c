@@ -11,33 +11,22 @@
 #include "arraylist.h"
 
 // The following ARRAYLIST_DEF and ARRAYLIST_DECL may be declared on the header
-ARRAYLIST_DEF_FP(int, ints)
-ARRAYLIST_DECL_FP(int, ints)
+ARRAYLIST_DEF_DYN(int, ints)
+ARRAYLIST_DECL_DYN(int, ints)
 
 // ARRAYLIST_DEF just defined a struct that hold the type int with "ints" appended on the name
-// struct arraylistfp_ints
+// struct dyn_ints
 
 // This must always be on a .c file
-ARRAYLIST_IMPL_FP(int, ints)
+ARRAYLIST_IMPL_DYN(int, ints)
 
 // Or with the all in one macro, must be in a .c file
-// ARRAYLISTFP(int, ints)
-
-// If wanted to strip the arraylist_ prefix:
-// ARRAYLIST_STRIP_PREFIX(int, ints)
-// Creates ints_init(...), etc...
-// T and name must match exactly with the ARRAYLISTFP definitions above
-// Can be used with same type and different names:
-// ARRAYLISTFP(int, array)
-// ARRAYLIST_STRIP_PREFIX(int, array)
-// The same name for different types cannot be used:
-// ARRAYLISTFP(float, ints)
-// ARRAYLIST_STRIP_PREFIX(float, ints)
+// ARRAYLIST_DYN(int, ints)
 
 // All three macros must have the same type T and name (int and ints in this case)
 
 // The struct defined may be typedefed if wanted
-// typedef struct arraylistfp_ints arraylist_ints;
+// typedef struct dyn_ints arraylist_ints;
 
 // To be used to find an int inside a container of ints
 bool find_arraylist_int(int *t, void *find) {
@@ -66,47 +55,47 @@ int main(void) {
     /* == Example with a simple type like int == */
 
     // Creates a zero initialized arraylist that holds ints named int_vec with default allocator and no destructor
-    struct arraylistfp_ints int_vec = arraylistfp_ints_init(&gpa, NULL);
+    struct arraylist_dyn_ints int_vec = dyn_ints_init(&gpa, NULL);
 
     // May be created with capacity if wanted, but can't be tested for failure
     // if reserving fails due to buffer overflow or allocation failure, it will zero initialize
-    // struct arraylistfp_ints int_vec = arraylistfp_ints_init_with_capacity(NULL, NULL, 10);
+    // struct arraylist_dyn_ints int_vec = dyn_ints_init_with_capacity(NULL, NULL, 10);
 
     // Alternatively capacity may be reserved to minimize allocations
-    arraylistfp_ints_reserve(&int_vec, 16);
+    dyn_ints_reserve(&int_vec, 16);
 
     // This way, reserve can be tested for allocation failure or buffer overflow if needed
-    enum arraylist_error ret = arraylistfp_ints_reserve(&int_vec, SIZE_MAX - 1); // buffer overflow
+    enum arraylist_error ret = dyn_ints_reserve(&int_vec, SIZE_MAX - 1); // buffer overflow
     if (ret != ARRAYLIST_OK) {
         printf("buffer overflow, capacity not reserved, ret value: %d\n", ret);
         printf("capacity is still %lu\n", int_vec.capacity);
     }
 
     /* == INSERTING VALUES == */
-    arraylistfp_ints_push_back(&int_vec, 1);
-    arraylistfp_ints_push_back(&int_vec, 2);
-    arraylistfp_ints_push_back(&int_vec, 3);
+    dyn_ints_push_back(&int_vec, 1);
+    dyn_ints_push_back(&int_vec, 2);
+    dyn_ints_push_back(&int_vec, 3);
 
     // Prefer using emplace_back_slot to construct the object directly into the arraylist
     // It returns a pointer slot to the end of it, must be dereferenced to assign a value
-    *arraylistfp_ints_emplace_back_slot(&int_vec) = 10;
-    *arraylistfp_ints_emplace_back_slot(&int_vec) = 20;
+    *dyn_ints_emplace_back_slot(&int_vec) = 10;
+    *dyn_ints_emplace_back_slot(&int_vec) = 20;
 
     // Insert at an index, this will insert 1 to 10 from index 0 to 9
     for (size_t i = 0; i < 10; ++i) {
-        arraylistfp_ints_insert_at(&int_vec, i + 1, i);
+        dyn_ints_insert_at(&int_vec, i + 1, i);
     }
 
-    *arraylistfp_ints_emplace_back_slot(&int_vec) = 20;
+    *dyn_ints_emplace_back_slot(&int_vec) = 20;
 
     // may use an additional variable for testing before usage
-    int *slot = arraylistfp_ints_emplace_back_slot(&int_vec);
+    int *slot = dyn_ints_emplace_back_slot(&int_vec);
     assert(slot != NULL);
 
     *slot = 30;
 
     /* == READING/ACCESSING/ITERATING VALUES == */
-    for (size_t i = 0; i < arraylistfp_ints_size(&int_vec); i++) {
+    for (size_t i = 0; i < dyn_ints_size(&int_vec); i++) {
         printf("index %lu value %d\n", i, int_vec.data[i]);
     }
 
@@ -120,8 +109,8 @@ int main(void) {
     printf("\n");
 
     // at() function returns a pointer, so to get the value int, it must be dereferenced
-    printf("int_vec value at first position = %d\n", *arraylistfp_ints_at(&int_vec, 0));
-    printf("int_vec value at last position = %d\n", *arraylistfp_ints_at(&int_vec, int_vec.size - 1));
+    printf("int_vec value at first position = %d\n", *dyn_ints_at(&int_vec, 0));
+    printf("int_vec value at last position = %d\n", *dyn_ints_at(&int_vec, int_vec.size - 1));
 
     // May access the data directly if wanted
     printf("int_vec value at position 2 = %d\n", int_vec.data[2]);
@@ -129,7 +118,7 @@ int main(void) {
     printf("\n");
 
     // May also use iterators and pointer arithmetic to read values
-    for (int *it = arraylistfp_ints_begin(&int_vec); it < arraylistfp_ints_end(&int_vec); ++it) {
+    for (int *it = dyn_ints_begin(&int_vec); it < dyn_ints_end(&int_vec); ++it) {
         printf("value %d\n", *it);
     }
 
@@ -142,114 +131,114 @@ int main(void) {
     /* == REMOVING VALUES == */
 
     // Removes the last element
-    arraylistfp_ints_pop_back(&int_vec);
+    dyn_ints_pop_back(&int_vec);
 
     // If you want to get the last element before removing:
-    int *last_elem = arraylistfp_ints_back(&int_vec);
+    int *last_elem = dyn_ints_back(&int_vec);
     printf("last elem before removing: %d\n", *last_elem);
-    arraylistfp_ints_pop_back(&int_vec);
+    dyn_ints_pop_back(&int_vec);
 
     // Removes a single value at an index
-    arraylistfp_ints_remove_at(&int_vec, 0);
+    dyn_ints_remove_at(&int_vec, 0);
 
     // Will Remove values from position 1 to last index, only index 0 will remain
-    arraylistfp_ints_remove_from_to(&int_vec, 1, int_vec.size - 1);
+    dyn_ints_remove_from_to(&int_vec, 1, int_vec.size - 1);
     printf("arraylist size after removing from 1 to (size - 1): %lu\n", int_vec.size);
-    printf("last value remaining: %d\n", *arraylistfp_ints_begin(&int_vec));
+    printf("last value remaining: %d\n", *dyn_ints_begin(&int_vec));
 
     /* == OTHER FUNCTIONS == */
 
     // shrink to fit will reallocate capacity to fit the size, freeing up memory and not removing elements
-    printf("Capacity reserved before shrink_to_fit(): %lu\n", arraylistfp_ints_capacity(&int_vec));
-    arraylistfp_ints_shrink_to_fit(&int_vec);
+    printf("Capacity reserved before shrink_to_fit(): %lu\n", dyn_ints_capacity(&int_vec));
+    dyn_ints_shrink_to_fit(&int_vec);
     printf("Capacity reserved after shrink_to_fit(): %lu\n", int_vec.capacity);
 
     // Inserting elements again
     for (size_t i = 0; i < 10; ++i) {
-        arraylistfp_ints_insert_at(&int_vec, 0, i);
+        dyn_ints_insert_at(&int_vec, 0, i);
     }
     // Capacity and size after reinserting some elements:
-    printf("Capacity again after reinstering elements: %lu\n", arraylistfp_ints_capacity(&int_vec));
-    printf("Size again after reinstering elements: %lu\n", arraylistfp_ints_size(&int_vec));
+    printf("Capacity again after reinstering elements: %lu\n", dyn_ints_capacity(&int_vec));
+    printf("Size again after reinstering elements: %lu\n", dyn_ints_size(&int_vec));
 
     // shrink_size will shrink size to fit the size passed, removing elements, does not reallocate
-    arraylistfp_ints_shrink_size(&int_vec, 5);
-    printf("Capacity after shrink_size(): %lu\n", arraylistfp_ints_capacity(&int_vec));
-    printf("Size after after shrink_size(): %lu\n", arraylistfp_ints_size(&int_vec));
+    dyn_ints_shrink_size(&int_vec, 5);
+    printf("Capacity after shrink_size(): %lu\n", dyn_ints_capacity(&int_vec));
+    printf("Size after after shrink_size(): %lu\n", dyn_ints_size(&int_vec));
 
     // Tests if the arraylist is empty
-    if (arraylistfp_ints_is_empty(&int_vec) == true) {
+    if (dyn_ints_is_empty(&int_vec) == true) {
         printf("is empty\n");
     } else {
         printf("is NOT empty\n");
     }
 
     // Clear the arraylist of all elements, does not reallocate, only remove elements
-    arraylistfp_ints_clear(&int_vec);
-    if (arraylistfp_ints_is_empty(&int_vec) == true) {
+    dyn_ints_clear(&int_vec);
+    if (dyn_ints_is_empty(&int_vec) == true) {
         printf("is empty\n");
     } else {
         printf("is NOT empty\n");
     }
 
     // Gets the allocator if needed, it will be the default allocator in this case
-    arraylistfp_ints_get_allocator(&int_vec);
+    dyn_ints_get_allocator(&int_vec);
 
     // Swaps arraylists
 
-    struct arraylistfp_ints other = arraylistfp_ints_init(&gpa, NULL);
-    *arraylistfp_ints_emplace_back_slot(&other) = 1000;
-    *arraylistfp_ints_emplace_back_slot(&other) = 2000;
+    struct arraylist_dyn_ints other = dyn_ints_init(&gpa, NULL);
+    *dyn_ints_emplace_back_slot(&other) = 1000;
+    *dyn_ints_emplace_back_slot(&other) = 2000;
 
     // Other size before swap:
-    printf("Other arraylist size before swap(): %lu\n", arraylistfp_ints_size(&other));
-    printf("Original arraylist size before swap(): %lu\n", arraylistfp_ints_size(&int_vec));
+    printf("Other arraylist size before swap(): %lu\n", dyn_ints_size(&other));
+    printf("Original arraylist size before swap(): %lu\n", dyn_ints_size(&int_vec));
 
-    arraylistfp_ints_swap(&int_vec, &other);
+    dyn_ints_swap(&int_vec, &other);
 
-    printf("Other arraylist size after swap(): %lu\n", arraylistfp_ints_size(&other));
-    printf("Original arraylist size after swap(): %lu\n", arraylistfp_ints_size(&int_vec));
+    printf("Other arraylist size after swap(): %lu\n", dyn_ints_size(&other));
+    printf("Original arraylist size after swap(): %lu\n", dyn_ints_size(&int_vec));
 
-    arraylistfp_ints_deinit(&other);
+    dyn_ints_deinit(&other);
     /* == FIND AND CONTAINS == */
 
     // Find returns the reference if found, end if not
     // A function must be provided so that it knows how and what to find
-    int *not_foundref = arraylistfp_ints_find(&int_vec, find_arraylist_int, (void *)10);
+    int *not_foundref = dyn_ints_find(&int_vec, find_arraylist_int, (void *)10);
 
     // If value is not found, it will return the end of the arraylist, dereferencing it is UB
-    if (not_foundref == arraylistfp_ints_end(&int_vec)) {
+    if (not_foundref == dyn_ints_end(&int_vec)) {
         printf("not found\n");
     }
 
-    int *foundref = arraylistfp_ints_find(&int_vec, find_arraylist_int, (void *)1000);
-    if (foundref != arraylistfp_ints_end(&int_vec)) {
+    int *foundref = dyn_ints_find(&int_vec, find_arraylist_int, (void *)1000);
+    if (foundref != dyn_ints_end(&int_vec)) {
         printf("found, value is: %d\n", *foundref);
     }
 
     // Contains returns false or true, and an optional index where it was found
     size_t index = 0;
-    bool found = arraylistfp_ints_contains(&int_vec, find_arraylist_int, (void *)2000, &index);
+    bool found = dyn_ints_contains(&int_vec, find_arraylist_int, (void *)2000, &index);
 
     if (found) {
         printf("value found at index %lu\n", index);
     }
 
     /* == SORT FUNCTION == */
-    arraylistfp_ints_clear(&int_vec);
-    arraylistfp_ints_reserve(&int_vec, 5);
+    dyn_ints_clear(&int_vec);
+    dyn_ints_reserve(&int_vec, 5);
 
-    *arraylistfp_ints_emplace_back_slot(&int_vec) = 3;
-    *arraylistfp_ints_emplace_back_slot(&int_vec) = 5;
-    *arraylistfp_ints_emplace_back_slot(&int_vec) = 1;
-    *arraylistfp_ints_emplace_back_slot(&int_vec) = -2;
-    *arraylistfp_ints_emplace_back_slot(&int_vec) = 6;
+    *dyn_ints_emplace_back_slot(&int_vec) = 3;
+    *dyn_ints_emplace_back_slot(&int_vec) = 5;
+    *dyn_ints_emplace_back_slot(&int_vec) = 1;
+    *dyn_ints_emplace_back_slot(&int_vec) = -2;
+    *dyn_ints_emplace_back_slot(&int_vec) = 6;
 
     for (size_t i = 0; i < int_vec.size; i++) {
         printf("index %lu value %d\n", i, int_vec.data[i]);
     }
 
-    arraylistfp_ints_qsort(&int_vec, comp_ascend);
+    dyn_ints_qsort(&int_vec, comp_ascend);
 
     printf("\n");
 
@@ -257,7 +246,7 @@ int main(void) {
         printf("index %lu value %d\n", i, int_vec.data[i]);
     }
 
-    arraylistfp_ints_qsort(&int_vec, comp_descend);
+    dyn_ints_qsort(&int_vec, comp_descend);
 
     printf("\n");
 
@@ -266,5 +255,5 @@ int main(void) {
     }
 
     // Must be called when done
-    arraylistfp_ints_deinit(&int_vec);
+    dyn_ints_deinit(&int_vec);
 }

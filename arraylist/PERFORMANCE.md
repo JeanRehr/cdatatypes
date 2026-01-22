@@ -118,9 +118,9 @@ int main(void) {
 }
 ```
 
-## C `ARRAYLISTFP` function pointer:
+## C `ARRAYLIST_DYN` function pointer:
 
-For `ARRAYLISTFP` macro, exactly the same, but uses a function pointer for destructor internally:
+For `ARRAYLIST_DYN` macro, exactly the same, but uses a function pointer for destructor internally:
 
 ```c
 #include <stdio.h>
@@ -185,7 +185,7 @@ static inline int non_pod_calculate(struct non_pod *self) {
     return *self->_number;
 }
 
-ARRAYLISTFP(struct non_pod*, np)
+ARRAYLIST_DYN(struct non_pod*, np)
 
 int main(void) {
     Allocator gpa = allocator_get_default();
@@ -305,7 +305,7 @@ The following `perf` command was used:
 [ perf record: Captured and wrote 19,239 MB perf.data (502586 samples) ]
 ```
 
-## C `ARRAYLISTFP` Function Pointer version
+## C `ARRAYLIST_DYN` Function Pointer version
 ### First time (already did a run before this to make it hot on the cache):
 ```txt
  Performance counter stats for './cfp' (100 runs):
@@ -395,9 +395,9 @@ The following `perf` command was used:
 
 It can be seen that the C++ `std::vector<unique_ptr<T>>` and `ARRAYLIST` macro destructor are almost exactly the same, even though C++ vector being highly tuned for modern compilers and architectures with extra logic for internal performance.
 
-The `ARRAYLISTFP` function pointer is a bit slower than the macro and C++ version, which is expected, but the difference is very slight, less than 1% runtime performance speed penalty.
+The `ARRAYLIST_DYN` function pointer is a bit slower than the macro and C++ version, which is expected, but the difference is very slight, less than 1% runtime performance speed penalty.
 
-As for the executable size on my machine, the `ARRAYLIST` is 15.7KiB, `ARRAYLISTFP` function pointer is 15.9KiB, while C++ `std::vector<unique_ptr<T>>` is 16.3KiB, compiling the C++ version with `-fno-exceptions -fno-rtti` it gets to 15.8KiB, which is not bad, all of this while I did not compile for binary size performance.
+As for the executable size on my machine, the `ARRAYLIST` is 15.7KiB, `ARRAYLIST_DYN` function pointer is 15.9KiB, while C++ `std::vector<unique_ptr<T>>` is 16.3KiB, compiling the C++ version with `-fno-exceptions -fno-rtti` it gets to 15.8KiB, which is not bad, all of this while I did not compile for binary size performance.
 
 Note that I did not put much thought into the performance of the ARRAYLIST, particularly in the Custom Allocator interface, which are function pointers that the compiler can't optimize. These tests where done with plain libc malloc/realloc/free through this function pointer interface, while the new and delete from C++ may pool quick and fast allocations, so may be apples to oranges comparison here, with new/delete being natively more performant (maybe).
 

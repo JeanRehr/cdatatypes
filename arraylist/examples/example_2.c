@@ -8,11 +8,14 @@
 #include <stdio.h>
 #include <string.h>
 
+// Usually names_arr may collide with your userbase, as it is quite common name
+// of course just for showing/testing purposes
+#define ARRAYLIST_USE_PREFIX
 #include "arraylist.h"
 
 // Example for an arraylist of strings (char *)
-ARRAYLIST_DEF(char *, vec_str)
-ARRAYLIST_DECL(char *, vec_str)
+ARRAYLIST_DEF(char *, names_arr)
+ARRAYLIST_DECL(char *, names_arr)
 
 // Destructors
 
@@ -56,12 +59,10 @@ do { \
     } \
 } while(0)
 
-ARRAYLIST_IMPL(char *, vec_str, char_ptr_deinit_macro)
+ARRAYLIST_IMPL(char *, names_arr, char_ptr_deinit_macro)
 
 // Could also use the function destructor instead of macro:
-// ARRAYLIST_IMPL(char *, vec_str, char_ptr_deinit)
-
-ARRAYLIST_STRIP_PREFIX(char *, vec_str)
+// ARRAYLIST_IMPL(char *, names_arr, char_ptr_deinit)
 
 // Constructor, allocates a char * from src, caller must free it
 static char *heap_alloc_from_str_lit(const char *src, Allocator *alloc) {
@@ -73,18 +74,18 @@ static char *heap_alloc_from_str_lit(const char *src, Allocator *alloc) {
     return dup;
 }
 
-bool vec_str_sort(char **a, char **b) {
+bool names_sort(char **a, char **b) {
     return strcmp(*a, *b) < 0;
 }
 
-bool vec_str_find_abs(char **a, void *find) {
+bool names_find_abs(char **a, void *find) {
     if (strcmp(*a, (char *)find) == 0) {
         return true;
     }
     return false;
 }
 
-bool vec_str_find_partial(char **a, void *find) {
+bool names_find_partial(char **a, void *find) {
     if (strstr(*a, (char *)find) != NULL) {
         return true;
     }
@@ -139,9 +140,9 @@ char *read_line(FILE *stream, Allocator const *const alloc) {
     return result ? result : buf;
 }
 
-// This will read the lines from stream and insert into the vec_str
+// This will read the lines from stream and insert into the names
 // Returns number of lines inserted
-size_t vec_str_read_lines(struct arraylist_vec_str *vec_str, FILE *stream, Allocator *alloc) {
+size_t names_read_lines(struct arraylist_names_arr *names_arr, FILE *stream, Allocator *alloc) {
     size_t num_lines = 0;
     char *line;
     printf("Enter the strings (press CTRL+D to stop)> ");
@@ -161,32 +162,32 @@ size_t vec_str_read_lines(struct arraylist_vec_str *vec_str, FILE *stream, Alloc
         printf("Enter the strings> ");
         // emplace_back or push_back could only fail during reallocation of internal buffer
         // ownership of line allocated by read_line is passed onto the arraylist
-        *vec_str_emplace_back_slot(vec_str) = line;
+        *arraylist_names_arr_emplace_back_slot(names_arr) = line;
         num_lines++;
     }
     printf("\n");
     return num_lines;
 }
 
-// Helper function to print contents of the vec_str
-void vec_str_print(struct arraylist_vec_str const *const vec_str) {
-    for (size_t i = 0; i < vec_str->size; ++i) {
-        printf("String number %zu: %s\n", i, vec_str->data[i]);
+// Helper function to print contents of the names
+void names_print(struct arraylist_names_arr const *const names) {
+    for (size_t i = 0; i < names->size; ++i) {
+        printf("String number %zu: %s\n", i, names->data[i]);
     }
 }
 
 int main(void) {
     Allocator gpa = allocator_get_default();
 
-    struct arraylist_vec_str names = vec_str_init(&gpa);
+    struct arraylist_names_arr names_arr = arraylist_names_arr_init(&gpa);
 
     // Uncomment the following line to read from terminal
-    // vec_str_read_lines(&names, stdin, &gpa);
+    // names_read_lines(&names, stdin, &gpa);
 
     // Inseting inside the arraylist of strings:
 
     // The following cannot be done, it needs to be allocated on heap
-    // *vec_str_emplace_back_slot(&names) = "Testing";
+    // *arraylist_names_arr_emplace_back_slot(&names_arr) = "Testing";
 
     // manually constructing and allocating a string
     size_t len;
@@ -199,34 +200,34 @@ int main(void) {
     }
 
     // Once str is passed onto the arraylist, if it is provided a destructor, there is no need to worry about freeing the str
-    *vec_str_emplace_back_slot(&names) = str;
+    *arraylist_names_arr_emplace_back_slot(&names_arr) = str;
 
     // Using a constructor
-    *vec_str_emplace_back_slot(&names) = heap_alloc_from_str_lit("Full Name", &gpa);
+    *arraylist_names_arr_emplace_back_slot(&names_arr) = heap_alloc_from_str_lit("Full Name", &gpa);
 
     printf("UNSORTED:\n");
-    vec_str_print(&names);
+    names_print(&names_arr);
 
-    vec_str_qsort(&names, vec_str_sort);
+    arraylist_names_arr_qsort(&names_arr, names_sort);
 
     printf("\n");
 
     printf("SORTED:\n");
-    vec_str_print(&names);
+    names_print(&names_arr);
 
-    if (vec_str_contains(&names, vec_str_find_abs, "ABCSD", 0)) {
+    if (arraylist_names_arr_contains(&names_arr, names_find_abs, "ABCSD", 0)) {
         printf("NAME <ABCSD> FOUND!!!!!!\n");
     } else {
         printf("NOT FOUND!!!!!\n");
     }
 
-    if (vec_str_contains(&names, vec_str_find_partial, "TEST", 0)) {
+    if (arraylist_names_arr_contains(&names_arr, names_find_partial, "TEST", 0)) {
         printf("PARTIALLY FOUND <TEST>\n");
     } else {
         printf("NOT FOUND!!!!!\n");
     }
 
-    vec_str_deinit(&names);
+    arraylist_names_arr_deinit(&names_arr);
 
     return 0;
 }
