@@ -250,7 +250,6 @@ struct arraylist_##name { \
  * @details
  * The following functions are declared:
  * - ARRAYLIST_UNUSED static inline struct arraylist_##name ARRAYLIST_FN(name, init)(struct Allocator *alloc);
- * - ARRAYLIST_UNUSED static inline struct arraylist_##name ARRAYLIST_FN(name, init_with_capacity)(struct Allocator *alloc, size_t capacity);
  * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, reserve)(struct arraylist_##name *self, const size_t capacity);
  * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, shrink_size)(struct arraylist_##name *self, const size_t size);
  * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, shrink_to_fit)(struct arraylist_##name *self);
@@ -283,22 +282,17 @@ struct arraylist_##name { \
  * \
  * @note It does not allocate \
  * \
+ * For pre-allocation (which is better for performance): \
+ * @code \
+ * struct arraylist_ints list = ints_init(alloc); \
+ * if (ints_reserve(&list, expected_size) != ARRAYLIST_OK) { \
+ *       // Handle or continue with default growth \
+ * } \
+ * @endcode \
+ * \
  * @warning Call arraylist_##name##deinit() when done. \
  */ \
 ARRAYLIST_UNUSED static inline struct arraylist_##name ARRAYLIST_FN(name, init)(struct Allocator *alloc); \
-/**
- * @brief init_with_capacity: Creates a new arraylist with a given capacity \
- * @param alloc Custom allocator instance, if null, default alloc will be used \
- * @param capacity Capacity to initialize with, if zero, it will zero initialized \
- * @return An arraylist struct with the given capacity \
- * \
- * @warning If allocation fails, or given capacity overflows the buffer, it will fail and set \
- *          everything to zero, if using asserts, it will abort, test the fields of the struct \
- *          or use the functions capacity() and the like if needed \
- * \
- * @warning Call deinit() when done. \
- */ \
-ARRAYLIST_UNUSED static inline struct arraylist_##name ARRAYLIST_FN(name, init_with_capacity)(struct Allocator *alloc, size_t capacity); \
 /**
  * @brief reserve: Reserves the capacity of an arraylist \
  * @param self Pointer to the arraylist \
@@ -657,20 +651,7 @@ static inline struct arraylist_##name ARRAYLIST_FN(name, init)(struct Allocator 
     return arraylist; \
 } \
 \
-static inline struct arraylist_##name ARRAYLIST_FN(name, init_with_capacity)(struct Allocator *alloc, size_t capacity) { \
-    struct arraylist_##name arraylist = {0}; \
-    arraylist = ARRAYLIST_FN(name, init)(alloc); \
-    if (capacity > 0) { \
-        if (ARRAYLIST_FN(name, reserve)(&arraylist, capacity) != ARRAYLIST_OK) { \
-            arraylist.size = 0; \
-            arraylist.capacity = 0; \
-            arraylist.data = NULL; \
-        } \
-    } \
-    return arraylist; \
-} \
-\
-static inline enum arraylist_error ARRAYLIST_FN(name, reserve)(struct arraylist_##name *self, size_t capacity) { \
+static inline enum arraylist_error ARRAYLIST_FN(name, reserve)(struct arraylist_##name *self, const size_t capacity) { \
     ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL) \
     if (self->capacity >= capacity) { \
         return ARRAYLIST_OK; \
@@ -1003,7 +984,6 @@ struct arraylist_dyn_##name { \
  * @details
  * The following functions are declared:
  * - ARRAYLIST_UNUSED static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, init)(struct Allocator *alloc, void (*destructor)(T *));
- * - ARRAYLIST_UNUSED static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, init_with_capacity)(struct Allocator *alloc, void (*destructor)(T *), size_t capacity);
  * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, reserve)(struct arraylist_dyn_##name *self, const size_t capacity);
  * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, shrink_size)(struct arraylist_dyn_##name *self, const size_t size);
  * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, shrink_to_fit)(struct arraylist_dyn_##name *self);
@@ -1038,24 +1018,17 @@ struct arraylist_dyn_##name { \
  * \
  * @note It does not allocate \
  * \
+ * For pre-allocation (which is better for performance): \
+ * @code \
+ * struct arraylist_ints list = ints_init(alloc); \
+ * if (ints_reserve(&list, expected_size) != ARRAYLIST_OK) { \
+ *       // Handle or continue with default growth \
+ * } \
+ * @endcode \
+ * \
  * @warning Call arraylist_dyn_##name##deinit() when done. \
  */ \
 ARRAYLIST_UNUSED static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, init)(struct Allocator *alloc, void (*destructor)(T *, struct Allocator *alloc)); \
-/**
- * @brief init_with_capacity: reates a new arraylist with a given capacity \
- * @param alloc Custom allocator instance, if null, default alloc will be used \
- * @param destructor Custom destructor function pointer, if null, the arraylist will not know \
- *        how to free the given value if needed, user will be responsible for freeing \
- * @param capacity Capacity to initialize with, if zero, it will zero initialized \
- * @return An arraylist struct with the given capacity \
- * \
- * @warning If allocation fails, or given capacity overflows the buffer, it will fail and set \
- *          everything to zero, if using asserts, it will abort, test the fields of the struct \
- *          or use the functions capacity() and the like if needed \
- * \
- * @warning Call arraylist_dyn_##name##deinit() when done. \
- */ \
-ARRAYLIST_UNUSED static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, init_with_capacity)(struct Allocator *alloc, void (*destructor)(T *, struct Allocator *alloc), size_t capacity); \
 /**
  * @brief reserve: Reserves the capacity of an arraylist \
  * @param self Pointer to the arraylist \
@@ -1409,20 +1382,7 @@ static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, init)(struct Al
     return arraylist; \
 } \
 \
-static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, init_with_capacity)(struct Allocator *alloc, void (*destructor)(T *, struct Allocator *alloc), size_t capacity) { \
-    struct arraylist_dyn_##name arraylist = {0}; \
-    arraylist = ARRAYLIST_DYN_FN(name, init)(alloc, destructor); \
-    if (capacity > 0) { \
-        if (ARRAYLIST_DYN_FN(name, reserve)(&arraylist, capacity) != ARRAYLIST_OK) { \
-            arraylist.size = 0; \
-            arraylist.capacity = 0; \
-            arraylist.data = NULL; \
-        } \
-    } \
-    return arraylist; \
-} \
-\
-static inline enum arraylist_error ARRAYLIST_DYN_FN(name, reserve)(struct arraylist_dyn_##name *self, size_t capacity) { \
+static inline enum arraylist_error ARRAYLIST_DYN_FN(name, reserve)(struct arraylist_dyn_##name *self, const size_t capacity) { \
     ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL) \
     if (self->capacity >= capacity) { \
         return ARRAYLIST_OK; \

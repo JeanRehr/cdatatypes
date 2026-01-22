@@ -151,29 +151,6 @@ static void test_arraylist_init_and_deinit(void) {
     printf("arraylist init and deinit functions passed all tests.\n");
 }
 
-static void test_arraylist_init_with_capacity(void) {
-    printf("Testing arraylist init_with_capacity function.\n");
-    struct arraylist_test arrlisttest = test_init_with_capacity(NULL, 10);
-    assert(&arrlisttest.alloc);
-    assert(arrlisttest.capacity == 10);
-    assert(arrlisttest.data);
-    assert(arrlisttest.size == 0);
-
-    test_deinit(&arrlisttest);
-    assert(!arrlisttest.data);
-    assert(arrlisttest.capacity == 0);
-
-    arrlisttest = test_init_with_capacity(NULL, 0);
-    assert(&arrlisttest.alloc);
-    assert(arrlisttest.capacity == 0);
-    assert(!arrlisttest.data);
-    assert(arrlisttest.size == 0);
-
-    test_deinit(&arrlisttest);
-    assert(!arrlisttest.data);
-    printf("arraylist init_with_capacity function passed all tests.\n");
-}
-
 static void test_arraylist_reserve(void) {
     printf("Testing arraylist reserve function.\n");
     struct arraylist_test arrlisttest = test_init(NULL);
@@ -1055,31 +1032,6 @@ static void test_arraylist_dyn_init_and_deinit(void) {
     dyn_test_deinit(&arrlisttest);
     assert(!arrlisttest.data);
     printf("arraylist init and deinit functions passed all tests.\n");
-}
-
-static void test_arraylist_dyn_init_with_capacity(void) {
-    printf("Testing arraylist init_with_capacity function.\n");
-    struct arraylist_dyn_test arrlisttest = dyn_test_init_with_capacity(NULL, test_dtor, 10);
-    assert(arrlisttest.destructor);
-    assert(&arrlisttest.alloc);
-    assert(arrlisttest.capacity == 10);
-    assert(arrlisttest.data);
-    assert(arrlisttest.size == 0);
-
-    dyn_test_deinit(&arrlisttest);
-    assert(!arrlisttest.data);
-    assert(arrlisttest.capacity == 0);
-
-    arrlisttest = dyn_test_init_with_capacity(NULL, test_dtor, 0);
-    assert(arrlisttest.destructor);
-    assert(&arrlisttest.alloc);
-    assert(arrlisttest.capacity == 0);
-    assert(!arrlisttest.data);
-    assert(arrlisttest.size == 0);
-
-    dyn_test_deinit(&arrlisttest);
-    assert(!arrlisttest.data);
-    printf("arraylist init_with_capacity function passed all tests.\n");
 }
 
 static void test_arraylist_dyn_reserve(void) {
@@ -2499,7 +2451,6 @@ static void test_passing_nullptr_to_functions(void) {
 
 int main(void) {
     test_arraylist_init_and_deinit();
-    test_arraylist_init_with_capacity();
     test_arraylist_reserve();
     test_arraylist_shrink_size();
     test_arraylist_shrink_to_fit();
@@ -2524,7 +2475,6 @@ int main(void) {
     test_arraylist_clear();
 
     test_arraylist_dyn_init_and_deinit();
-    test_arraylist_dyn_init_with_capacity();
     test_arraylist_dyn_reserve();
     test_arraylist_dyn_shrink_size();
     test_arraylist_dyn_shrink_to_fit();
