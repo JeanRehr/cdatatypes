@@ -669,7 +669,7 @@ static inline enum arraylist_error ARRAYLIST_FN(name, reserve)(struct arraylist_
     return ARRAYLIST_OK; \
 } \
 \
-static inline enum arraylist_error ARRAYLIST_FN(name, shrink_size)(struct arraylist_##name *self, size_t size) { \
+static inline enum arraylist_error ARRAYLIST_FN(name, shrink_size)(struct arraylist_##name *self, const size_t size) { \
     ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL) \
     if (size >= self->size || self->size <= 0) { \
         return ARRAYLIST_OK; \
@@ -861,7 +861,7 @@ static inline enum arraylist_error ARRAYLIST_FN(name, swap)(struct arraylist_##n
     *self = temp; \
     return ARRAYLIST_OK; \
 } \
-ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, qsort)(struct arraylist_##name *self, bool (*comp)(T*, T*)) { \
+static inline enum arraylist_error ARRAYLIST_FN(name, qsort)(struct arraylist_##name *self, bool (*comp)(T*, T*)) { \
     ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL) \
     if (self->size > 1) { \
         ARRAYLIST_FN(name, helper_qsort)(self, 0, self->size - 1, comp); \
@@ -908,7 +908,7 @@ ARRAYLIST_IMPL(T, name, fn_dtor)
 /* ====== ARRAYLIST_DYN Function Pointer destructor version START ====== */
 
 /**
- * @def ARRAYLIST_USE_PREFIX_DYN
+ * @def ARRAYLIST_DYN_USE_PREFIX
  * @brief Defines at compile-time if the functions will use the arraylist_dyn_* prefix
  * @details 
  * Generates functions with the pattern arraylist_dyn_##name##_function() instead of dyn_name##_function()
@@ -934,7 +934,7 @@ ARRAYLIST_IMPL(T, name, fn_dtor)
  * ARRAYLIST_IMPL(int, int_list)
  * @endcode
  */
-#ifdef ARRAYLIST_USE_PREFIX_DYN
+#ifdef ARRAYLIST_DYN_USE_PREFIX
     #define ARRAYLIST_DYN_FN(name, func) arraylist_dyn_##name##_##func
 #else
     #define ARRAYLIST_DYN_FN(name, func) dyn_##name##_##func
@@ -1400,7 +1400,7 @@ static inline enum arraylist_error ARRAYLIST_DYN_FN(name, reserve)(struct arrayl
     return ARRAYLIST_OK; \
 } \
 \
-static inline enum arraylist_error ARRAYLIST_DYN_FN(name, shrink_size)(struct arraylist_dyn_##name *self, size_t size) { \
+static inline enum arraylist_error ARRAYLIST_DYN_FN(name, shrink_size)(struct arraylist_dyn_##name *self, const size_t size) { \
     ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL) \
     if (size >= self->size || self->size <= 0) { \
         return ARRAYLIST_OK; \

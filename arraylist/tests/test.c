@@ -14,7 +14,7 @@
 //#define ARRAYLIST_USE_ASSERT 1
 // If wanted to use arraylist_* prefix to the functions:
 //#define ARRAYLIST_USE_PREFIX
-//#define ARRAYLIST_USE_PREFIX_DYN
+//#define ARRAYLIST_DYN_USE_PREFIX
 #include <arraylist.h>
 
 struct test {
