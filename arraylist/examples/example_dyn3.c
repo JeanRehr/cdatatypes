@@ -18,7 +18,7 @@ struct non_pod {
 ARRAYLIST_DYN(struct non_pod *, np)
 
 // Returns a stack allocated struct itself, with allocated members on the heap
-struct non_pod non_pod_init(Allocator *alloc, const int n, const int add, const int sub) {
+struct non_pod non_pod_init(struct Allocator *alloc, const int n, const int add, const int sub) {
     struct non_pod np = { 0 };
     np._number = alloc->malloc(sizeof(*np._number), alloc->ctx);
     *np._number = n;
@@ -33,7 +33,7 @@ struct non_pod non_pod_init(Allocator *alloc, const int n, const int add, const 
 }
 
 // Returns a heap allocated struct, with heap allocated members
-struct non_pod *non_pod_init_alloc(Allocator *alloc, const int n, const int add, const int sub) {
+struct non_pod *non_pod_init_alloc(struct Allocator *alloc, const int n, const int add, const int sub) {
     struct non_pod *np = alloc->malloc(sizeof(struct non_pod), alloc->ctx);
     np->_number = malloc(sizeof(*np->_number));
     *np->_number = n;
@@ -48,7 +48,7 @@ struct non_pod *non_pod_init_alloc(Allocator *alloc, const int n, const int add,
 }
 
 // Frees members of the struct
-void non_pod_deinit(struct non_pod *self, Allocator *alloc) {
+void non_pod_deinit(struct non_pod *self, struct Allocator *alloc) {
     if (!self)
         return;
 
@@ -58,7 +58,7 @@ void non_pod_deinit(struct non_pod *self, Allocator *alloc) {
 }
 
 // Frees the members of the struct and then the heap allocated struct itself
-void non_pod_deinit_ptr(struct non_pod **self, Allocator *alloc) {
+void non_pod_deinit_ptr(struct non_pod **self, struct Allocator *alloc) {
     if (!self || !*self)
         return;
 
@@ -83,7 +83,7 @@ bool non_pod_find(const struct non_pod *const self, void *find) {
 }
 
 int main(void) {
-    Allocator gpa = allocator_get_default();
+    struct Allocator gpa = allocator_get_default();
     struct arraylist_dyn_np vec_np = dyn_np_init(&gpa, non_pod_deinit_ptr);
     dyn_np_reserve(&vec_np, 40);
 

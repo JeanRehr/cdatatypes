@@ -51,8 +51,8 @@ static inline void default_free(void *ptr, size_t size, void *ctx) {
  *
  * @return An Allocator defaulted to malloc, realloc, and free
  */
-static inline Allocator allocator_get_default(void) {
-    return (Allocator) {
+static inline struct Allocator allocator_get_default(void) {
+    return (struct Allocator) {
         .malloc = default_malloc,
         .realloc = default_realloc,
         .free = default_free,

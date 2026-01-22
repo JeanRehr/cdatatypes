@@ -48,7 +48,7 @@ bool comp_descend(int *i, int *j) {
 }
 
 int main(void) {
-    Allocator gpa = allocator_get_default();
+    struct Allocator gpa = allocator_get_default();
 
     /* === EXAMPLE USAGE OF THE FUNCTION POINTER VERSION === */
 

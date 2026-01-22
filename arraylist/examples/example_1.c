@@ -57,7 +57,7 @@ bool comp_descend(int *i, int *j) {
 }
 
 int main(void) {
-    Allocator gpa = allocator_get_default();
+    struct Allocator gpa = allocator_get_default();
 
     // Creates a zero initialized arraylist that holds ints named int_vec with default allocator and no destructor
     struct arraylist_ints int_vec = ints_init(&gpa);

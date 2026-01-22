@@ -19,7 +19,7 @@ ARRAYLIST_DECL(char *, names_arr)
 
 // Destructors
 
-void char_ptr_deinit(char **p, Allocator *alloc) {
+void char_ptr_deinit(char **p, struct Allocator *alloc) {
     if (p && *p) {
         alloc->free(*p, strlen(*p) + 1, alloc->ctx);
         *p = NULL;
@@ -65,7 +65,7 @@ ARRAYLIST_IMPL(char *, names_arr, char_ptr_deinit_macro)
 // ARRAYLIST_IMPL(char *, names_arr, char_ptr_deinit)
 
 // Constructor, allocates a char * from src, caller must free it
-static char *heap_alloc_from_str_lit(const char *src, Allocator *alloc) {
+static char *heap_alloc_from_str_lit(const char *src, struct Allocator *alloc) {
     size_t len = strlen(src);
     char *dup = alloc->malloc(len + 1, alloc->ctx);
     if (dup) {
@@ -142,7 +142,7 @@ char *read_line(FILE *stream, Allocator const *const alloc) {
 
 // This will read the lines from stream and insert into the names
 // Returns number of lines inserted
-size_t names_read_lines(struct arraylist_names_arr *names_arr, FILE *stream, Allocator *alloc) {
+size_t names_read_lines(struct arraylist_names_arr *names_arr, FILE *stream, struct Allocator *alloc) {
     size_t num_lines = 0;
     char *line;
     printf("Enter the strings (press CTRL+D to stop)> ");
@@ -177,7 +177,7 @@ void names_print(struct arraylist_names_arr const *const names) {
 }
 
 int main(void) {
-    Allocator gpa = allocator_get_default();
+    struct Allocator gpa = allocator_get_default();
 
     struct arraylist_names_arr names_arr = arraylist_names_arr_init(&gpa);
 

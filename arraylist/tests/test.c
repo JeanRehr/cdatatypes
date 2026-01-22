@@ -23,7 +23,7 @@ struct test {
     float *b;
 };
 
-static struct test *test_alloc_ctor(int a, float b, char *objname, Allocator *alloc) {
+static struct test *test_alloc_ctor(int a, float b, char *objname, struct Allocator *alloc) {
     struct test *t = alloc->malloc(sizeof(struct test), alloc->ctx);
     t->a = alloc->malloc(sizeof(a), alloc->ctx);
     *t->a = a;
@@ -35,7 +35,7 @@ static struct test *test_alloc_ctor(int a, float b, char *objname, Allocator *al
     return t;
 }
 
-static void test_ctor(struct test *t, int a, float b, char *objname, Allocator *alloc) {
+static void test_ctor(struct test *t, int a, float b, char *objname, struct Allocator *alloc) {
     t->a = alloc->malloc(sizeof(a), alloc->ctx);
     *t->a = a;
 
@@ -44,7 +44,7 @@ static void test_ctor(struct test *t, int a, float b, char *objname, Allocator *
     t->objname = objname;
 }
 
-static struct test test_ctor_by_val(int a, float b, char *objname, Allocator *alloc) {
+static struct test test_ctor_by_val(int a, float b, char *objname, struct Allocator *alloc) {
     struct test t;
     t.a = alloc->malloc(sizeof(a), alloc->ctx);
     *t.a = a;
@@ -58,7 +58,7 @@ static void test_print(struct test *t) {
     printf("t->objname = %s\n", t->objname);
 }
 
-static inline void test_dtor(struct test *t, Allocator *alloc) {
+static inline void test_dtor(struct test *t, struct Allocator *alloc) {
     if (!t) {
         return;
     }
@@ -67,7 +67,7 @@ static inline void test_dtor(struct test *t, Allocator *alloc) {
     alloc->free(t->b, sizeof(t->b), alloc->ctx);
 }
 
-static inline void test_ptr_dtor(struct test **t, Allocator *alloc) {
+static inline void test_ptr_dtor(struct test **t, struct Allocator *alloc) {
     if (!t || !*t) {
         return;
     }
@@ -117,7 +117,7 @@ static inline void test_ptr_dtor(struct test **t, Allocator *alloc) {
 #define test_ptr_dtor_macro2(dptr_test, alloc) \
     do { \
         check_same_types(dptr_test, struct test **); \
-        check_same_types(alloc, Allocator *); \
+        check_same_types(alloc, struct Allocator *); \
         if (!dptr_test || !*dptr_test) { \
             break; \
         } \
@@ -1001,7 +1001,7 @@ static void test_arraylist_clear(void) {
     printf("arraylist end passed all tests.\n");
 }
 
-static bool allocator_test_equality(const Allocator *a, const Allocator *b) {
+static bool allocator_test_equality(const struct Allocator *a, const struct Allocator *b) {
     return a->malloc == b->malloc && a->realloc == b->realloc && a->free == b->free && a->ctx == b->ctx;
 }
 
@@ -2101,7 +2101,7 @@ static struct test_simple test_simple_ctor_by_val(int a, float b, size_t id) {
     return t;
 }
 
-static void test_simple_ptr_dtor(struct test_simple **t, Allocator *alloc) {
+static void test_simple_ptr_dtor(struct test_simple **t, struct Allocator *alloc) {
     if (!t || !*t) {
         return;
     }

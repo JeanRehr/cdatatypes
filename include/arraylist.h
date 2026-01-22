@@ -225,7 +225,7 @@ struct arraylist_##name { \
     T *data; \
     size_t size; \
     size_t capacity; \
-    Allocator alloc; \
+    struct Allocator alloc; \
 };
 
 /**
@@ -236,8 +236,8 @@ struct arraylist_##name { \
  *
  * @details
  * The following functions are declared:
- * - ARRAYLIST_UNUSED static inline struct arraylist_##name ARRAYLIST_FN(name, init)(Allocator *alloc);
- * - ARRAYLIST_UNUSED static inline struct arraylist_##name ARRAYLIST_FN(name, init_with_capacity)(Allocator *alloc, size_t capacity);
+ * - ARRAYLIST_UNUSED static inline struct arraylist_##name ARRAYLIST_FN(name, init)(struct Allocator *alloc);
+ * - ARRAYLIST_UNUSED static inline struct arraylist_##name ARRAYLIST_FN(name, init_with_capacity)(struct Allocator *alloc, size_t capacity);
  * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, reserve)(struct arraylist_##name *self, const size_t capacity);
  * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, shrink_size)(struct arraylist_##name *self, const size_t size);
  * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, shrink_to_fit)(struct arraylist_##name *self);
@@ -256,7 +256,7 @@ struct arraylist_##name { \
  * - ARRAYLIST_UNUSED static inline size_t ARRAYLIST_FN(name, size)(const struct arraylist_##name *self);
  * - ARRAYLIST_UNUSED static inline bool ARRAYLIST_FN(name, is_empty)(const struct arraylist_##name *self);
  * - ARRAYLIST_UNUSED static inline size_t ARRAYLIST_FN(name, capacity)(const struct arraylist_##name *self);
- * - ARRAYLIST_UNUSED static inline Allocator* ARRAYLIST_FN(name, get_allocator)(struct arraylist_##name *self);
+ * - ARRAYLIST_UNUSED static inline struct Allocator* ARRAYLIST_FN(name, get_allocator)(struct arraylist_##name *self);
  * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, swap)(struct arraylist_##name *self, struct arraylist_##name *other);
  * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, qsort)(struct arraylist_##name *self, bool (*comp)(T*, T*));
  * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, clear)(struct arraylist_##name *self);
@@ -272,7 +272,7 @@ struct arraylist_##name { \
  * \
  * @warning Call arraylist_##name##deinit() when done. \
  */ \
-ARRAYLIST_UNUSED static inline struct arraylist_##name ARRAYLIST_FN(name, init)(Allocator *alloc); \
+ARRAYLIST_UNUSED static inline struct arraylist_##name ARRAYLIST_FN(name, init)(struct Allocator *alloc); \
 /**
  * @brief init_with_capacity: Creates a new arraylist with a given capacity \
  * @param alloc Custom allocator instance, if null, default alloc will be used \
@@ -285,7 +285,7 @@ ARRAYLIST_UNUSED static inline struct arraylist_##name ARRAYLIST_FN(name, init)(
  * \
  * @warning Call deinit() when done. \
  */ \
-ARRAYLIST_UNUSED static inline struct arraylist_##name ARRAYLIST_FN(name, init_with_capacity)(Allocator *alloc, size_t capacity); \
+ARRAYLIST_UNUSED static inline struct arraylist_##name ARRAYLIST_FN(name, init_with_capacity)(struct Allocator *alloc, size_t capacity); \
 /**
  * @brief reserve: Reserves the capacity of an arraylist \
  * @param self Pointer to the arraylist \
@@ -489,7 +489,7 @@ ARRAYLIST_UNUSED static inline size_t ARRAYLIST_FN(name, capacity)(const struct 
  * @param self Pointer to the arraylist \
  * @return The allocator \
  */ \
-ARRAYLIST_UNUSED static inline Allocator* ARRAYLIST_FN(name, get_allocator)(struct arraylist_##name *self); \
+ARRAYLIST_UNUSED static inline struct Allocator* ARRAYLIST_FN(name, get_allocator)(struct arraylist_##name *self); \
 /**
  * @brief swap: Swaps the contents of arraylist self with other \
  * @param self Pointer to the arraylist \
@@ -631,7 +631,7 @@ static inline void ARRAYLIST_FN(name, helper_qsort)(struct arraylist_##name *sel
     } \
 } \
 /* =========================== PUBLIC FUNCTIONS =========================== */ \
-static inline struct arraylist_##name ARRAYLIST_FN(name, init)(Allocator *alloc) { \
+static inline struct arraylist_##name ARRAYLIST_FN(name, init)(struct Allocator *alloc) { \
     struct arraylist_##name arraylist = {0}; \
     if (alloc) { \
         arraylist.alloc = *alloc; \
@@ -644,7 +644,7 @@ static inline struct arraylist_##name ARRAYLIST_FN(name, init)(Allocator *alloc)
     return arraylist; \
 } \
 \
-static inline struct arraylist_##name ARRAYLIST_FN(name, init_with_capacity)(Allocator *alloc, size_t capacity) { \
+static inline struct arraylist_##name ARRAYLIST_FN(name, init_with_capacity)(struct Allocator *alloc, size_t capacity) { \
     struct arraylist_##name arraylist = {0}; \
     arraylist = ARRAYLIST_FN(name, init)(alloc); \
     if (capacity > 0) { \
@@ -855,7 +855,7 @@ static inline size_t ARRAYLIST_FN(name, capacity)(const struct arraylist_##name 
     return self->capacity; \
 } \
 \
-static inline Allocator* ARRAYLIST_FN(name, get_allocator)(struct arraylist_##name *self) { \
+static inline struct Allocator* ARRAYLIST_FN(name, get_allocator)(struct arraylist_##name *self) { \
     return &self->alloc; \
 } \
 \
@@ -977,8 +977,8 @@ struct arraylist_dyn_##name { \
     T *data; \
     size_t size; \
     size_t capacity; \
-    Allocator alloc; \
-    void (*destructor)(T *, Allocator *alloc); \
+    struct Allocator alloc; \
+    void (*destructor)(T *, struct Allocator *alloc); \
 };
 
 /**
@@ -989,8 +989,8 @@ struct arraylist_dyn_##name { \
  *
  * @details
  * The following functions are declared:
- * - ARRAYLIST_UNUSED static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, init)(Allocator *alloc, void (*destructor)(T *));
- * - ARRAYLIST_UNUSED static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, init_with_capacity)(Allocator *alloc, void (*destructor)(T *), size_t capacity);
+ * - ARRAYLIST_UNUSED static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, init)(struct Allocator *alloc, void (*destructor)(T *));
+ * - ARRAYLIST_UNUSED static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, init_with_capacity)(struct Allocator *alloc, void (*destructor)(T *), size_t capacity);
  * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, reserve)(struct arraylist_dyn_##name *self, const size_t capacity);
  * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, shrink_size)(struct arraylist_dyn_##name *self, const size_t size);
  * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, shrink_to_fit)(struct arraylist_dyn_##name *self);
@@ -1009,7 +1009,7 @@ struct arraylist_dyn_##name { \
  * - ARRAYLIST_UNUSED static inline size_t ARRAYLIST_DYN_FN(name, size)(const struct arraylist_dyn_##name *self);
  * - ARRAYLIST_UNUSED static inline bool ARRAYLIST_DYN_FN(name, is_empty)(const struct arraylist_dyn_##name *self);
  * - ARRAYLIST_UNUSED static inline size_t ARRAYLIST_DYN_FN(name, capacity)(const struct arraylist_dyn_##name *self);
- * - ARRAYLIST_UNUSED static inline Allocator* ARRAYLIST_DYN_FN(name, get_allocator)(struct arraylist_dyn_##name *self);
+ * - ARRAYLIST_UNUSED static inline struct Allocator* ARRAYLIST_DYN_FN(name, get_allocator)(struct arraylist_dyn_##name *self);
  * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, swap)(struct arraylist_dyn_##name *self, struct arraylist_dyn_##name *other);
  * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, qsort)(struct arraylist_dyn_##name *self, bool (*comp)(T*, T*));
  * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, clear)(struct arraylist_dyn_##name *self);
@@ -1027,7 +1027,7 @@ struct arraylist_dyn_##name { \
  * \
  * @warning Call arraylist_dyn_##name##deinit() when done. \
  */ \
-ARRAYLIST_UNUSED static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, init)(Allocator *alloc, void (*destructor)(T *, Allocator *alloc)); \
+ARRAYLIST_UNUSED static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, init)(struct Allocator *alloc, void (*destructor)(T *, struct Allocator *alloc)); \
 /**
  * @brief init_with_capacity: reates a new arraylist with a given capacity \
  * @param alloc Custom allocator instance, if null, default alloc will be used \
@@ -1042,7 +1042,7 @@ ARRAYLIST_UNUSED static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name
  * \
  * @warning Call arraylist_dyn_##name##deinit() when done. \
  */ \
-ARRAYLIST_UNUSED static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, init_with_capacity)(Allocator *alloc, void (*destructor)(T *, Allocator *alloc), size_t capacity); \
+ARRAYLIST_UNUSED static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, init_with_capacity)(struct Allocator *alloc, void (*destructor)(T *, struct Allocator *alloc), size_t capacity); \
 /**
  * @brief reserve: Reserves the capacity of an arraylist \
  * @param self Pointer to the arraylist \
@@ -1246,7 +1246,7 @@ ARRAYLIST_UNUSED static inline size_t ARRAYLIST_DYN_FN(name, capacity)(const str
  * @param self Pointer to the arraylist \
  * @return The allocator \
  */ \
-ARRAYLIST_UNUSED static inline Allocator* ARRAYLIST_DYN_FN(name, get_allocator)(struct arraylist_dyn_##name *self); \
+ARRAYLIST_UNUSED static inline struct Allocator* ARRAYLIST_DYN_FN(name, get_allocator)(struct arraylist_dyn_##name *self); \
 /**
  * @brief swap: Swaps the contents of arraylist self with other \
  * @param self Pointer to the arraylist \
@@ -1382,7 +1382,7 @@ static inline void ARRAYLIST_DYN_FN(name, helper_qsort)(struct arraylist_dyn_##n
     } \
 } \
 /* =========================== PUBLIC FUNCTIONS =========================== */ \
-static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, init)(Allocator *alloc, void (*destructor)(T *, Allocator *alloc)) { \
+static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, init)(struct Allocator *alloc, void (*destructor)(T *, struct Allocator *alloc)) { \
     struct arraylist_dyn_##name arraylist = {0}; \
     if (alloc) { \
         arraylist.alloc = *alloc; \
@@ -1396,7 +1396,7 @@ static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, init)(Allocator
     return arraylist; \
 } \
 \
-static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, init_with_capacity)(Allocator *alloc, void (*destructor)(T *, Allocator *alloc), size_t capacity) { \
+static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, init_with_capacity)(struct Allocator *alloc, void (*destructor)(T *, struct Allocator *alloc), size_t capacity) { \
     struct arraylist_dyn_##name arraylist = {0}; \
     arraylist = ARRAYLIST_DYN_FN(name, init)(alloc, destructor); \
     if (capacity > 0) { \
@@ -1615,7 +1615,7 @@ static inline size_t ARRAYLIST_DYN_FN(name, capacity)(const struct arraylist_dyn
     return self->capacity; \
 } \
 \
-static inline Allocator* ARRAYLIST_DYN_FN(name, get_allocator)(struct arraylist_dyn_##name *self) { \
+static inline struct Allocator* ARRAYLIST_DYN_FN(name, get_allocator)(struct arraylist_dyn_##name *self) { \
     return &self->alloc; \
 } \
 \
