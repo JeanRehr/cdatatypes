@@ -272,7 +272,7 @@ struct arraylist_##name { \
  * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, swap)(struct arraylist_##name *self, struct arraylist_##name *other);
  * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, qsort)(struct arraylist_##name *self, bool (*comp)(T*, T*));
  * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, clear)(struct arraylist_##name *self);
- * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, deinit)(struct arraylist_##name *self);
+ * - ARRAYLIST_UNUSED static inline void ARRAYLIST_FN(name, deinit)(struct arraylist_##name *self);
  */
 #define ARRAYLIST_DECL(T, name) \
 /**
@@ -534,7 +534,7 @@ ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, clear)(st
  * \
  * @note Will call the destructor on data items if provided \
  */ \
-ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, deinit)(struct arraylist_##name *self);
+ARRAYLIST_UNUSED static inline void ARRAYLIST_FN(name, deinit)(struct arraylist_##name *self);
 
 /**
  * @def ARRAYLIST_IMPL(T, name, fn_dtor)
@@ -876,9 +876,9 @@ static inline enum arraylist_error ARRAYLIST_FN(name, clear)(struct arraylist_##
     return ARRAYLIST_OK; \
 } \
 \
-static inline enum arraylist_error ARRAYLIST_FN(name, deinit)(struct arraylist_##name *self) { \
+static inline void ARRAYLIST_FN(name, deinit)(struct arraylist_##name *self) { \
     if (!self || !self->data) { \
-        return ARRAYLIST_OK; \
+        return; \
     } \
     for (size_t i = 0; i < self->size; ++i) { \
         fn_dtor(&self->data[i], &self->alloc); \
@@ -887,7 +887,7 @@ static inline enum arraylist_error ARRAYLIST_FN(name, deinit)(struct arraylist_#
     self->data = NULL; \
     self->size = 0; \
     self->capacity = 0; \
-    return ARRAYLIST_OK; \
+    return; \
 }
 
 /**
@@ -1002,7 +1002,7 @@ struct arraylist_dyn_##name { \
  * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, swap)(struct arraylist_dyn_##name *self, struct arraylist_dyn_##name *other);
  * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, qsort)(struct arraylist_dyn_##name *self, bool (*comp)(T*, T*));
  * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, clear)(struct arraylist_dyn_##name *self);
- * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, deinit)(struct arraylist_dyn_##name *self);
+ * - ARRAYLIST_UNUSED static inline void ARRAYLIST_DYN_FN(name, deinit)(struct arraylist_dyn_##name *self);
  */
 #define ARRAYLIST_DECL_DYN(T, name) \
 /**
@@ -1266,7 +1266,7 @@ ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, clear
  * \
  * @note Will call the destructor on data items if provided \
  */ \
-ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, deinit)(struct arraylist_dyn_##name *self);
+ARRAYLIST_UNUSED static inline void ARRAYLIST_DYN_FN(name, deinit)(struct arraylist_dyn_##name *self);
 
 /**
  * @def ARRAYLIST_IMPL_DYN(T, name)
@@ -1613,9 +1613,9 @@ static inline enum arraylist_error ARRAYLIST_DYN_FN(name, clear)(struct arraylis
     return ARRAYLIST_OK; \
 } \
 \
-static inline enum arraylist_error ARRAYLIST_DYN_FN(name, deinit)(struct arraylist_dyn_##name *self) { \
+static inline void ARRAYLIST_DYN_FN(name, deinit)(struct arraylist_dyn_##name *self) { \
     if (!self || !self->data) { \
-        return ARRAYLIST_OK; \
+        return; \
     } \
     if (self->destructor) { \
         for (size_t i = 0; i < self->size; ++i) { \
@@ -1626,7 +1626,7 @@ static inline enum arraylist_error ARRAYLIST_DYN_FN(name, deinit)(struct arrayli
     self->data = NULL; \
     self->size = 0; \
     self->capacity = 0; \
-    return ARRAYLIST_OK; \
+    return; \
 }
 
 /**
