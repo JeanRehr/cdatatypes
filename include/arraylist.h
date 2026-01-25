@@ -392,6 +392,7 @@ ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, remove_at
  * @param self Pointer to the arraylist \
  * @param from Starting position to remove \
  * @param to Ending position inclusive \
+ * @return ARRAYLIST_ERR_NULL in case of NULL being passed, or ARRAYLIST_OK \
  * \
  * Will call destructor if available (if passed in the ARRAYLIST_IMPL macro) \
  * If from > to does nothing \
@@ -765,6 +766,9 @@ static inline enum arraylist_error ARRAYLIST_FN(name, remove_from_to)(struct arr
     if (self->size == 0) { \
         return ARRAYLIST_OK; \
     } \
+    if (from > to) { \
+        return ARRAYLIST_OK; \
+    } \
     if (to >= self->size) { \
         to = self->size - 1; \
     } \
@@ -1124,6 +1128,7 @@ ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, remov
  * @param self Pointer to the arraylist \
  * @param from Starting position to remove \
  * @param to Ending position inclusive \
+ * @return ARRAYLIST_ERR_NULL in case of NULL being passed, or ARRAYLIST_OK \
  * \
  * Will call destructor if available \
  * If from > to does nothing \
@@ -1496,6 +1501,9 @@ static inline enum arraylist_error ARRAYLIST_DYN_FN(name, remove_at)(struct arra
 static inline enum arraylist_error ARRAYLIST_DYN_FN(name, remove_from_to)(struct arraylist_dyn_##name *self, size_t from, size_t to) { \
     ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL) \
     if (self->size == 0) { \
+        return ARRAYLIST_OK; \
+    } \
+    if (from > to) { \
         return ARRAYLIST_OK; \
     } \
     if (to >= self->size) { \
