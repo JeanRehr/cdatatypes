@@ -681,8 +681,23 @@ void test_arraylist_emplace_back_slot_value(void) {
     assert(list.size == 5);
     assert(list.capacity == 8);
 
-    nonpods_deinit(&list);
+    // Testing null parameter
+    assert(nonpods_emplace_back_slot(NULL) == NULL);
 
+    // Testing alloc failure
+    struct arraylist_nonpods allocfail = nonpods_init(allocator_get_failling_alloc());
+    assert(nonpods_emplace_back_slot(&allocfail) == NULL);
+
+    // Testing buffer overflow
+    struct arraylist_nonpods arraylistoveralloc = nonpods_init(gpa);
+    // Simulate a full capacity
+    // Buffer overflow error is only triggered when the arraylist WOULD overflow, so we need to get a bit less
+    arraylistoveralloc.capacity = SIZE_MAX / (2 * sizeof(struct non_pod)) + 1;
+    arraylistoveralloc.size = arraylistoveralloc.capacity;
+    assert(nonpods_emplace_back_slot(&arraylistoveralloc) == NULL);
+
+    nonpods_deinit(&arraylistoveralloc);
+    nonpods_deinit(&allocfail);
     nonpods_deinit(&list);
     assert(global_destructor_counter_arraylist == 0);
     printf("test arraylist emplace_back_slot value-type passed\n");
@@ -798,6 +813,23 @@ void test_arraylist_insert_at_value(void) {
     assert(list.size == 5);
     assert(list.capacity == 8);
 
+    // Testing null parameter
+    assert(nonpods_insert_at(NULL, a5, 0) == ARRAYLIST_ERR_NULL);
+
+    // Testing alloc failure
+    struct arraylist_nonpods allocfail = nonpods_init(allocator_get_failling_alloc());
+    assert(nonpods_insert_at(&allocfail, a5, 0) == ARRAYLIST_ERR_ALLOC);
+
+    // Testing buffer overflow
+    struct arraylist_nonpods arraylistoveralloc = nonpods_init(gpa);
+    // Simulate a full capacity
+    // Buffer overflow error is only triggered when the arraylist WOULD overflow, so we need to get a bit less
+    arraylistoveralloc.capacity = SIZE_MAX / (2 * sizeof(struct non_pod)) + 1;
+    arraylistoveralloc.size = arraylistoveralloc.capacity;
+    assert(nonpods_insert_at(&arraylistoveralloc, a5, 0) == ARRAYLIST_ERR_OVERFLOW);
+
+    nonpods_deinit(&arraylistoveralloc);
+    nonpods_deinit(&allocfail);
     nonpods_deinit(&list);
     assert(global_destructor_counter_arraylist == 0);
     printf("test arraylist insert_at value-type passed\n");
@@ -882,6 +914,9 @@ void test_arraylist_pop_back_value(void) {
     assert(err == ARRAYLIST_OK);
     assert(list.size == 0);
     assert(global_destructor_counter_arraylist == before);
+
+    // Testing null parameter
+    assert(nonpods_pop_back(NULL) == ARRAYLIST_ERR_NULL);
 
     nonpods_deinit(&list);
     assert(global_destructor_counter_arraylist == 0);
@@ -1037,6 +1072,9 @@ void test_arraylist_remove_at_value(void) {
     assert(err == ARRAYLIST_OK);
     assert(list.size == 0);
 
+    // Testing null parameter
+    assert(nonpods_remove_at(NULL, 0) == ARRAYLIST_ERR_NULL);
+
     nonpods_deinit(&list);
     assert(global_destructor_counter_arraylist == 0);
     printf("test arraylist remove_at value-type passed\n");
@@ -1168,6 +1206,9 @@ void test_arraylist_remove_from_to_value(void)
     assert(err == ARRAYLIST_OK);
     assert(list.size == 0);
     assert(global_destructor_counter_arraylist == 0);
+
+    // Testing null parameter
+    assert(nonpods_remove_from_to(NULL, 0, 1) == ARRAYLIST_ERR_NULL);
 
     nonpods_deinit(&list);
     assert(global_destructor_counter_arraylist == 0);
@@ -1370,7 +1411,7 @@ void test_arraylist_begin_value(void) {
     }
     assert(loopcheck == list.size);
 
-    // at(NULL) returns NULL, begin(NULL) returns NULL
+    // begin(NULL) returns NULL
     assert(nonpods_begin(NULL) == NULL);
 
     // begin not deref'd if list is truly empty; do not crash
@@ -3234,6 +3275,23 @@ void test_arraylist_emplace_back_slot_ptr(void) {
     assert(list.size == 5);
     assert(list.capacity == 8);
 
+    // Testing null parameter
+    assert(nonpods_ptr_emplace_back_slot(NULL) == NULL);
+
+    // Testing alloc failure
+    struct arraylist_nonpods_ptr allocfail = nonpods_ptr_init(allocator_get_failling_alloc());
+    assert(nonpods_ptr_emplace_back_slot(&allocfail) == NULL);
+
+    // Testing buffer overflow
+    struct arraylist_nonpods_ptr arraylistoveralloc = nonpods_ptr_init(gpa);
+    // Simulate a full capacity
+    // Buffer overflow error is only triggered when the arraylist WOULD overflow, so we need to get a bit less
+    arraylistoveralloc.capacity = SIZE_MAX / (2 * sizeof(struct non_pod *)) + 1;
+    arraylistoveralloc.size = arraylistoveralloc.capacity;
+    assert(nonpods_ptr_emplace_back_slot(&arraylistoveralloc) == NULL);
+
+    nonpods_ptr_deinit(&arraylistoveralloc);
+    nonpods_ptr_deinit(&allocfail);
     nonpods_ptr_deinit(&list);
     assert(global_destructor_counter_arraylist == 0);
     printf("test arraylist emplace_back_slot pointer-type passed\n");
@@ -3349,6 +3407,23 @@ void test_arraylist_insert_at_pointer(void) {
     assert(list.size == 5);
     assert(list.capacity == 8);
 
+    // Testing null parameter
+    assert(nonpods_ptr_insert_at(NULL, a5, 0) == ARRAYLIST_ERR_NULL);
+
+    // Testing alloc failure
+    struct arraylist_nonpods_ptr allocfail = nonpods_ptr_init(allocator_get_failling_alloc());
+    assert(nonpods_ptr_insert_at(&allocfail, a5, 0) == ARRAYLIST_ERR_ALLOC);
+
+    // Testing buffer overflow
+    struct arraylist_nonpods_ptr arraylistoveralloc = nonpods_ptr_init(gpa);
+    // Simulate a full capacity
+    // Buffer overflow error is only triggered when the arraylist WOULD overflow, so we need to get a bit less
+    arraylistoveralloc.capacity = SIZE_MAX / (2 * sizeof(struct non_pod *)) + 1;
+    arraylistoveralloc.size = arraylistoveralloc.capacity;
+    assert(nonpods_ptr_insert_at(&arraylistoveralloc, a5, 0) == ARRAYLIST_ERR_OVERFLOW);
+
+    nonpods_ptr_deinit(&arraylistoveralloc);
+    nonpods_ptr_deinit(&allocfail);
     nonpods_ptr_deinit(&list);
     assert(global_destructor_counter_arraylist == 0);
     printf("test arraylist insert_at pointer-type passed\n");
@@ -3430,6 +3505,9 @@ void test_arraylist_pop_back_ptr(void) {
     assert(err == ARRAYLIST_OK);
     assert(list.size == 0);
     assert(global_destructor_counter_arraylist == before);
+
+    // Testing null parameter
+    assert(nonpods_ptr_pop_back(NULL) == ARRAYLIST_ERR_NULL);
 
     nonpods_ptr_deinit(&list);
     assert(global_destructor_counter_arraylist == 0);
@@ -3585,6 +3663,9 @@ void test_arraylist_remove_at_ptr(void) {
     assert(err == ARRAYLIST_OK);
     assert(list.size == 0);
 
+    // Testing null parameter
+    assert(nonpods_ptr_remove_at(NULL, 0) == ARRAYLIST_ERR_NULL);
+
     nonpods_ptr_deinit(&list);
     assert(global_destructor_counter_arraylist == 0);
     printf("test arraylist remove_at pointer-type passed\n");
@@ -3716,6 +3797,9 @@ void test_arraylist_remove_from_to_ptr(void)
     assert(err == ARRAYLIST_OK);
     assert(list.size == 0);
     assert(global_destructor_counter_arraylist == 0);
+
+    // Testing null parameter
+    assert(nonpods_ptr_remove_from_to(NULL, 0, 1) == ARRAYLIST_ERR_NULL);
 
     nonpods_ptr_deinit(&list);
     assert(global_destructor_counter_arraylist == 0);
@@ -3922,7 +4006,7 @@ void test_arraylist_begin_ptr(void) {
     }
     assert(loopcheck == list.size);
 
-    // at(NULL) returns NULL, begin(NULL) returns NULL
+    // begin(NULL) returns NULL
     assert(nonpods_ptr_begin(NULL) == NULL);
 
     // begin not deref'd if list is truly empty; do not crash
@@ -5785,8 +5869,23 @@ void test_arraylist_dyn_emplace_back_slot_value(void) {
     assert(list.size == 5);
     assert(list.capacity == 8);
 
-    dyn_non_pods_d_deinit(&list);
+    // Testing null parameter
+    assert(dyn_non_pods_d_emplace_back_slot(NULL) == NULL);
 
+    // Testing alloc failure
+    struct arraylist_dyn_non_pods_d allocfail = dyn_non_pods_d_init(allocator_get_failling_alloc(), non_pod_deinit);
+    assert(dyn_non_pods_d_emplace_back_slot(&allocfail) == NULL);
+
+    // Testing buffer overflow
+    struct arraylist_dyn_non_pods_d arraylistoveralloc = dyn_non_pods_d_init(gpa, non_pod_deinit);
+    // Simulate a full capacity
+    // Buffer overflow error is only triggered when the arraylist WOULD overflow, so we need to get a bit less
+    arraylistoveralloc.capacity = SIZE_MAX / (2 * sizeof(struct non_pod)) + 1;
+    arraylistoveralloc.size = arraylistoveralloc.capacity;
+    assert(dyn_non_pods_d_emplace_back_slot(&arraylistoveralloc) == NULL);
+
+    dyn_non_pods_d_deinit(&arraylistoveralloc);
+    dyn_non_pods_d_deinit(&allocfail);
     dyn_non_pods_d_deinit(&list);
     assert(global_destructor_counter_arraylist == 0);
     printf("test arraylist dyn emplace_back_slot value-type passed\n");
@@ -5902,8 +6001,23 @@ void test_arraylist_dyn_insert_at_value(void) {
     assert(list.size == 5);
     assert(list.capacity == 8);
 
-    dyn_non_pods_d_deinit(&list);
+    // Testing null parameter
+    assert(dyn_non_pods_d_insert_at(NULL, a5, 0) == ARRAYLIST_ERR_NULL);
 
+    // Testing alloc failure
+    struct arraylist_dyn_non_pods_d allocfail = dyn_non_pods_d_init(allocator_get_failling_alloc(), non_pod_deinit);
+    assert(dyn_non_pods_d_insert_at(&allocfail, a5, 0) == ARRAYLIST_ERR_ALLOC);
+
+    // Testing buffer overflow
+    struct arraylist_dyn_non_pods_d arraylistoveralloc = dyn_non_pods_d_init(gpa, non_pod_deinit);
+    // Simulate a full capacity
+    // Buffer overflow error is only triggered when the arraylist WOULD overflow, so we need to get a bit less
+    arraylistoveralloc.capacity = SIZE_MAX / (2 * sizeof(struct non_pod)) + 1;
+    arraylistoveralloc.size = arraylistoveralloc.capacity;
+    assert(dyn_non_pods_d_insert_at(&arraylistoveralloc, a5, 0) == ARRAYLIST_ERR_OVERFLOW);
+
+    dyn_non_pods_d_deinit(&arraylistoveralloc);
+    dyn_non_pods_d_deinit(&allocfail);
     dyn_non_pods_d_deinit(&list);
     assert(global_destructor_counter_arraylist == 0);
     printf("test arraylist dyn insert_at value-type passed\n");
@@ -5985,6 +6099,10 @@ void test_arraylist_dyn_pop_back_value(void) {
     assert(err == ARRAYLIST_OK);
     assert(list.size == 0);
     assert(global_destructor_counter_arraylist == before);
+
+
+    // Testing null parameter
+    assert(dyn_non_pods_d_pop_back(NULL) == ARRAYLIST_ERR_NULL);
 
     dyn_non_pods_d_deinit(&list);
     assert(global_destructor_counter_arraylist == 0);
@@ -6140,6 +6258,9 @@ void test_arraylist_dyn_remove_at_value(void) {
     assert(err == ARRAYLIST_OK);
     assert(list.size == 0);
 
+    // Testing null parameter
+    assert(dyn_non_pods_d_remove_at(NULL, 0) == ARRAYLIST_ERR_NULL);
+
     dyn_non_pods_d_deinit(&list);
     assert(global_destructor_counter_arraylist == 0);
     printf("test arraylist dyn remove_at value-type passed\n");
@@ -6272,6 +6393,9 @@ void test_arraylist_dyn_remove_from_to_value(void)
     assert(err == ARRAYLIST_OK);
     assert(list.size == 0);
     assert(global_destructor_counter_arraylist == 0);
+
+    // Testing null parameter
+    assert(dyn_non_pods_d_remove_from_to(NULL, 0, 1) == ARRAYLIST_ERR_NULL);
 
     dyn_non_pods_d_deinit(&list);
     assert(global_destructor_counter_arraylist == 0);
@@ -6474,7 +6598,7 @@ void test_arraylist_dyn_begin_value(void) {
     }
     assert(loopcheck == list.size);
 
-    // at(NULL) returns NULL, begin(NULL) returns NULL
+    // begin(NULL) returns NULL
     assert(dyn_non_pods_d_begin(NULL) == NULL);
 
     // begin not deref'd if list is truly empty; do not crash
@@ -8338,8 +8462,23 @@ void test_arraylist_dyn_emplace_back_slot_ptr(void) {
     assert(list.size == 5);
     assert(list.capacity == 8);
 
-    dyn_non_pods_d_ptr_deinit(&list);
+    // Testing null parameter
+    assert(dyn_non_pods_d_ptr_emplace_back_slot(NULL) == NULL);
 
+    // Testing alloc failure
+    struct arraylist_dyn_non_pods_d_ptr allocfail = dyn_non_pods_d_ptr_init(allocator_get_failling_alloc(), non_pod_deinit_ptr);
+    assert(dyn_non_pods_d_ptr_emplace_back_slot(&allocfail) == NULL);
+
+    // Testing buffer overflow
+    struct arraylist_dyn_non_pods_d_ptr arraylistoveralloc = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+    // Simulate a full capacity
+    // Buffer overflow error is only triggered when the arraylist WOULD overflow, so we need to get a bit less
+    arraylistoveralloc.capacity = SIZE_MAX / (2 * sizeof(struct non_pod *)) + 1;
+    arraylistoveralloc.size = arraylistoveralloc.capacity;
+    assert(dyn_non_pods_d_ptr_emplace_back_slot(&arraylistoveralloc) == NULL);
+
+    dyn_non_pods_d_ptr_deinit(&arraylistoveralloc);
+    dyn_non_pods_d_ptr_deinit(&allocfail);
     dyn_non_pods_d_ptr_deinit(&list);
     assert(global_destructor_counter_arraylist == 0);
     printf("test arraylist dyn emplace_back_slot pointer-type passed\n");
@@ -8455,8 +8594,23 @@ void test_arraylist_dyn_insert_at_pointer(void) {
     assert(list.size == 5);
     assert(list.capacity == 8);
 
-    dyn_non_pods_d_ptr_deinit(&list);
+    // Testing null parameter
+    assert(dyn_non_pods_d_ptr_insert_at(NULL, a5, 0) == ARRAYLIST_ERR_NULL);
 
+    // Testing alloc failure
+    struct arraylist_dyn_non_pods_d_ptr allocfail = dyn_non_pods_d_ptr_init(allocator_get_failling_alloc(), non_pod_deinit_ptr);
+    assert(dyn_non_pods_d_ptr_insert_at(&allocfail, a5, 0) == ARRAYLIST_ERR_ALLOC);
+
+    // Testing buffer overflow
+    struct arraylist_dyn_non_pods_d_ptr arraylistoveralloc = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+    // Simulate a full capacity
+    // Buffer overflow error is only triggered when the arraylist WOULD overflow, so we need to get a bit less
+    arraylistoveralloc.capacity = SIZE_MAX / (2 * sizeof(struct non_pod *)) + 1;
+    arraylistoveralloc.size = arraylistoveralloc.capacity;
+    assert(dyn_non_pods_d_ptr_insert_at(&arraylistoveralloc, a5, 0) == ARRAYLIST_ERR_OVERFLOW);
+
+    dyn_non_pods_d_ptr_deinit(&arraylistoveralloc);
+    dyn_non_pods_d_ptr_deinit(&allocfail);
     dyn_non_pods_d_ptr_deinit(&list);
     assert(global_destructor_counter_arraylist == 0);
     printf("test arraylist dyn insert_at pointer-type passed\n");
@@ -8538,6 +8692,9 @@ void test_arraylist_dyn_pop_back_ptr(void) {
     assert(err == ARRAYLIST_OK);
     assert(list.size == 0);
     assert(global_destructor_counter_arraylist == before);
+
+    // Testing null parameter
+    assert(dyn_non_pods_d_ptr_pop_back(NULL) == ARRAYLIST_ERR_NULL);
 
     dyn_non_pods_d_ptr_deinit(&list);
     assert(global_destructor_counter_arraylist == 0);
@@ -8693,6 +8850,9 @@ void test_arraylist_dyn_remove_at_ptr(void) {
     assert(err == ARRAYLIST_OK);
     assert(list.size == 0);
 
+    // Testing null parameter
+    assert(dyn_non_pods_d_ptr_remove_at(NULL, 0) == ARRAYLIST_ERR_NULL);
+
     dyn_non_pods_d_ptr_deinit(&list);
     assert(global_destructor_counter_arraylist == 0);
     printf("test arraylist dyn remove_at pointer-type passed\n");
@@ -8824,6 +8984,9 @@ void test_arraylist_dyn_remove_from_to_ptr(void)
     assert(err == ARRAYLIST_OK);
     assert(list.size == 0);
     assert(global_destructor_counter_arraylist == 0);
+
+    // Testing null parameter
+    assert(dyn_non_pods_d_ptr_remove_from_to(NULL, 0, 1) == ARRAYLIST_ERR_NULL);
 
     dyn_non_pods_d_ptr_deinit(&list);
     assert(global_destructor_counter_arraylist == 0);
@@ -9030,7 +9193,7 @@ void test_arraylist_dyn_begin_ptr(void) {
     }
     assert(loopcheck == list.size);
 
-    // at(NULL) returns NULL, begin(NULL) returns NULL
+    // begin(NULL) returns NULL
     assert(dyn_non_pods_d_ptr_begin(NULL) == NULL);
 
     // begin not deref'd if list is truly empty; do not crash
