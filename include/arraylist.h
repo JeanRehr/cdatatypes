@@ -336,8 +336,8 @@ ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, push_back
 /**
  * @brief emplace_back_slot: Returns a slot at the end of the arraylist for an object to be constructed \
  * @param self Pointer to the arraylist \
- * @return The slot or NULL if the arraylist isn't initialized, or if the (re)allocation fails, \
- *         or if there is a buffer overflow possibility \
+ * @return Pointer of type T to the slot for a type T to be constructed in place, NULL if self is \
+ *         null or on any re/alloc failure or buffer overflow possibility \
  * \
  * Will automatically resize and realocate capacity, doubling it \
  * \
@@ -1078,8 +1078,8 @@ ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, push_
 /**
  * @brief emplace_back_slot: Returns a slot at the end of the arraylist for an object to be constructed \
  * @param self Pointer to the arraylist \
- * @return The slot or NULL if the arraylist isn't initialized, or if the (re)allocation fails, \
- *         or if there is a buffer overflow possibility \
+ * @return Pointer of type T to the slot for a type T to be constructed in place, NULL if self is \
+ *         null or on any re/alloc failure or buffer overflow possibility \
  * \
  * Will automatically resize and realocate capacity, doubling it \
  * \
