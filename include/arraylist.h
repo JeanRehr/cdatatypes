@@ -123,7 +123,7 @@
  *
  * @warning Always assume that pointers are invalid after adding them to pointer containers and
  *          don't hold pointers to elements across operations that may reallocate.
- * @warning Call deinit() when done.
+ * @warning Call deinit() when done, if reusing after deinit(), initialize it again with init().
  *
  * @todo 
  * insert_from_to() or assign() - Inserts a number of elements at given index
@@ -134,6 +134,7 @@
 
 #include <stdbool.h> // For bool, true, false
 #include <stdint.h> // For SIZE_MAX
+#include <string.h> // For memset
 
 #include "allocator.h" // For a custom Allocator interface
 
@@ -429,9 +430,10 @@ ARRAYLIST_UNUSED static inline T* ARRAYLIST_FN(name, begin)(const struct arrayli
  * @details Can be used as an Iterator, where a function accepts a *T same as begin, \
  *          but it will not be the end of the arraylist, just the last element, can be dereferenced \
  * @param self Pointer to the arraylist \
- * @return A pointer to the last value or null if !self \
+ * @return A pointer to the last value or null if !self or list is empty \
  * \
- * @warning Return should be checked for null before usage \
+ * @warning Return should be checked for null before usage, calling back on an empty list and then \
+ *          dereferencing it is UB \
  */ \
 ARRAYLIST_UNUSED static inline T* ARRAYLIST_FN(name, back)(const struct arraylist_##name *self); \
 /**
@@ -495,7 +497,7 @@ ARRAYLIST_UNUSED static inline size_t ARRAYLIST_FN(name, capacity)(const struct 
 /**
  * @brief get_allocator: Gets the allocator of an arraylist \
  * @param self Pointer to the arraylist \
- * @return The allocator \
+ * @return The allocator or NULL if self == null \
  */ \
 ARRAYLIST_UNUSED static inline struct Allocator* ARRAYLIST_FN(name, get_allocator)(struct arraylist_##name *self); \
 /**
@@ -508,7 +510,7 @@ ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, swap)(str
 /**
  * @brief qsort: Sorts the self based on the given comp function \
  * @param self Pointer to the arraylist \
- * @return ARRAYLIST_ERR_NULL if self == null, otherwise ARRAYLIST_OK \
+ * @return ARRAYLIST_ERR_NULL if self == null or if fn comp == null, otherwise ARRAYLIST_OK \
  * \
  * @note Performs a simple quicksort, non-stable, pivot is always the last element, \
  *       if performance matters, roll your own sort functions \
@@ -534,6 +536,7 @@ ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, clear)(st
  * Safe to call on NULL or already deinitialized arraylists, returns early \
  * \
  * @note Will call the destructor on data items if provided \
+ * @warning If reusing self after deinit, call init again to reinitialize it \
  */ \
 ARRAYLIST_UNUSED static inline void ARRAYLIST_FN(name, deinit)(struct arraylist_##name *self);
 
@@ -802,6 +805,7 @@ static inline T* ARRAYLIST_FN(name, begin)(const struct arraylist_##name *self) 
 \
 static inline T* ARRAYLIST_FN(name, back)(const struct arraylist_##name *self) { \
     ARRAYLIST_ENSURE_PTR(self != NULL) \
+    ARRAYLIST_ENSURE_PTR(self->size != 0) \
     return self->data + (self->size - 1); \
 } \
 \
@@ -850,6 +854,7 @@ static inline size_t ARRAYLIST_FN(name, capacity)(const struct arraylist_##name 
 } \
 \
 static inline struct Allocator* ARRAYLIST_FN(name, get_allocator)(struct arraylist_##name *self) { \
+    ARRAYLIST_ENSURE_PTR(self != NULL) \
     return &self->alloc; \
 } \
 \
@@ -863,6 +868,7 @@ static inline enum arraylist_error ARRAYLIST_FN(name, swap)(struct arraylist_##n
 } \
 static inline enum arraylist_error ARRAYLIST_FN(name, qsort)(struct arraylist_##name *self, bool (*comp)(T*, T*)) { \
     ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL) \
+    ARRAYLIST_ENSURE(comp != NULL, ARRAYLIST_ERR_NULL) \
     if (self->size > 1) { \
         ARRAYLIST_FN(name, helper_qsort)(self, 0, self->size - 1, comp); \
     } \
@@ -889,6 +895,7 @@ static inline void ARRAYLIST_FN(name, deinit)(struct arraylist_##name *self) { \
     } \
     self->alloc.free(self->data, self->capacity * sizeof(T), self->alloc.ctx); \
     self->data = NULL; \
+    memset(&self->alloc, 0, sizeof(self->alloc)); \
     self->size = 0; \
     self->capacity = 0; \
     return; \
@@ -1165,9 +1172,10 @@ ARRAYLIST_UNUSED static inline T* ARRAYLIST_DYN_FN(name, begin)(const struct arr
  * @details Can be used as an Iterator, where a function accepts a *T same as begin, \
  *          but it will not be the end of the arraylist, just the last element, can be dereferenced \
  * @param self Pointer to the arraylist \
- * @return A pointer to the last value or null if !self \
+ * @return A pointer to the last value or null if !self or list is empty \
  * \
- * @warning Return should be checked for null before usage \
+ * @warning Return should be checked for null before usage, calling back on an empty list and then \
+ *          dereferencing it is UB \
  */ \
 ARRAYLIST_UNUSED static inline T* ARRAYLIST_DYN_FN(name, back)(const struct arraylist_dyn_##name *self); \
 /**
@@ -1231,7 +1239,7 @@ ARRAYLIST_UNUSED static inline size_t ARRAYLIST_DYN_FN(name, capacity)(const str
 /**
  * @brief get_allocator: Gets the allocator of an arraylist \
  * @param self Pointer to the arraylist \
- * @return The allocator \
+ * @return The allocator or NULL if self == null \
  */ \
 ARRAYLIST_UNUSED static inline struct Allocator* ARRAYLIST_DYN_FN(name, get_allocator)(struct arraylist_dyn_##name *self); \
 /**
@@ -1244,7 +1252,7 @@ ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, swap)
 /**
  * @brief qsort: Sorts the self based on the given comp function \
  * @param self Pointer to the arraylist \
- * @return ARRAYLIST_ERR_NULL if self == null, otherwise ARRAYLIST_OK \
+ * @return ARRAYLIST_ERR_NULL if self == null or if fn comp == null, otherwise ARRAYLIST_OK \
  * \
  * @note Performs a simple quicksort, non-stable, pivot is always the last element, \
  *       if performance matters, roll your own sort functions \
@@ -1270,6 +1278,7 @@ ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, clear
  * Safe to call on NULL or already deinitialized arraylists, returns early \
  * \
  * @note Will call the destructor on data items if provided \
+ * @warning If reusing self after deinit, call init again to reinitialize it \
  */ \
 ARRAYLIST_UNUSED static inline void ARRAYLIST_DYN_FN(name, deinit)(struct arraylist_dyn_##name *self);
 
@@ -1541,6 +1550,7 @@ static inline T* ARRAYLIST_DYN_FN(name, begin)(const struct arraylist_dyn_##name
 \
 static inline T* ARRAYLIST_DYN_FN(name, back)(const struct arraylist_dyn_##name *self) { \
     ARRAYLIST_ENSURE_PTR(self != NULL) \
+    ARRAYLIST_ENSURE_PTR(self->size != 0) \
     return self->data + (self->size - 1); \
 } \
 \
@@ -1589,6 +1599,7 @@ static inline size_t ARRAYLIST_DYN_FN(name, capacity)(const struct arraylist_dyn
 } \
 \
 static inline struct Allocator* ARRAYLIST_DYN_FN(name, get_allocator)(struct arraylist_dyn_##name *self) { \
+    ARRAYLIST_ENSURE_PTR(self != NULL) \
     return &self->alloc; \
 } \
 \
@@ -1600,8 +1611,9 @@ static inline enum arraylist_error ARRAYLIST_DYN_FN(name, swap)(struct arraylist
     *self = temp; \
     return ARRAYLIST_OK; \
 } \
-ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, qsort)(struct arraylist_dyn_##name *self, bool (*comp)(T*, T*)) { \
+static inline enum arraylist_error ARRAYLIST_DYN_FN(name, qsort)(struct arraylist_dyn_##name *self, bool (*comp)(T*, T*)) { \
     ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL) \
+    ARRAYLIST_ENSURE(comp != NULL, ARRAYLIST_ERR_NULL) \
     if (self->size > 1) { \
         ARRAYLIST_DYN_FN(name, helper_qsort)(self, 0, self->size - 1, comp); \
     } \
@@ -1632,6 +1644,8 @@ static inline void ARRAYLIST_DYN_FN(name, deinit)(struct arraylist_dyn_##name *s
     } \
     self->alloc.free(self->data, self->capacity * sizeof(T), self->alloc.ctx); \
     self->data = NULL; \
+    memset(&self->alloc, 0, sizeof(self->alloc)); \
+    self->destructor = NULL; \
     self->size = 0; \
     self->capacity = 0; \
     return; \
