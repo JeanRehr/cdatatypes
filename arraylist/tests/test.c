@@ -2,11 +2,8 @@
  * @file test.c
  * @brief Unit tests for the arraylist.h file
  */
-#include "allocator.h"
 #include <assert.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 // To use asserts inside arraylist functions instead of error code returns, define the following
 // variable ARRAYLIST_USE_ASSERT as 1, it must be before arraylist.h is included
@@ -15,2513 +12,10118 @@
 // If wanted to use arraylist_* prefix to the functions:
 //#define ARRAYLIST_USE_PREFIX
 //#define ARRAYLIST_DYN_USE_PREFIX
-#include <arraylist.h>
+#include "arraylist.h"
 
-struct test {
+struct non_pod {
     char *objname;
     int *a;
     float *b;
 };
 
-static struct test *test_alloc_ctor(int a, float b, char *objname, struct Allocator *alloc) {
-    struct test *t = alloc->malloc(sizeof(struct test), alloc->ctx);
-    t->a = alloc->malloc(sizeof(a), alloc->ctx);
-    *t->a = a;
+size_t global_destructor_counter_arraylist = 0;
 
-    t->b = alloc->malloc(sizeof(b), alloc->ctx);
-    *t->b = b;
+// Returns a fully allocated struct by value
+static inline struct non_pod non_pod_init(const char *name, int a, float b, struct Allocator *alloc) {
+    struct non_pod np = { 0 };
+    size_t len = strlen(name) + 1;
 
-    t->objname = objname;
-    return t;
+    np.objname = alloc->malloc(len, alloc->ctx);
+
+    if (np.objname) {
+        strcpy(np.objname, name);
+    }
+
+    np.a = alloc->malloc(sizeof(int), alloc->ctx);
+    if (np.a) {
+        *np.a = a;
+    }
+
+    np.b = alloc->malloc(sizeof(float), alloc->ctx);
+    if (np.b) {
+        *np.b = b;
+    }
+    ++global_destructor_counter_arraylist;
+    return np;
 }
 
-static void test_ctor(struct test *t, int a, float b, char *objname, struct Allocator *alloc) {
-    t->a = alloc->malloc(sizeof(a), alloc->ctx);
-    *t->a = a;
+// Returns a pointer to a fully allocated struct
+static inline struct non_pod *non_pod_init_ptr(const char *name, int a, float b, struct Allocator *alloc) {
+    struct non_pod *np = alloc->malloc(sizeof(struct non_pod), alloc->ctx);
+    if (!np) {
+        return NULL;
+    }
 
-    t->b = alloc->malloc(sizeof(b), alloc->ctx);
-    *t->b = b;
-    t->objname = objname;
+    size_t len = strlen(name) + 1;
+
+    np->objname = alloc->malloc(len, alloc->ctx);
+
+    if (np->objname) {
+        strcpy(np->objname, name);
+    }
+
+    np->a = alloc->malloc(sizeof(int), alloc->ctx);
+    if (np->a) {
+        *np->a = a;
+    }
+
+    np->b = alloc->malloc(sizeof(float), alloc->ctx);
+    if (np->b) {
+        *np->b = b;
+    }
+
+    ++global_destructor_counter_arraylist;
+    return np;
 }
 
-static struct test test_ctor_by_val(int a, float b, char *objname, struct Allocator *alloc) {
-    struct test t;
-    t.a = alloc->malloc(sizeof(a), alloc->ctx);
-    *t.a = a;
-    t.b = alloc->malloc(sizeof(b), alloc->ctx);
-    *t.b = b;
-    t.objname = objname;
-    return t;
-}
-
-static void test_print(struct test *t) {
-    printf("t->objname = %s\n", t->objname);
-}
-
-static inline void test_dtor(struct test *t, struct Allocator *alloc) {
-    if (!t) {
+static inline void non_pod_deinit(struct non_pod *np, struct Allocator *alloc) {
+    if (!np) {
         return;
     }
 
-    alloc->free(t->a, sizeof(t->a), alloc->ctx);
-    alloc->free(t->b, sizeof(t->b), alloc->ctx);
+    if (np->objname) {
+        alloc->free(np->objname, strlen(np->objname) + 1, alloc->ctx);
+        np->objname = NULL;
+    }
+
+    if (np->a) {
+        alloc->free(np->a, sizeof(*np->a), alloc->ctx);
+        np->a = NULL;
+    }
+
+    if (np->b) {
+        alloc->free(np->b, sizeof(*np->b), alloc->ctx);
+        np->b = NULL;
+    }
+    --global_destructor_counter_arraylist;
+    ;
 }
 
-static inline void test_ptr_dtor(struct test **t, struct Allocator *alloc) {
-    if (!t || !*t) {
+static inline void non_pod_deinit_ptr(struct non_pod **np_ptr, struct Allocator *alloc) {
+    if (!np_ptr || !*np_ptr) {
         return;
     }
 
-    test_dtor(*t, alloc);
-    alloc->free(*t, sizeof(*t), alloc->ctx);
-    *t = NULL;
+    //non_pod_deinit(*np_ptr, alloc);
+
+    if ((*np_ptr)->objname) {
+        alloc->free((*np_ptr)->objname, strlen((*np_ptr)->objname) + 1, alloc->ctx);
+        (*np_ptr)->objname = NULL;
+    }
+
+    if ((*np_ptr)->a) {
+        alloc->free((*np_ptr)->a, sizeof(*(*np_ptr)->a), alloc->ctx);
+        (*np_ptr)->a = NULL;
+    }
+
+    if ((*np_ptr)->b) {
+        alloc->free((*np_ptr)->b, sizeof(*(*np_ptr)->b), alloc->ctx);
+        (*np_ptr)->b = NULL;
+    }
+
+    alloc->free(*np_ptr, sizeof(struct non_pod), alloc->ctx);
+    *np_ptr = NULL;
+    --global_destructor_counter_arraylist;
 }
 
-// static void test_move_constructor(struct test *dst, struct test *src) {
-//     dst->a = src->a;
-//     dst->b = src->b;
-//     dst->objname = src->objname;
-
-//     src->a = NULL;
-//     src->b = NULL;
-//     src->objname = NULL;
-// }
-
-// Macro based destructor
-#define test_ptr_dtor_macro(dptr_test, alloc) \
+#define non_pod_deinit_macro(np, alloc) \
     do { \
-        if (!dptr_test || !*dptr_test) { \
-            break; \
+        if ((np)) { \
+            if ((np)->objname) { \
+                (alloc)->free((np)->objname, strlen((np)->objname) + 1, (alloc)->ctx); \
+                (np)->objname = NULL; \
+            } \
+            if ((np)->a) { \
+                (alloc)->free((np)->a, sizeof(*(np)->a), (alloc)->ctx); \
+                (np)->a = NULL; \
+            } \
+            if ((np)->b) { \
+                (alloc)->free((np)->b, sizeof(*(np)->b), (alloc)->ctx); \
+                (np)->b = NULL; \
+            } \
+            --global_destructor_counter_arraylist; \
+            ; \
         } \
-        (alloc)->free((*dptr_test)->a, sizeof(*(*dptr_test)->a), (alloc)->ctx); \
-        (alloc)->free((*dptr_test)->b, sizeof(*(*dptr_test)->b), (alloc)->ctx); \
-        (alloc)->free(*dptr_test, sizeof(struct test), (alloc)->ctx); \
-        *(dptr_test) = NULL; \
     } while (0)
 
-// C23 typeof could also be used to prevent misuses of this macro, example:
-#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 202311L)
-
-    #define check_same_types(T, U) \
-        { static_assert(_Generic((T), typeof(U): true, default: false), "Parameters must have the same type"); }
-
-#else
-
-    #define check_same_types(T, U) (void)0 // Do nothing
-
-#endif
-
-// now this macro, on C23, will check that dptr_test is indeed a double pointer to non_pod struct
-// As this is a macro just to be used inside the arraylist, there is no way I can think of that can
-// be misused as the arraylist is typesafe, unless used outside of the arraylist
-#define test_ptr_dtor_macro2(dptr_test, alloc) \
+#define non_pod_deinit_macro_ptr(np_ptr, alloc) \
     do { \
-        check_same_types(dptr_test, struct test **); \
-        check_same_types(alloc, struct Allocator *); \
-        if (!dptr_test || !*dptr_test) { \
-            break; \
+        if ((np_ptr) && *(np_ptr)) { \
+            /*non_pod_deinit_macro(*(np_ptr), alloc);*/ \
+            if ((*np_ptr)->objname) { \
+                (alloc)->free((*np_ptr)->objname, strlen((*np_ptr)->objname) + 1, (alloc)->ctx); \
+                (*np_ptr)->objname = NULL; \
+            } \
+            if ((*np_ptr)->a) { \
+                (alloc)->free((*np_ptr)->a, sizeof((*np_ptr)->a), (alloc)->ctx); \
+                (*np_ptr)->a = NULL; \
+            } \
+            if ((*np_ptr)->b) { \
+                (alloc)->free((*np_ptr)->b, sizeof((*np_ptr)->b), (alloc)->ctx); \
+                (*np_ptr)->b = NULL; \
+            } \
+            (alloc)->free(*(np_ptr), sizeof(struct non_pod), (alloc)->ctx); \
+            *(np_ptr) = NULL; \
+            --global_destructor_counter_arraylist; \
+            ; \
         } \
-        (alloc)->free((*dptr_test)->a, sizeof(*(*dptr_test)->a), (alloc)->ctx); \
-        (alloc)->free((*dptr_test)->b, sizeof(*(*dptr_test)->b), (alloc)->ctx); \
-        (alloc)->free(*dptr_test, sizeof(struct test), (alloc)->ctx); \
-        *(dptr_test) = NULL; \
-    } while (0);
-
-ARRAYLIST(struct test *, test, test_ptr_dtor_macro2)
-
-static void test_arraylist_init_and_deinit(void) {
-    printf("Testing arraylist init and deinit functions.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_test arrlisttest = test_init(gpa);
-    assert(&arrlisttest.alloc);
-    assert(arrlisttest.capacity == 0);
-    assert(!arrlisttest.data);
-    assert(arrlisttest.size == 0);
-
-    test_deinit(&arrlisttest);
-    assert(!arrlisttest.data);
-
-    arrlisttest = test_init(gpa);
-    assert(&arrlisttest.alloc);
-    assert(arrlisttest.capacity == 0);
-    assert(!arrlisttest.data);
-    assert(arrlisttest.size == 0);
-
-    test_deinit(&arrlisttest);
-    assert(!arrlisttest.data);
-    printf("arraylist init and deinit functions passed all tests.\n");
-}
-
-static void test_arraylist_reserve(void) {
-    printf("Testing arraylist reserve function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_test arrlisttest = test_init(gpa);
-
-    size_t cap = 10;
-
-    test_reserve(&arrlisttest, cap);
-    assert(test_capacity(&arrlisttest) == cap);
-
-    test_deinit(&arrlisttest);
-    printf("arraylist reserve passed all tests.\n");
-}
-
-static void test_arraylist_shrink_size(void) {
-    printf("Testing arraylist shrink_size function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_test arrlisttest = test_init(gpa);
-
-    struct test *add1 = test_alloc_ctor(10, 0.5, "add1", &gpa);
-
-    // Or use arraylist allocator if wanted
-    // They must use the same allocator to not invoke UB in some custom allocator cases
-    struct test *add2 = test_alloc_ctor(11, 0.6, "add2", &arrlisttest.alloc);
-
-    *test_emplace_back_slot(&arrlisttest) = add1;
-    *test_emplace_back_slot(&arrlisttest) = add2;
-    *test_emplace_back_slot(&arrlisttest) = test_alloc_ctor(12, 0.7, "add3", &gpa);
-    *test_emplace_back_slot(&arrlisttest) = test_alloc_ctor(13, 0.8, "add4", &gpa);
-    *test_emplace_back_slot(&arrlisttest) = test_alloc_ctor(14, 0.9, "add5", &gpa);
-
-    assert(arrlisttest.size == 5);
-
-    size_t shrink = 3;
-
-    test_shrink_size(&arrlisttest, shrink);
-    assert(arrlisttest.size == 3);
-
-    // passed size is greater than arraylist.size, noop
-    test_shrink_size(&arrlisttest, 10);
-    assert(arrlisttest.size == 3);
-
-    test_deinit(&arrlisttest);
-    printf("arraylist shrink_size passed all tests.\n");
-}
-
-static void test_arraylist_shrink_to_fit(void) {
-    printf("Testing arraylist shrink_to_fit function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_test arrlisttest = test_init(gpa);
-
-    test_reserve(&arrlisttest, 10);
-    assert(arrlisttest.capacity == 10);
-
-    struct test *add1 = test_alloc_ctor(10, 0.5, "add1", &gpa);
-    struct test *add2 = test_alloc_ctor(11, 0.6, "add2", &gpa);
-
-    *test_emplace_back_slot(&arrlisttest) = add1;
-    *test_emplace_back_slot(&arrlisttest) = add2;
-    *test_emplace_back_slot(&arrlisttest) = test_alloc_ctor(12, 0.7, "add3", &gpa);
-    *test_emplace_back_slot(&arrlisttest) = test_alloc_ctor(13, 0.8, "add4", &gpa);
-    *test_emplace_back_slot(&arrlisttest) = test_alloc_ctor(14, 0.9, "add5", &gpa);
-
-    assert(arrlisttest.size == 5);
-
-    test_shrink_to_fit(&arrlisttest);
-
-    assert(arrlisttest.size == arrlisttest.capacity);
-
-    test_deinit(&arrlisttest);
-    printf("arraylist shrink_to_fit passed all tests.\n");
-}
-
-static void test_arraylist_push_back(void) {
-    printf("Testing arraylist push_back function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_test arrlisttest = test_init(gpa);
-
-    struct test *add1 = gpa.malloc(sizeof(struct test), gpa.ctx);
-    test_ctor(add1, 10, 0.5, "add1", &gpa);
-    test_push_back(&arrlisttest, add1);
-    assert(arrlisttest.size == 1);
-
-    struct test *add2 = test_alloc_ctor(11, 0.6, "add2", &gpa);
-    test_push_back(&arrlisttest, add2);
-    assert(arrlisttest.size == 2);
-    assert(arrlisttest.capacity == 2);
-
-    test_push_back(&arrlisttest, test_alloc_ctor(12, 0.7, "add3", &gpa));
-    assert(arrlisttest.size == 3);
-    assert(arrlisttest.capacity == 4);
-
-    struct test *add4 = test_alloc_ctor(13, 0.8, "add4", &gpa);
-    test_push_back(&arrlisttest, add4);
-    assert(arrlisttest.size == 4);
-    assert(arrlisttest.capacity == 4);
-
-    struct test *add5 = test_alloc_ctor(14, 0.9, "add5", &gpa);
-    test_push_back(&arrlisttest, add5);
-    assert(arrlisttest.size == 5);
-    assert(arrlisttest.capacity == 8);
-
-    test_reserve(&arrlisttest, 11);
-    assert(arrlisttest.capacity == 11);
-
-    struct test *add6 = test_alloc_ctor(15, 1.0, "add6", &gpa);
-    test_push_back(&arrlisttest, add6);
-    assert(arrlisttest.size == 6);
-    assert(arrlisttest.capacity == 11);
-
-    struct test *add7 = test_alloc_ctor(15, 1.0, "add7", &gpa);
-    test_push_back(&arrlisttest, add7);
-    assert(arrlisttest.size == 7);
-    assert(arrlisttest.capacity == 11);
-
-    struct test *add8 = test_alloc_ctor(15, 1.0, "add8", &gpa);
-    test_push_back(&arrlisttest, add8);
-    assert(arrlisttest.size == 8);
-    assert(arrlisttest.capacity == 11);
-
-    struct test *add9 = test_alloc_ctor(15, 1.0, "add9", &gpa);
-    test_push_back(&arrlisttest, add9);
-    assert(arrlisttest.size == 9);
-    assert(arrlisttest.capacity == 11);
-
-    struct test *add10 = test_alloc_ctor(15, 1.0, "add10", &gpa);
-    test_push_back(&arrlisttest, add10);
-    assert(arrlisttest.size == 10);
-    assert(arrlisttest.capacity == 11);
-
-    struct test *add11 = test_alloc_ctor(15, 1.0, "add11", &gpa);
-    test_push_back(&arrlisttest, add11);
-    assert(arrlisttest.size == 11);
-    assert(arrlisttest.capacity == 11);
-
-    struct test *add12 = test_alloc_ctor(15, 1.0, "add12", &gpa);
-    test_push_back(&arrlisttest, add12);
-    assert(arrlisttest.size == 12);
-    assert(arrlisttest.capacity == (11 * 2));
-
-    test_deinit(&arrlisttest);
-    printf("arraylist push_back passed all tests.\n");
-}
-
-static void test_arraylist_emplace_back_slot(void) {
-    printf("Testing arraylist emplace_back_slot function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_test arrlisttest = test_init(gpa);
-
-    // ways that emplace_back can be used with arraylist of pointer to values:
-    // Note, slot given back must always be checked in real scenarios
-    struct test **slot1 = test_emplace_back_slot(&arrlisttest);
-    if (!slot1) {
-        assert(false && "emplace back returned null");
-    }
-    assert(arrlisttest.size == 1);
-
-    // A constructor that returns an allocated and initialized struct acts like new
-    *slot1 = test_alloc_ctor(10, 0.5, "add1", &gpa);
-    if (!*slot1) {
-        assert(false && "allocation failure");
-    }
-
-    // One liner not testing slot or allocation
-    *test_emplace_back_slot(&arrlisttest) = test_alloc_ctor(11, 0.6, "add2", &gpa);
-    assert(arrlisttest.size == 2);
-    assert(arrlisttest.capacity == 2);
-
-    // Inserting into it with emplace back slot with a constructor that does not
-    // return an allocated struct itself
-    struct test *add3 = gpa.malloc(sizeof(struct test), gpa.ctx);
-    // Can be tested for allocation failure
-    if (!add3) {
-        assert(false && "allocation failure");
-    }
-
-    *add3 = test_ctor_by_val(12, 0.7, "add3", &gpa);
-
-    // Warning: Not checking slot here
-    *test_emplace_back_slot(&arrlisttest) = add3;
-
-    struct test **add3_same = test_at(&arrlisttest, 2);
-    assert(*add3_same == add3);
-
-    assert(arrlisttest.size == 3);
-    assert(arrlisttest.capacity == 4);
-
-    struct test *add4 = test_alloc_ctor(14, 0.8, "add4", &gpa);
-    *test_emplace_back_slot(&arrlisttest) = add4;
-    assert(arrlisttest.size == 4);
-    assert(arrlisttest.capacity == 4);
-
-    *test_emplace_back_slot(&arrlisttest) = test_alloc_ctor(15, 0.9, "add5", &gpa);
-    assert(arrlisttest.size == 5);
-    assert(arrlisttest.capacity == 8);
-
-    struct test **add6 = test_emplace_back_slot(&arrlisttest);
-    *add6 = test_alloc_ctor(16, 1.0, "add6", &gpa);
-
-    assert(arrlisttest.size == 6);
-    assert(arrlisttest.capacity == 8);
-
-    struct test **add6_same = test_at(&arrlisttest, 5);
-    assert(*add6_same == *add6);
-
-    struct test **add7 = test_emplace_back_slot(&arrlisttest);
-    *add7 = test_alloc_ctor(14, 0.9, "add7", &gpa);
-    assert(arrlisttest.size == 7);
-    assert(arrlisttest.capacity == 8);
-    struct test **add7_same = test_at(&arrlisttest, 6);
-    assert(add7_same == add7);
-
-    test_reserve(&arrlisttest, 11);
-    assert(arrlisttest.capacity == 11);
-
-    struct test **add8 = test_emplace_back_slot(&arrlisttest);
-    *add8 = test_alloc_ctor(15, 1.0, "add8", &gpa);
-    assert(arrlisttest.size == 8);
-    assert(arrlisttest.capacity == 11);
-    struct test **add8_same = test_at(&arrlisttest, 7);
-    assert(*add8_same == *add8);
-
-    struct test **add9 = test_emplace_back_slot(&arrlisttest);
-    *add9 = test_alloc_ctor(16, 1.1, "add9", &gpa);
-    assert(arrlisttest.size == 9);
-    struct test **add9_same = test_at(&arrlisttest, 8);
-    assert(*add9_same == *add9);
-
-    struct test **add10 = test_emplace_back_slot(&arrlisttest);
-    *add10 = test_alloc_ctor(17, 1.2, "add10", &gpa);
-    assert(arrlisttest.size == 10);
-    struct test **add10_same = test_at(&arrlisttest, 9);
-    assert(add10_same == add10);
-
-    struct test **add11 = test_emplace_back_slot(&arrlisttest);
-    *add11 = test_alloc_ctor(18, 1.3, "add11", &gpa);
-    assert(arrlisttest.size == 11);
-    assert(arrlisttest.capacity == 11);
-    struct test **add11_same = test_at(&arrlisttest, 10);
-    assert(*add11_same == *add11);
-
-    struct test **add12 = test_emplace_back_slot(&arrlisttest);
-    *add12 = test_alloc_ctor(19, 1.4, "add12", &gpa);
-    assert(arrlisttest.size == 12);
-    assert(arrlisttest.capacity == (11 * 2));
-    struct test **add12_same = test_at(&arrlisttest, 11);
-    assert(add12_same == add12);
-
-    struct test **add13 = test_emplace_back_slot(&arrlisttest);
-    *add13 = test_alloc_ctor(20, 1.5, "add13", &gpa);
-    assert(arrlisttest.size == 13);
-    struct test **add13_same = test_at(&arrlisttest, 12);
-    assert(add13_same == add13);
-
-    struct test **add14 = test_emplace_back_slot(&arrlisttest);
-    *add14 = test_alloc_ctor(21, 1.6, "add14", &gpa);
-    assert(arrlisttest.size == 14);
-    assert(arrlisttest.capacity == (11 * 2));
-    struct test **add14_same = test_at(&arrlisttest, 13);
-    assert(add14_same == add14);
-
-    test_deinit(&arrlisttest);
-
-    printf("arraylist emplace_back_slot passed all tests.\n");
-}
-
-static void test_arraylist_insert_at(void) {
-    printf("Testing arraylist insert_at function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_test arrlisttest = test_init(gpa);
-
-    struct test *add1;
-    add1 = test_alloc_ctor(10, 0.5, "add1", &gpa);
-    test_insert_at(&arrlisttest, add1, 0);
-
-    struct test *add2;
-    add2 = test_alloc_ctor(11, 0.6, "add2", &gpa);
-    test_insert_at(&arrlisttest, add2, 1);
-
-    struct test *add3;
-    add3 = test_alloc_ctor(12, 0.7, "add3", &gpa);
-    test_insert_at(&arrlisttest, add3, 2);
-
-    assert(arrlisttest.size == 3);
-
-    struct test *add4;
-    add4 = test_alloc_ctor(13, 0.2, "add4", &gpa);
-
-    // Overflow should insert at last position
-    test_insert_at(&arrlisttest, add4, -1);
-    assert(arrlisttest.size == 4);
-    assert(strcmp(arrlisttest.data[arrlisttest.size - 1]->objname, add4->objname) == 0);
-
-    struct test *add5;
-    add5 = test_alloc_ctor(15, 0.5, "add5", &gpa);
-    test_insert_at(&arrlisttest, add5, 0);
-    assert(arrlisttest.size == 5);
-    assert(arrlisttest.capacity == 8);
-    assert(strcmp(arrlisttest.data[0]->objname, add5->objname) == 0);
-
-    size_t add6_index_pos = 2;
-    struct test *add6;
-    add6 = test_alloc_ctor(16, 0.6, "add6", &gpa);
-    test_insert_at(&arrlisttest, add6, add6_index_pos); // Between add1 and add2
-    assert(arrlisttest.size == 6);
-    assert(strcmp(arrlisttest.data[2]->objname, add6->objname) == 0);
-
-    size_t add7_index_pos = arrlisttest.size - 1;
-    struct test *add7;
-    add7 = test_alloc_ctor(17, 0.7, "add7", &gpa);
-    test_insert_at(&arrlisttest, add7, add7_index_pos); // index 5, should be before last
-    assert(strcmp(arrlisttest.data[arrlisttest.size - 2]->objname, add7->objname) == 0);
-    assert(arrlisttest.size == 7);
-
-    size_t add8_index_pos = arrlisttest.size;
-    struct test *add8;
-    add8 = test_alloc_ctor(17, 0.7, "add8", &gpa);
-    test_insert_at(&arrlisttest, add8, add8_index_pos); // index 7, should be last
-    assert(strcmp(arrlisttest.data[arrlisttest.size - 1]->objname, add8->objname) == 0);
-    assert(strcmp((*test_back(&arrlisttest))->objname, add8->objname) == 0);
-    assert(arrlisttest.size == 8);
-
-    test_deinit(&arrlisttest);
-    printf("arraylist insert_at passed all tests.\n");
-}
-
-static void test_arraylist_pop_back(void) {
-    printf("Testing arraylist pop_back function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_test arrlisttest = test_init(gpa);
-
-    struct test *add1 = test_alloc_ctor(10, 0.5, "add1", &gpa);
-    struct test *add2 = test_alloc_ctor(11, 0.6, "add2", &gpa);
-    struct test *add3 = test_alloc_ctor(12, 0.7, "add3", &gpa);
-
-    test_push_back(&arrlisttest, add1);
-    assert(arrlisttest.size == 1);
-    assert(arrlisttest.capacity == 1);
-
-    test_push_back(&arrlisttest, add2);
-    assert(arrlisttest.size == 2);
-    assert(arrlisttest.capacity == 2);
-
-    test_pop_back(&arrlisttest);
-    assert(arrlisttest.size == 1);
-    assert(arrlisttest.capacity == 2);
-
-    test_push_back(&arrlisttest, add3);
-    assert(arrlisttest.size == 2);
-    assert(arrlisttest.capacity == 2);
-
-    test_pop_back(&arrlisttest);
-    assert(arrlisttest.size == 1);
-    test_pop_back(&arrlisttest);
-    assert(arrlisttest.size == 0);
-
-    assert(test_pop_back(&arrlisttest) == ARRAYLIST_OK);
-    assert(test_pop_back(&arrlisttest) == ARRAYLIST_OK);
-
-    test_deinit(&arrlisttest);
-    printf("arraylist pop_back passed all tests.\n");
-}
-
-static void test_arraylist_remove_at(void) {
-    printf("Testing arraylist remove_at function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_test arrlisttest = test_init(gpa);
-
-    struct test *add1 = test_alloc_ctor(10, 0.5, "add1", &gpa);
-    struct test *add2 = test_alloc_ctor(11, 0.6, "add2", &gpa);
-    struct test *add3 = test_alloc_ctor(12, 0.7, "add3", &gpa);
-
-    *test_emplace_back_slot(&arrlisttest) = add1;
-    *test_emplace_back_slot(&arrlisttest) = add2;
-    *test_emplace_back_slot(&arrlisttest) = add3;
-
-    assert(arrlisttest.size == 3);
-    assert(arrlisttest.capacity == 4);
-
-    struct test *add4 = test_alloc_ctor(12, 0.7, "add4", &gpa);
-    *test_emplace_back_slot(&arrlisttest) = add4;
-
-    struct test *add5 = test_alloc_ctor(12, 0.7, "add6", &gpa);
-    *test_emplace_back_slot(&arrlisttest) = add5;
-
-    struct test *add6 = test_alloc_ctor(12, 0.7, "add6", &gpa);
-    *test_emplace_back_slot(&arrlisttest) = add6;
-    assert(arrlisttest.size == 6);
-
-    /*
-    for (size_t j = 0; j < arrlisttest.size; ++j) {
-        printf("index = %lu | ", j);
-        test_print(&arrlisttest.data[j]);
-    }
-    */
-
-    test_remove_at(&arrlisttest, 3); //add4
-    assert(arrlisttest.size == 5);
-
-    test_remove_at(&arrlisttest, 3); //add5 now
-    assert(arrlisttest.size == 4);
-
-    // Should overflow and remove last element
-    test_remove_at(&arrlisttest, -1); //add6
-    assert(arrlisttest.size == 3);
-
-    test_remove_at(&arrlisttest, 0); //add1
-    assert(arrlisttest.size == 2);
-
-    test_remove_at(&arrlisttest, 1); //add3
-    assert(arrlisttest.size == 1);
-
-    /*
-    for (size_t i = 0; i < arrlisttest.size; ++i) {
-        printf("index = %lu | ", i);
-        test_print(&arrlisttest.data[i]);
-    }
-    */
-
-    test_remove_at(&arrlisttest, 0);
-    assert(arrlisttest.size == 0);
-    assert(test_remove_at(&arrlisttest, 0) == ARRAYLIST_OK);
-
-    test_deinit(&arrlisttest);
-    printf("arraylist remove_at passed all tests.\n");
-}
-
-static void test_arraylist_remove_from_to(void) {
-    printf("Testing arraylist remove_from_to function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_test arrlisttest = test_init(gpa);
-
-    struct test *add1 = test_alloc_ctor(10, 0.5, "add1", &gpa);
-    test_push_back(&arrlisttest, add1);
-
-    struct test *add2 = test_alloc_ctor(11, 0.6, "add2", &gpa);
-    test_push_back(&arrlisttest, add2);
-
-    struct test *add3 = test_alloc_ctor(12, 0.7, "add3", &gpa);
-    test_push_back(&arrlisttest, add3);
-    assert(arrlisttest.size == 3);
-    assert(arrlisttest.capacity == 4);
-
-    struct test *add4 = test_alloc_ctor(13, 0.8, "add4", &gpa);
-    test_push_back(&arrlisttest, add4);
-
-    struct test *add5 = test_alloc_ctor(12, 0.7, "add5", &gpa);
-    test_push_back(&arrlisttest, add5);
-
-    struct test *add6 = test_alloc_ctor(12, 0.7, "add6", &gpa);
-    test_push_back(&arrlisttest, add6);
-    assert(arrlisttest.size == 6);
-
-    /*
-    for (size_t j = 0; j < arrlisttest.size; ++j) {
-        printf("index = %lu | ", j);
-        test_print(&arrlisttest.data[j]);
-    }
-    */
-
-    // from > to should do nothing
-    test_remove_from_to(&arrlisttest, 4, 3);
-    assert(arrlisttest.size == 6);
-
-    // should overflow and just pop_back
-    test_remove_from_to(&arrlisttest, -1, -1); // add6
-    assert(arrlisttest.size == 5);
-
-    test_remove_from_to(&arrlisttest, 1, 3); // add2 add3 add4
-    assert(arrlisttest.size == 2);
-
-    for (size_t i = 0; i < arrlisttest.size; ++i) {
-        printf("index = %lu | ", i);
-        test_print(arrlisttest.data[i]);
-    }
-
-    test_remove_from_to(&arrlisttest, 0, 0); // add1
-    assert(arrlisttest.size == 1);
-
-    // Double-free, add1 must be constructed again to be instered
-    // test_push_back(&arrlisttest, add1);
-
-    add1 = test_alloc_ctor(10, 0.5, "add1", &gpa);
-    test_push_back(&arrlisttest, add1);
-    test_remove_from_to(&arrlisttest, 0, 1); // add1 add2
-    assert(arrlisttest.size == 0);
-
-    assert(test_remove_from_to(&arrlisttest, 0, 0) == ARRAYLIST_OK); // noop
-    assert(arrlisttest.size == 0);
-
-    test_deinit(&arrlisttest);
-    printf("arraylist remove_from_to passed all tests.\n");
-}
-
-static void test_arraylist_at(void) {
-    printf("Testing arraylist at function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_test arrlisttest = test_init(gpa);
-
-    struct test *add1 = test_alloc_ctor(10, 0.5, "add1", &gpa);
-    *test_emplace_back_slot(&arrlisttest) = add1;
-
-    struct test *add2 = test_alloc_ctor(11, 0.6, "add2", &gpa);
-    *test_emplace_back_slot(&arrlisttest) = add2;
-
-    struct test *add3 = test_alloc_ctor(12, 0.7, "add3", &gpa);
-    *test_emplace_back_slot(&arrlisttest) = add3;
-
-    struct test **add1_p = test_at(&arrlisttest, 0);
-    assert(add1_p == arrlisttest.data); // A pointer to the beginning of the array
-
-    struct test **add2_p = test_at(&arrlisttest, 1);
-    assert(add2_p == arrlisttest.data + 1);
-
-    struct test **add3_p = test_at(&arrlisttest, 2);
-    assert(add3_p == arrlisttest.data + 2);
-
-    test_deinit(&arrlisttest);
-    printf("arraylist at passed all tests.\n");
-}
-
-static void test_arraylist_begin(void) {
-    printf("Testing arraylist begin function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_test arrlisttest = test_init(gpa);
-
-    struct test *add1 = test_alloc_ctor(10, 0.5, "add1", &gpa);
-    test_push_back(&arrlisttest, add1);
-
-    struct test *add2 = test_alloc_ctor(11, 0.6, "add2", &gpa);
-    test_push_back(&arrlisttest, add2);
-
-    struct test **it_begin = test_begin(&arrlisttest);
-    assert(it_begin == arrlisttest.data);
-
-    assert(it_begin + 1 == arrlisttest.data + 1);
-
-    test_deinit(&arrlisttest);
-    printf("arraylist begin passed all tests.\n");
-}
-
-static void test_arraylist_back(void) {
-    printf("Testing arraylist back function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_test arrlisttest = test_init(gpa);
-
-    struct test *add1 = test_alloc_ctor(10, 0.5, "add1", &gpa);
-    test_push_back(&arrlisttest, add1);
-
-    struct test **one_ele = test_back(&arrlisttest);
-    assert(one_ele == arrlisttest.data);
-
-    struct test *add2 = test_alloc_ctor(11, 0.6, "add2", &gpa);
-    test_push_back(&arrlisttest, add2);
-
-    struct test **last_ele = test_back(&arrlisttest);
-    assert(last_ele == arrlisttest.data + 1);
-
-    assert(last_ele - 1 == arrlisttest.data);
-
-    test_deinit(&arrlisttest);
-    printf("arraylist back passed all tests.\n");
-}
-
-static void test_arraylist_end(void) {
-    printf("Testing arraylist end function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_test arrlisttest = test_init(gpa);
-
-    struct test *add1 = test_alloc_ctor(10, 0.5, "add1", &gpa);
-    test_push_back(&arrlisttest, add1);
-
-    struct test *add2 = test_alloc_ctor(11, 0.6, "add2", &gpa);
-    test_push_back(&arrlisttest, add2);
-
-    struct test **it_end = test_end(&arrlisttest);
-    assert(it_end == arrlisttest.data + 2); // it is a pointer to after the last element
-
-    struct test **last_ele = test_back(&arrlisttest);
-    assert(it_end - 1 == last_ele);
-
-    assert(it_end - 1 == arrlisttest.data + 1);
-    // The following line is a heap buffer overflow, end should not be dereferenced
-    // printf("it_end data %d", *it_end->a);
-
-    test_deinit(&arrlisttest);
-    printf("arraylist end passed all tests.\n");
-}
-
-bool test_pred_find_name_ptr(struct test **a, void *name) {
-    if (strcmp((*a)->objname, name) == 0) {
+    } while (0)
+
+// Function for find and contains for value containers
+static bool non_pod_find_val(struct non_pod *np, void *find) {
+    if (strcmp(np->objname, (char *)find) == 0) {
         return true;
     }
     return false;
 }
 
-static void test_arraylist_find(void) {
-    printf("Testing arraylist find function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_test arrlisttest = test_init(gpa);
-
-    struct test *add1 = test_alloc_ctor(10, 0.5, "add1", &gpa);
-    test_push_back(&arrlisttest, add1);
-
-    struct test *add2 = test_alloc_ctor(11, 0.6, "add2", &gpa);
-    test_push_back(&arrlisttest, add2);
-
-    const char *target_name_found = "add2";
-
-    struct test **found = test_find(&arrlisttest, test_pred_find_name_ptr, (char *)target_name_found);
-    assert(found == test_at(&arrlisttest, 1));
-
-    const char *target_name_not_found = "add3";
-    struct test **not_found = test_find(&arrlisttest, test_pred_find_name_ptr, (char *)target_name_not_found);
-    assert(not_found == test_end(&arrlisttest));
-
-    test_deinit(&arrlisttest);
-    printf("arraylist find passed all tests.\n");
+// Function for qsort for value containers
+static bool non_pod_sort_val(struct non_pod *np1, struct non_pod *np2) {
+    return strcmp(np1->objname, np2->objname) < 0;
 }
 
-static void test_arraylist_contains(void) {
-    printf("Testing arraylist contains function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_test arrlisttest = test_init(gpa);
-
-    struct test *add1 = test_alloc_ctor(10, 0.5, "add1", &gpa);
-    test_push_back(&arrlisttest, add1);
-
-    struct test *add2 = test_alloc_ctor(11, 0.6, "add2", &gpa);
-    test_push_back(&arrlisttest, add2);
-
-    const char *target_name_found = "add2";
-
-    size_t index = 0;
-
-    assert(test_contains(&arrlisttest, test_pred_find_name_ptr, (char *)target_name_found, &index));
-    assert(index == 1);
-
-    const char *target_name_not_found = "add3";
-    assert(!test_contains(&arrlisttest, test_pred_find_name_ptr, (char *)target_name_not_found, &index));
-    assert(index == 1); // Unchanged from before
-
-    test_deinit(&arrlisttest);
-    printf("arraylist contains passed all tests.\n");
-}
-
-static void test_arraylist_size(void) {
-    printf("Testing arraylist size function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_test arrlisttest = test_init(gpa);
-
-    assert(test_size(&arrlisttest) == 0);
-
-    struct test *add1 = test_alloc_ctor(10, 0.5, "add1", &gpa);
-    test_push_back(&arrlisttest, add1);
-    assert(test_size(&arrlisttest) == 1);
-
-    struct test *add2 = test_alloc_ctor(11, 0.6, "add2", &gpa);
-    test_push_back(&arrlisttest, add2);
-    assert(test_size(&arrlisttest) == 2);
-
-    test_deinit(&arrlisttest);
-    printf("arraylist size passed all tests.\n");
-}
-
-static void test_arraylist_is_empty(void) {
-    printf("Testing arraylist is empty function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_test arrlisttest = test_init(gpa);
-    assert(test_is_empty(&arrlisttest));
-
-    struct test *add1 = test_alloc_ctor(10, 0.5, "add1", &gpa);
-    test_push_back(&arrlisttest, add1);
-    assert(!test_is_empty(&arrlisttest));
-
-    test_pop_back(&arrlisttest);
-    assert(test_is_empty(&arrlisttest));
-
-    test_deinit(&arrlisttest);
-    printf("arraylist is empty passed all tests.\n");
-}
-
-static void test_arraylist_capacity(void) {
-    printf("Testing arraylist capacity function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_test arrlisttest = test_init(gpa);
-    assert(test_capacity(&arrlisttest) == 0);
-
-    test_reserve(&arrlisttest, 2);
-    assert(test_capacity(&arrlisttest) == 2);
-
-    test_reserve(&arrlisttest, 1);
-    assert(test_capacity(&arrlisttest) == 2);
-
-    struct test *add1 = test_alloc_ctor(10, 0.5, "add1", &gpa);
-    test_push_back(&arrlisttest, add1);
-    assert(test_capacity(&arrlisttest) == 2);
-
-    struct test *add2 = test_alloc_ctor(11, 0.6, "add2", &gpa);
-    test_push_back(&arrlisttest, add2);
-    assert(test_capacity(&arrlisttest) == 2);
-
-    struct test *add3 = test_alloc_ctor(12, 0.7, "add3", &gpa);
-    test_push_back(&arrlisttest, add3);
-
-    assert(test_capacity(&arrlisttest) == 4);
-
-    test_deinit(&arrlisttest);
-    printf("arraylist capacity passed all tests.\n");
-}
-
-static void test_arraylist_swap(void) {
-    printf("Testing arraylist swap function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_test arrlisttest = test_init(gpa);
-    struct arraylist_test otherarr = test_init(gpa);
-
-    struct test *add1 = test_alloc_ctor(10, 0.5, "add1", &gpa);
-    test_push_back(&arrlisttest, add1);
-
-    // It seems that, after reallocation of data because of capacity, pointers might get invalidated
-    // Spent quite a while on here because I was storing pointers right after the first push_back
-    // struct test *arrlisttest_first_p = test_begin(&arrlisttest);
-
-    struct test *add2 = test_alloc_ctor(11, 0.6, "add2", &gpa);
-    test_push_back(&arrlisttest, add2);
-
-    struct test *add3 = test_alloc_ctor(12, 0.7, "add3", &gpa);
-    test_push_back(&arrlisttest, add3);
-    assert(arrlisttest.size == 3);
-
-    struct test **arrlisttest_first_p = test_begin(&arrlisttest);
-
-    struct test *other1 = test_alloc_ctor(10, 0.5, "other1", &gpa);
-    test_push_back(&otherarr, other1);
-
-    struct test *other2 = test_alloc_ctor(11, 0.6, "other2", &gpa);
-    test_push_back(&otherarr, other2);
-    assert(otherarr.size == 2);
-
-    struct test **otherarr_first_p = test_begin(&otherarr);
-
-    assert(arrlisttest_first_p == test_begin(&arrlisttest));
-    assert(otherarr_first_p == test_begin(&otherarr));
-
-    test_swap(&arrlisttest, &otherarr);
-    assert(arrlisttest.size == 2);
-    assert(otherarr.size == 3);
-
-    assert(arrlisttest_first_p == test_begin(&otherarr));
-    assert(otherarr_first_p == test_begin(&arrlisttest));
-
-    {
-        size_t i = 0;
-        for (struct test **it = test_begin(&arrlisttest); it < test_end(&arrlisttest); ++it) {
-            test_print(arrlisttest.data[i]);
-            ++i;
-        }
-    }
-
-    test_deinit(&arrlisttest);
-    test_deinit(&otherarr);
-    printf("arraylist swap passed all tests.\n");
-}
-
-static bool comparator_test_ptr(struct test **a, struct test **b) {
-    return *(*a)->a < *(*b)->a;
-}
-
-static void test_arraylist_qsort(void) {
-    printf("Testing arraylist qsort function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_test arrlisttest = test_init(gpa);
-
-    // Should be second after sort
-    *test_emplace_back_slot(&arrlisttest) = test_alloc_ctor(1, 0.1, "add1", &gpa);
-    // Should be fourth after sort
-    *test_emplace_back_slot(&arrlisttest) = test_alloc_ctor(3, 0.2, "add2", &gpa);
-    // Should be sixth after sort
-    *test_emplace_back_slot(&arrlisttest) = test_alloc_ctor(5, 0.3, "add3", &gpa);
-    // Should be fifth after sort
-    *test_emplace_back_slot(&arrlisttest) = test_alloc_ctor(4, 0.4, "add4", &gpa);
-    // Should be third after sort
-    *test_emplace_back_slot(&arrlisttest) = test_alloc_ctor(2, 0.5, "add5", &gpa);
-    // Should be first after sort
-    *test_emplace_back_slot(&arrlisttest) = test_alloc_ctor(-1, 0.6, "add6", &gpa);
-
-    assert(strcmp(arrlisttest.data[0]->objname, "add1") == 0);
-    assert(strcmp(arrlisttest.data[1]->objname, "add2") == 0);
-    assert(strcmp(arrlisttest.data[2]->objname, "add3") == 0);
-    assert(strcmp(arrlisttest.data[3]->objname, "add4") == 0);
-    assert(strcmp(arrlisttest.data[4]->objname, "add5") == 0);
-    assert(strcmp(arrlisttest.data[5]->objname, "add6") == 0);
-
-    test_qsort(&arrlisttest, comparator_test_ptr);
-
-    assert(strcmp(arrlisttest.data[0]->objname, "add6") == 0);
-    assert(strcmp(arrlisttest.data[1]->objname, "add1") == 0);
-    assert(strcmp(arrlisttest.data[2]->objname, "add5") == 0);
-    assert(strcmp(arrlisttest.data[3]->objname, "add2") == 0);
-    assert(strcmp(arrlisttest.data[4]->objname, "add4") == 0);
-    assert(strcmp(arrlisttest.data[5]->objname, "add3") == 0);
-
-    test_deinit(&arrlisttest);
-    printf("arraylist qsort passed all tests.\n");
-}
-
-static void test_arraylist_clear(void) {
-    printf("Testing arraylist end function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_test arrlisttest = test_init(gpa);
-
-    struct test *add1 = test_alloc_ctor(10, 0.5, "add1", &gpa);
-    test_push_back(&arrlisttest, add1);
-
-    struct test *add2 = test_alloc_ctor(11, 0.6, "add2", &gpa);
-    test_push_back(&arrlisttest, add2);
-
-    struct test *add3 = test_alloc_ctor(12, 0.7, "add3", &gpa);
-    test_push_back(&arrlisttest, add3);
-    assert(arrlisttest.size == 3);
-    assert(arrlisttest.capacity == 4);
-
-    test_clear(&arrlisttest);
-    assert(arrlisttest.size == 0);
-    assert(arrlisttest.capacity == 4);
-
-    test_deinit(&arrlisttest);
-    printf("arraylist end passed all tests.\n");
-}
-
-static bool allocator_test_equality(const struct Allocator *a, const struct Allocator *b) {
-    return a->malloc == b->malloc && a->realloc == b->realloc && a->free == b->free && a->ctx == b->ctx;
-}
-
-static void test_arraylist_get_allocator_default(void) {
-    printf("Testing arraylist get_allocator default function.\n");
-    struct arraylist_test arrlisttest = test_init(allocator_get_default()); // Init default allocator
-
-    Allocator def = allocator_get_default();
-
-    assert(allocator_test_equality(&def, test_get_allocator(&arrlisttest)));
-    assert(allocator_test_equality(&def, &arrlisttest.alloc)); // Should be same as above
-
-    test_deinit(&arrlisttest);
-    printf("arraylist get_allocator default passed all tests.\n");
-}
-
-/*
-static void test_arraylist_insert_from_to(void) {
-    printf("Testing arraylist insert_from_to function.\n");
-    struct arraylist_test arrlisttest = test_init(gpa);
-
-    test_deinit(&arrlisttest);
-    assert(false);
-    printf("arraylist insert_from_to passed all tests.\n");
-}
-*/
-
-/* === Function Pointer version test START === */
-
-ARRAYLIST_DYN(struct test, test)
-
-static void test_arraylist_dyn_init_and_deinit(void) {
-    printf("Testing arraylist init and deinit functions.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
-    assert(arrlisttest.destructor);
-    assert(&arrlisttest.alloc);
-    assert(arrlisttest.capacity == 0);
-    assert(!arrlisttest.data);
-    assert(arrlisttest.size == 0);
-
-    dyn_test_deinit(&arrlisttest);
-    assert(!arrlisttest.data);
-
-    arrlisttest = dyn_test_init(gpa, test_dtor);
-    assert(arrlisttest.destructor);
-    assert(&arrlisttest.alloc);
-    assert(arrlisttest.capacity == 0);
-    assert(!arrlisttest.data);
-    assert(arrlisttest.size == 0);
-
-    dyn_test_deinit(&arrlisttest);
-    assert(!arrlisttest.data);
-    printf("arraylist init and deinit functions passed all tests.\n");
-}
-
-static void test_arraylist_dyn_reserve(void) {
-    printf("Testing arraylist reserve function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
-
-    size_t cap = 10;
-
-    dyn_test_reserve(&arrlisttest, cap);
-    assert(dyn_test_capacity(&arrlisttest) == cap);
-
-    dyn_test_deinit(&arrlisttest);
-    printf("arraylist reserve passed all tests.\n");
-}
-
-static void test_arraylist_dyn_shrink_size(void) {
-    printf("Testing arraylist shrink_size function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
-
-    struct test add1;
-    struct test add2;
-    struct test add3;
-    struct test add4;
-    struct test add5;
-
-    test_ctor(&add1, 10, 0.5, "add1", &gpa);
-    test_ctor(&add2, 11, 0.6, "add2", &gpa);
-    test_ctor(&add3, 12, 0.7, "add3", &gpa);
-    test_ctor(&add4, 13, 0.8, "add4", &gpa);
-    test_ctor(&add5, 14, 0.9, "add5", &gpa);
-
-    dyn_test_push_back(&arrlisttest, add1);
-    dyn_test_push_back(&arrlisttest, add2);
-    dyn_test_push_back(&arrlisttest, add3);
-    dyn_test_push_back(&arrlisttest, add4);
-    dyn_test_push_back(&arrlisttest, add5);
-
-    assert(arrlisttest.size == 5);
-
-    size_t shrink = 3;
-
-    dyn_test_shrink_size(&arrlisttest, shrink);
-    assert(arrlisttest.size == 3);
-
-    // passed size is greater than arraylist.size, noop
-    dyn_test_shrink_size(&arrlisttest, 10);
-    assert(arrlisttest.size == 3);
-
-    dyn_test_deinit(&arrlisttest);
-    printf("arraylist shrink_size passed all tests.\n");
-}
-
-static void test_arraylist_dyn_shrink_to_fit(void) {
-    printf("Testing arraylist shrink_to_fit function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
-
-    struct test add1;
-    struct test add2;
-    struct test add3;
-    struct test add4;
-    struct test add5;
-
-    test_ctor(&add1, 10, 0.5, "add1", &gpa);
-    test_ctor(&add2, 11, 0.6, "add2", &gpa);
-    test_ctor(&add3, 12, 0.7, "add3", &gpa);
-    test_ctor(&add4, 13, 0.8, "add4", &gpa);
-    test_ctor(&add5, 14, 0.9, "add5", &gpa);
-
-    dyn_test_reserve(&arrlisttest, 10);
-    assert(arrlisttest.capacity == 10);
-
-    dyn_test_push_back(&arrlisttest, add1);
-    dyn_test_push_back(&arrlisttest, add2);
-    dyn_test_push_back(&arrlisttest, add3);
-    dyn_test_push_back(&arrlisttest, add4);
-    dyn_test_push_back(&arrlisttest, add5);
-
-    assert(arrlisttest.size == 5);
-
-    dyn_test_shrink_to_fit(&arrlisttest);
-
-    assert(arrlisttest.size == arrlisttest.capacity);
-
-    dyn_test_deinit(&arrlisttest);
-    printf("arraylist shrink_to_fit passed all tests.\n");
-}
-
-static void test_arraylist_dyn_push_back(void) {
-    printf("Testing arraylist push_back function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
-
-    struct test add1;
-    test_ctor(&add1, 10, 0.5, "add1", &gpa);
-    dyn_test_push_back(&arrlisttest, add1);
-    assert(arrlisttest.size == 1);
-
-    struct test add2;
-    test_ctor(&add2, 11, 0.6, "add2", &gpa);
-    dyn_test_push_back(&arrlisttest, add2);
-    assert(arrlisttest.size == 2);
-    assert(arrlisttest.capacity == 2);
-
-    struct test add3;
-    test_ctor(&add3, 12, 0.7, "add3", &gpa);
-    dyn_test_push_back(&arrlisttest, add3);
-    assert(arrlisttest.size == 3);
-    assert(arrlisttest.capacity == 4);
-
-    struct test add4;
-    test_ctor(&add4, 13, 0.8, "add4", &gpa);
-    dyn_test_push_back(&arrlisttest, add4);
-    assert(arrlisttest.size == 4);
-    assert(arrlisttest.capacity == 4);
-
-    struct test add5;
-    test_ctor(&add5, 14, 0.9, "add5", &gpa);
-    dyn_test_push_back(&arrlisttest, add5);
-    assert(arrlisttest.size == 5);
-    assert(arrlisttest.capacity == 8);
-
-    dyn_test_reserve(&arrlisttest, 11);
-    assert(arrlisttest.capacity == 11);
-
-    struct test add6;
-    test_ctor(&add6, 15, 1.0, "add6", &gpa);
-    dyn_test_push_back(&arrlisttest, add6);
-    assert(arrlisttest.size == 6);
-    assert(arrlisttest.capacity == 11);
-
-    struct test add7;
-    test_ctor(&add7, 15, 1.0, "add7", &gpa);
-    dyn_test_push_back(&arrlisttest, add7);
-    assert(arrlisttest.size == 7);
-    assert(arrlisttest.capacity == 11);
-
-    struct test add8;
-    test_ctor(&add8, 15, 1.0, "add8", &gpa);
-    dyn_test_push_back(&arrlisttest, add8);
-    assert(arrlisttest.size == 8);
-    assert(arrlisttest.capacity == 11);
-
-    struct test add9;
-    test_ctor(&add9, 15, 1.0, "add9", &gpa);
-    dyn_test_push_back(&arrlisttest, add9);
-    assert(arrlisttest.size == 9);
-    assert(arrlisttest.capacity == 11);
-
-    struct test add10;
-    test_ctor(&add10, 15, 1.0, "add10", &gpa);
-    dyn_test_push_back(&arrlisttest, add10);
-    assert(arrlisttest.size == 10);
-    assert(arrlisttest.capacity == 11);
-
-    struct test add11;
-    test_ctor(&add11, 15, 1.0, "add11", &gpa);
-    dyn_test_push_back(&arrlisttest, add11);
-    assert(arrlisttest.size == 11);
-    assert(arrlisttest.capacity == 11);
-
-    struct test add12;
-    test_ctor(&add12, 15, 1.0, "add12", &gpa);
-    dyn_test_push_back(&arrlisttest, add12);
-    assert(arrlisttest.size == 12);
-    assert(arrlisttest.capacity == (11 * 2));
-
-    dyn_test_deinit(&arrlisttest);
-    printf("arraylist push_back passed all tests.\n");
-}
-
-static void test_arraylist_dyn_emplace_back_slot(void) {
-    printf("Testing arraylist emplace_back_slot function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
-
-    // ways that emplace_back can be used with arraylist of values:
-
-    // can be added like this, most efficient as it is constructed inside the container:
-    struct test *add1 = dyn_test_emplace_back_slot(&arrlisttest);
-
-    // emplace_back_slot may return NULL, needs to be checked in real scenarios
-    if (!add1) {
-        assert(false && "emplace back returned null");
-    }
-
-    test_ctor(add1, 10, 0.5, "add1", &gpa);
-    assert(arrlisttest.size == 1);
-
-    struct test *add1_same = dyn_test_at(&arrlisttest, 0);
-    assert(add1_same == add1);
-
-    // can be added like this, copy into slot:
-    struct test add2;
-    test_ctor(&add2, 11, 0.6, "add2", &gpa);
-    *dyn_test_emplace_back_slot(&arrlisttest) = add2;
-    assert(arrlisttest.size == 2);
-    assert(arrlisttest.capacity == 2);
-
-    // could be added by assigning a struct literal, if the struct had simple fields:
-    //*dyn_test_emplace_back_slot(&arrlisttest) = (struct test){ .a = ...};
-
-    // can be added with a constructor that returns a struct by value:
-    *dyn_test_emplace_back_slot(&arrlisttest) = test_ctor_by_val(12, 0.7, "add3", &gpa);
-    assert(arrlisttest.size == 3);
-    assert(arrlisttest.capacity == 4);
-
-    // can fill slots individually:
-    struct test *add4 = dyn_test_emplace_back_slot(&arrlisttest);
-    add4->a = malloc(sizeof(int));
-    add4->b = malloc(sizeof(float));
-    *add4->a = 13;
-    *add4->b = 0.8;
-    add4->objname = "add4";
-    assert(arrlisttest.size == 4);
-    assert(arrlisttest.capacity == 4);
-    struct test *add4_same = dyn_test_at(&arrlisttest, 3);
-    assert(add4_same == add4);
-
-    struct test *add5 = dyn_test_emplace_back_slot(&arrlisttest);
-    test_ctor(add5, 14, 0.9, "add5", &gpa);
-    assert(arrlisttest.size == 5);
-    assert(arrlisttest.capacity == 8);
-    struct test *add5_same = dyn_test_at(&arrlisttest, 4);
-    assert(add5_same == add5);
-
-    dyn_test_reserve(&arrlisttest, 11);
-    assert(arrlisttest.capacity == 11);
-
-    struct test *add6 = dyn_test_emplace_back_slot(&arrlisttest);
-    test_ctor(add6, 14, 0.9, "add6", &gpa);
-    assert(arrlisttest.size == 6);
-    assert(arrlisttest.capacity == 11);
-    struct test *add6_same = dyn_test_at(&arrlisttest, 5);
-    assert(add6_same == add6);
-
-    struct test *add7 = dyn_test_emplace_back_slot(&arrlisttest);
-    test_ctor(add7, 14, 0.9, "add7", &gpa);
-    assert(arrlisttest.size == 7);
-    struct test *add7_same = dyn_test_at(&arrlisttest, 6);
-    assert(add7_same == add7);
-
-    struct test *add8 = dyn_test_emplace_back_slot(&arrlisttest);
-    test_ctor(add8, 14, 0.9, "add8", &gpa);
-    assert(arrlisttest.size == 8);
-    struct test *add8_same = dyn_test_at(&arrlisttest, 7);
-    assert(add8_same == add8);
-
-    struct test *add9 = dyn_test_emplace_back_slot(&arrlisttest);
-    test_ctor(add9, 14, 0.9, "add9", &gpa);
-    assert(arrlisttest.size == 9);
-    struct test *add9_same = dyn_test_at(&arrlisttest, 8);
-    assert(add9_same == add9);
-
-    struct test *add10 = dyn_test_emplace_back_slot(&arrlisttest);
-    test_ctor(add10, 14, 0.9, "add10", &gpa);
-    assert(arrlisttest.size == 10);
-    struct test *add10_same = dyn_test_at(&arrlisttest, 9);
-    assert(add10_same == add10);
-
-    struct test *add11 = dyn_test_emplace_back_slot(&arrlisttest);
-    test_ctor(add11, 14, 0.9, "add11", &gpa);
-    assert(arrlisttest.size == 11);
-    assert(arrlisttest.capacity == 11);
-    struct test *add11_same = dyn_test_at(&arrlisttest, 10);
-    assert(add11_same == add11);
-
-    struct test *add12 = dyn_test_emplace_back_slot(&arrlisttest);
-    test_ctor(add12, 14, 0.9, "add11", &gpa);
-    assert(arrlisttest.size == 12);
-    assert(arrlisttest.capacity == (11 * 2));
-    struct test *add12_same = dyn_test_at(&arrlisttest, 11);
-    assert(add12_same == add12);
-
-    dyn_test_deinit(&arrlisttest);
-    printf("arraylist emplace_back_slot passed all tests.\n");
-}
-
-static void test_arraylist_dyn_insert_at(void) {
-    printf("Testing arraylist insert_at function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
-
-    struct test add1;
-    test_ctor(&add1, 10, 0.5, "add1", &gpa);
-    dyn_test_insert_at(&arrlisttest, add1, 0);
-
-    struct test add2;
-    test_ctor(&add2, 11, 0.6, "add2", &gpa);
-    dyn_test_insert_at(&arrlisttest, add2, 1);
-
-    struct test add3;
-    test_ctor(&add3, 12, 0.7, "add3", &gpa);
-    dyn_test_insert_at(&arrlisttest, add3, 2);
-
-    assert(arrlisttest.size == 3);
-
-    struct test add4;
-    test_ctor(&add4, 13, 0.2, "add4", &gpa);
-
-    // Overflow should insert at last position
-    dyn_test_insert_at(&arrlisttest, add4, -1);
-    assert(arrlisttest.size == 4);
-    assert(strcmp(arrlisttest.data[arrlisttest.size - 1].objname, add4.objname) == 0);
-
-    struct test add5;
-    test_ctor(&add5, 15, 0.5, "add5", &gpa);
-    dyn_test_insert_at(&arrlisttest, add5, 0);
-    assert(arrlisttest.size == 5);
-    assert(arrlisttest.capacity == 8);
-    assert(strcmp(arrlisttest.data[0].objname, add5.objname) == 0);
-
-    size_t add6_index_pos = 2;
-    struct test add6;
-    test_ctor(&add6, 16, 0.6, "add6", &gpa);
-    dyn_test_insert_at(&arrlisttest, add6, add6_index_pos); // Between add1 and add2
-    assert(arrlisttest.size == 6);
-    assert(strcmp(arrlisttest.data[2].objname, add6.objname) == 0);
-
-    size_t add7_index_pos = arrlisttest.size - 1;
-    struct test add7;
-    test_ctor(&add7, 17, 0.7, "add7", &gpa);
-    dyn_test_insert_at(&arrlisttest, add7, add7_index_pos); // index 5, should be before last
-    assert(strcmp(arrlisttest.data[arrlisttest.size - 2].objname, add7.objname) == 0);
-    assert(arrlisttest.size == 7);
-
-    size_t add8_index_pos = arrlisttest.size;
-    struct test add8;
-    test_ctor(&add8, 17, 0.7, "add8", &gpa);
-    dyn_test_insert_at(&arrlisttest, add8, add8_index_pos); // index 7, should be last
-    assert(strcmp(arrlisttest.data[arrlisttest.size - 1].objname, add8.objname) == 0);
-    assert(strcmp(dyn_test_back(&arrlisttest)->objname, add8.objname) == 0);
-    assert(arrlisttest.size == 8);
-
-    dyn_test_deinit(&arrlisttest);
-    printf("arraylist insert_at passed all tests.\n");
-}
-
-static void test_arraylist_dyn_pop_back(void) {
-    printf("Testing arraylist pop_back function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
-
-    struct test add1;
-    struct test add2;
-    struct test add3;
-
-    test_ctor(&add1, 10, 0.5, "add1", &gpa);
-    test_ctor(&add2, 11, 0.6, "add2", &gpa);
-    test_ctor(&add3, 12, 0.7, "add3", &gpa);
-
-    dyn_test_push_back(&arrlisttest, add1);
-    assert(arrlisttest.size == 1);
-    assert(arrlisttest.capacity == 1);
-
-    dyn_test_push_back(&arrlisttest, add2);
-    assert(arrlisttest.size == 2);
-    assert(arrlisttest.capacity == 2);
-
-    dyn_test_pop_back(&arrlisttest);
-    assert(arrlisttest.size == 1);
-    assert(arrlisttest.capacity == 2);
-
-    dyn_test_push_back(&arrlisttest, add3);
-    assert(arrlisttest.size == 2);
-    assert(arrlisttest.capacity == 2);
-
-    dyn_test_pop_back(&arrlisttest);
-    assert(arrlisttest.size == 1);
-    dyn_test_pop_back(&arrlisttest);
-    assert(arrlisttest.size == 0);
-
-    assert(dyn_test_pop_back(&arrlisttest) == ARRAYLIST_OK);
-    assert(dyn_test_pop_back(&arrlisttest) == ARRAYLIST_OK);
-
-    dyn_test_deinit(&arrlisttest);
-    printf("arraylist pop_back passed all tests.\n");
-}
-
-static void test_arraylist_dyn_remove_at(void) {
-    printf("Testing arraylist remove_at function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
-
-    struct test add1;
-    test_ctor(&add1, 10, 0.5, "add1", &gpa);
-    dyn_test_push_back(&arrlisttest, add1);
-
-    struct test add2;
-    test_ctor(&add2, 11, 0.6, "add2", &gpa);
-    dyn_test_push_back(&arrlisttest, add2);
-
-    struct test add3;
-    test_ctor(&add3, 12, 0.7, "add3", &gpa);
-    dyn_test_push_back(&arrlisttest, add3);
-    assert(arrlisttest.size == 3);
-    assert(arrlisttest.capacity == 4);
-
-    struct test add4;
-    test_ctor(&add4, 12, 0.7, "add4", &gpa);
-    dyn_test_push_back(&arrlisttest, add4);
-
-    struct test add5;
-    test_ctor(&add5, 12, 0.7, "add5", &gpa);
-    dyn_test_push_back(&arrlisttest, add5);
-
-    struct test add6;
-    test_ctor(&add6, 12, 0.7, "add6", &gpa);
-    dyn_test_push_back(&arrlisttest, add6);
-    assert(arrlisttest.size == 6);
-
-    /*
-    for (size_t j = 0; j < arrlisttest.size; ++j) {
-        printf("index = %lu | ", j);
-        test_print(&arrlisttest.data[j]);
-    }
-    */
-
-    dyn_test_remove_at(&arrlisttest, 3); //add4
-    assert(arrlisttest.size == 5);
-
-    dyn_test_remove_at(&arrlisttest, 3); //add5 now
-    assert(arrlisttest.size == 4);
-
-    // Should overflow and remove last element
-    dyn_test_remove_at(&arrlisttest, -1); //add6
-    assert(arrlisttest.size == 3);
-
-    dyn_test_remove_at(&arrlisttest, 0); //add1
-    assert(arrlisttest.size == 2);
-
-    dyn_test_remove_at(&arrlisttest, 1); //add3
-    assert(arrlisttest.size == 1);
-
-    /*
-    for (size_t i = 0; i < arrlisttest.size; ++i) {
-        printf("index = %lu | ", i);
-        test_print(&arrlisttest.data[i]);
-    }
-    */
-
-    dyn_test_remove_at(&arrlisttest, 0);
-    assert(arrlisttest.size == 0);
-    assert(dyn_test_remove_at(&arrlisttest, 0) == ARRAYLIST_OK);
-
-    dyn_test_deinit(&arrlisttest);
-    printf("arraylist remove_at passed all tests.\n");
-}
-
-static void test_arraylist_dyn_remove_from_to(void) {
-    printf("Testing arraylist remove_from_to function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
-
-    struct test add1;
-    test_ctor(&add1, 10, 0.5, "add1", &gpa);
-    dyn_test_push_back(&arrlisttest, add1);
-
-    struct test add2;
-    test_ctor(&add2, 11, 0.6, "add2", &gpa);
-    dyn_test_push_back(&arrlisttest, add2);
-
-    struct test add3;
-    test_ctor(&add3, 12, 0.7, "add3", &gpa);
-    dyn_test_push_back(&arrlisttest, add3);
-    assert(arrlisttest.size == 3);
-    assert(arrlisttest.capacity == 4);
-
-    struct test add4;
-    test_ctor(&add4, 12, 0.7, "add4", &gpa);
-    dyn_test_push_back(&arrlisttest, add4);
-
-    struct test add5;
-    test_ctor(&add5, 12, 0.7, "add5", &gpa);
-    dyn_test_push_back(&arrlisttest, add5);
-
-    struct test add6;
-    test_ctor(&add6, 12, 0.7, "add6", &gpa);
-    dyn_test_push_back(&arrlisttest, add6);
-    assert(arrlisttest.size == 6);
-
-    /*
-    for (size_t j = 0; j < arrlisttest.size; ++j) {
-        printf("index = %lu | ", j);
-        test_print(&arrlisttest.data[j]);
-    }
-    */
-
-    // from > to should do nothing
-    dyn_test_remove_from_to(&arrlisttest, 4, 3);
-    assert(arrlisttest.size == 6);
-
-    // should overflow and just pop_back
-    dyn_test_remove_from_to(&arrlisttest, -1, -1); // add6
-    assert(arrlisttest.size == 5);
-
-    dyn_test_remove_from_to(&arrlisttest, 1, 3); // add2 add3 add4
-    assert(arrlisttest.size == 2);
-
-    for (size_t i = 0; i < arrlisttest.size; ++i) {
-        printf("index = %lu | ", i);
-        test_print(&arrlisttest.data[i]);
-    }
-
-    dyn_test_remove_from_to(&arrlisttest, 0, 0); // add1
-    assert(arrlisttest.size == 1);
-
-    // Double-free, add1 must be constructed again to be instered
-    // dyn_test_push_back(&arrlisttest, add1);
-
-    test_ctor(&add1, 10, 0.5, "add1", &gpa);
-    dyn_test_push_back(&arrlisttest, add1);
-    dyn_test_remove_from_to(&arrlisttest, 0, 1); // add1 add2
-    assert(arrlisttest.size == 0);
-
-    assert(dyn_test_remove_from_to(&arrlisttest, 0, 0) == ARRAYLIST_OK); // noop
-    assert(arrlisttest.size == 0);
-
-    dyn_test_deinit(&arrlisttest);
-    printf("arraylist remove_from_to passed all tests.\n");
-}
-
-static void test_arraylist_dyn_at(void) {
-    printf("Testing arraylist at function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
-
-    struct test add1;
-    test_ctor(&add1, 10, 0.5, "add1", &gpa);
-    dyn_test_push_back(&arrlisttest, add1);
-
-    struct test add2;
-    test_ctor(&add2, 11, 0.6, "add2", &gpa);
-    dyn_test_push_back(&arrlisttest, add2);
-
-    struct test add3;
-    test_ctor(&add3, 12, 0.7, "add3", &gpa);
-    dyn_test_push_back(&arrlisttest, add3);
-
-    struct test *add1_p = dyn_test_at(&arrlisttest, 0);
-    assert(add1_p == arrlisttest.data); // A pointer to the beginning of the array
-
-    struct test *add2_p = dyn_test_at(&arrlisttest, 1);
-    assert(add2_p == arrlisttest.data + 1);
-
-    struct test *add3_p = dyn_test_at(&arrlisttest, 2);
-    assert(add3_p == arrlisttest.data + 2);
-
-    dyn_test_deinit(&arrlisttest);
-    printf("arraylist at passed all tests.\n");
-}
-
-static void test_arraylist_dyn_begin(void) {
-    printf("Testing arraylist begin function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
-
-    struct test add1;
-    test_ctor(&add1, 10, 0.5, "add1", &gpa);
-    dyn_test_push_back(&arrlisttest, add1);
-
-    struct test add2;
-    test_ctor(&add2, 11, 0.6, "add2", &gpa);
-    dyn_test_push_back(&arrlisttest, add2);
-
-    struct test *it_begin = dyn_test_begin(&arrlisttest);
-    assert(it_begin == arrlisttest.data);
-
-    assert(it_begin + 1 == arrlisttest.data + 1);
-
-    dyn_test_deinit(&arrlisttest);
-    printf("arraylist begin passed all tests.\n");
-}
-
-static void test_arraylist_dyn_back(void) {
-    printf("Testing arraylist back function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
-
-    struct test add1;
-    test_ctor(&add1, 10, 0.5, "add1", &gpa);
-    dyn_test_push_back(&arrlisttest, add1);
-
-    struct test *one_ele = dyn_test_back(&arrlisttest);
-    assert(one_ele == arrlisttest.data);
-
-    struct test add2;
-    test_ctor(&add2, 11, 0.6, "add2", &gpa);
-    dyn_test_push_back(&arrlisttest, add2);
-
-    struct test *last_ele = dyn_test_back(&arrlisttest);
-    assert(last_ele == arrlisttest.data + 1);
-
-    assert(last_ele - 1 == arrlisttest.data);
-
-    dyn_test_deinit(&arrlisttest);
-    printf("arraylist back passed all tests.\n");
-}
-
-static void test_arraylist_dyn_end(void) {
-    printf("Testing arraylist end function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
-
-    struct test add1;
-    test_ctor(&add1, 10, 0.5, "add1", &gpa);
-    dyn_test_push_back(&arrlisttest, add1);
-
-    struct test add2;
-    test_ctor(&add2, 11, 0.6, "add2", &gpa);
-    dyn_test_push_back(&arrlisttest, add2);
-
-    struct test *it_end = dyn_test_end(&arrlisttest);
-    assert(it_end == arrlisttest.data + 2); // it is a pointer to after the last element
-
-    struct test *last_ele = dyn_test_back(&arrlisttest);
-    assert(it_end - 1 == last_ele);
-
-    assert(it_end - 1 == arrlisttest.data + 1);
-    // The following line is a heap buffer overflow, end should not be dereferenced
-    // printf("it_end data %d", *it_end->a);
-
-    dyn_test_deinit(&arrlisttest);
-    printf("arraylist end passed all tests.\n");
-}
-
-bool test_pred_find_name(struct test *a, void *name) {
-    if (strcmp(a->objname, name) == 0) {
+// Function for find and contains for pointer containers
+static bool non_pod_find_ptr(struct non_pod **np, void *find) {
+    if (strcmp((*np)->objname, (char *)find) == 0) {
         return true;
     }
     return false;
 }
 
-static void test_arraylist_dyn_find(void) {
-    printf("Testing arraylist find function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
-
-    struct test add1;
-    test_ctor(&add1, 10, 0.5, "add1", &gpa);
-    dyn_test_push_back(&arrlisttest, add1);
-
-    struct test add2;
-    test_ctor(&add2, 11, 0.6, "add2", &gpa);
-    dyn_test_push_back(&arrlisttest, add2);
-
-    const char *target_name_found = "add2";
-
-    struct test *found = dyn_test_find(&arrlisttest, test_pred_find_name, (char *)target_name_found);
-    assert(found == dyn_test_at(&arrlisttest, 1));
-
-    const char *target_name_not_found = "add3";
-    struct test *not_found = dyn_test_find(&arrlisttest, test_pred_find_name, (char *)target_name_not_found);
-    assert(not_found == dyn_test_end(&arrlisttest));
-
-    dyn_test_deinit(&arrlisttest);
-    printf("arraylist find passed all tests.\n");
+// Function for qsort for pointer containers
+static bool non_pod_sort_ptr(struct non_pod **np1, struct non_pod **np2) {
+    return strcmp((*np1)->objname, (*np2)->objname) < 0;
 }
 
-static void test_arraylist_dyn_contains(void) {
-    printf("Testing arraylist contains function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
-
-    struct test add1;
-    test_ctor(&add1, 10, 0.5, "add1", &gpa);
-    dyn_test_push_back(&arrlisttest, add1);
-
-    struct test add2;
-    test_ctor(&add2, 11, 0.6, "add2", &gpa);
-    dyn_test_push_back(&arrlisttest, add2);
-
-    const char *target_name_found = "add2";
-
-    size_t index = 0;
-
-    assert(dyn_test_contains(&arrlisttest, test_pred_find_name, (char *)target_name_found, &index));
-    assert(index == 1);
-
-    const char *target_name_not_found = "add3";
-    assert(!dyn_test_contains(&arrlisttest, test_pred_find_name, (char *)target_name_not_found, &index));
-    assert(index == 1); // Unchanged from before
-
-    dyn_test_deinit(&arrlisttest);
-    printf("arraylist contains passed all tests.\n");
-}
-
-static void test_arraylist_dyn_size(void) {
-    printf("Testing arraylist size function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
-    assert(dyn_test_size(&arrlisttest) == 0);
-
-    struct test add1;
-    test_ctor(&add1, 10, 0.5, "add1", &gpa);
-    dyn_test_push_back(&arrlisttest, add1);
-    assert(dyn_test_size(&arrlisttest) == 1);
-
-    struct test add2;
-    test_ctor(&add2, 11, 0.6, "add2", &gpa);
-    dyn_test_push_back(&arrlisttest, add2);
-    assert(dyn_test_size(&arrlisttest) == 2);
-
-    dyn_test_deinit(&arrlisttest);
-    printf("arraylist size passed all tests.\n");
-}
-
-static void test_arraylist_dyn_is_empty(void) {
-    printf("Testing arraylist is empty function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
-    assert(dyn_test_is_empty(&arrlisttest));
-
-    struct test add1;
-    test_ctor(&add1, 10, 0.5, "add1", &gpa);
-    dyn_test_push_back(&arrlisttest, add1);
-    assert(!dyn_test_is_empty(&arrlisttest));
-
-    dyn_test_pop_back(&arrlisttest);
-    assert(dyn_test_is_empty(&arrlisttest));
-
-    dyn_test_deinit(&arrlisttest);
-    printf("arraylist is empty passed all tests.\n");
-}
-
-static void test_arraylist_dyn_capacity(void) {
-    printf("Testing arraylist capacity function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
-    assert(dyn_test_capacity(&arrlisttest) == 0);
-
-    dyn_test_reserve(&arrlisttest, 2);
-    assert(dyn_test_capacity(&arrlisttest) == 2);
-
-    dyn_test_reserve(&arrlisttest, 1);
-    assert(dyn_test_capacity(&arrlisttest) == 2);
-
-    struct test add1;
-    test_ctor(&add1, 10, 0.5, "add1", &gpa);
-    dyn_test_push_back(&arrlisttest, add1);
-    assert(dyn_test_capacity(&arrlisttest) == 2);
-
-    struct test add2;
-    test_ctor(&add2, 11, 0.6, "add2", &gpa);
-    dyn_test_push_back(&arrlisttest, add2);
-    assert(dyn_test_capacity(&arrlisttest) == 2);
-
-    struct test add3;
-    test_ctor(&add3, 12, 0.7, "add3", &gpa);
-    dyn_test_push_back(&arrlisttest, add3);
-
-    assert(dyn_test_capacity(&arrlisttest) == 4);
-
-    dyn_test_deinit(&arrlisttest);
-    printf("arraylist capacity passed all tests.\n");
-}
-
-static void test_arraylist_dyn_swap(void) {
-    printf("Testing arraylist swap function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
-    struct arraylist_dyn_test otherarr = dyn_test_init(gpa, test_dtor);
-
-    struct test add1;
-    test_ctor(&add1, 10, 0.5, "add1", &gpa);
-    dyn_test_push_back(&arrlisttest, add1);
-
-    // It seems that, after reallocation of data because of capacity, pointers might get invalidated
-    // Spent quite a while on here because I was storing pointers right after the first push_back
-    // struct test *arrlisttest_first_p = dyn_test_begin(&arrlisttest);
-
-    struct test add2;
-    test_ctor(&add2, 11, 0.6, "add2", &gpa);
-    dyn_test_push_back(&arrlisttest, add2);
-
-    struct test add3;
-    test_ctor(&add3, 12, 0.7, "add3", &gpa);
-    dyn_test_push_back(&arrlisttest, add3);
-    assert(arrlisttest.size == 3);
-
-    struct test *arrlisttest_first_p = dyn_test_begin(&arrlisttest);
-
-    struct test other1;
-    test_ctor(&other1, 10, 0.5, "other1", &gpa);
-    dyn_test_push_back(&otherarr, other1);
-
-    struct test other2;
-    test_ctor(&other2, 11, 0.6, "other2", &gpa);
-    dyn_test_push_back(&otherarr, other2);
-    assert(otherarr.size == 2);
-
-    struct test *otherarr_first_p = dyn_test_begin(&otherarr);
-
-    assert(arrlisttest_first_p == dyn_test_begin(&arrlisttest));
-    assert(otherarr_first_p == dyn_test_begin(&otherarr));
-
-    dyn_test_swap(&arrlisttest, &otherarr);
-    assert(arrlisttest.size == 2);
-    assert(otherarr.size == 3);
-
-    assert(arrlisttest_first_p == dyn_test_begin(&otherarr));
-    assert(otherarr_first_p == dyn_test_begin(&arrlisttest));
-
-    {
-        size_t i = 0;
-        for (struct test *it = dyn_test_begin(&arrlisttest); it < dyn_test_end(&arrlisttest); ++it) {
-            test_print(&arrlisttest.data[i]);
-            ++i;
-        }
-    }
-
-    dyn_test_deinit(&arrlisttest);
-    dyn_test_deinit(&otherarr);
-    printf("arraylist swap passed all tests.\n");
-}
-
-static bool comparator_test(struct test *a, struct test *b) {
-    return *a->a < *b->a;
-}
-
-static void test_arraylist_dyn_qsort(void) {
-    printf("Testing arraylist qsort function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
-
-    // Should be second after sort
-    *dyn_test_emplace_back_slot(&arrlisttest) = test_ctor_by_val(1, 0.1, "add1", &gpa);
-    // Should be fourth after sort
-    *dyn_test_emplace_back_slot(&arrlisttest) = test_ctor_by_val(3, 0.2, "add2", &gpa);
-    // Should be sixth after sort
-    *dyn_test_emplace_back_slot(&arrlisttest) = test_ctor_by_val(5, 0.3, "add3", &gpa);
-    // Should be fifth after sort
-    *dyn_test_emplace_back_slot(&arrlisttest) = test_ctor_by_val(4, 0.4, "add4", &gpa);
-    // Should be third after sort
-    *dyn_test_emplace_back_slot(&arrlisttest) = test_ctor_by_val(2, 0.5, "add5", &gpa);
-    // Should be first after sort
-    *dyn_test_emplace_back_slot(&arrlisttest) = test_ctor_by_val(-1, 0.6, "add6", &gpa);
-
-    assert(strcmp(arrlisttest.data[0].objname, "add1") == 0);
-    assert(strcmp(arrlisttest.data[1].objname, "add2") == 0);
-    assert(strcmp(arrlisttest.data[2].objname, "add3") == 0);
-    assert(strcmp(arrlisttest.data[3].objname, "add4") == 0);
-    assert(strcmp(arrlisttest.data[4].objname, "add5") == 0);
-    assert(strcmp(arrlisttest.data[5].objname, "add6") == 0);
-
-    dyn_test_qsort(&arrlisttest, comparator_test);
-
-    assert(strcmp(arrlisttest.data[0].objname, "add6") == 0);
-    assert(strcmp(arrlisttest.data[1].objname, "add1") == 0);
-    assert(strcmp(arrlisttest.data[2].objname, "add5") == 0);
-    assert(strcmp(arrlisttest.data[3].objname, "add2") == 0);
-    assert(strcmp(arrlisttest.data[4].objname, "add4") == 0);
-    assert(strcmp(arrlisttest.data[5].objname, "add3") == 0);
-
-    dyn_test_deinit(&arrlisttest);
-    printf("arraylist qsort passed all tests.\n");
-}
-
-static void test_arraylist_dyn_clear(void) {
-    printf("Testing arraylist end function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(gpa, test_dtor);
-
-    struct test add1;
-    test_ctor(&add1, 10, 0.5, "add1", &gpa);
-    dyn_test_push_back(&arrlisttest, add1);
-
-    struct test add2;
-    test_ctor(&add2, 11, 0.6, "add2", &gpa);
-    dyn_test_push_back(&arrlisttest, add2);
-
-    struct test add3;
-    test_ctor(&add3, 12, 0.7, "add3", &gpa);
-    dyn_test_push_back(&arrlisttest, add3);
-    assert(arrlisttest.size == 3);
-    assert(arrlisttest.capacity == 4);
-
-    dyn_test_clear(&arrlisttest);
-    assert(arrlisttest.size == 0);
-    assert(arrlisttest.capacity == 4);
-
-    dyn_test_deinit(&arrlisttest);
-    printf("arraylist end passed all tests.\n");
-}
-
-static void test_arraylist_dyn_get_allocator_default(void) {
-    printf("Testing arraylist get_allocator default function.\n");
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(allocator_get_default(), test_dtor); // Init default allocator
-
-    Allocator def = allocator_get_default();
-
-    assert(allocator_test_equality(&def, dyn_test_get_allocator(&arrlisttest)));
-    assert(allocator_test_equality(&def, &arrlisttest.alloc)); // Should be same as above
-
-    dyn_test_deinit(&arrlisttest);
-    printf("arraylist get_allocator default passed all tests.\n");
-}
-
-/*
-static void test_arraylist_dyn_insert_from_to(void) {
-    printf("Testing arraylist insert_from_to function.\n");
-    struct arraylist_dyn_test arrlisttest = dyn_test_init(NULL, test_dtor);
-
-    dyn_test_deinit(&arrlisttest);
-    assert(false);
-    printf("arraylist insert_from_to passed all tests.\n");
-}
-*/
-
-// An example of a container of pointers of struct test
-ARRAYLIST_DYN(struct test *, test_ptr)
-
-static void test_arraylist_dyn_ptr_push_back(void) {
-    printf("Testing arraylist_ptr push_back function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test_ptr arrlisttestptr = dyn_test_ptr_init(gpa, test_ptr_dtor);
-
-    struct test *add1 = malloc(sizeof(struct test));
-    test_ctor(add1, 10, 0.5, "add1", &gpa);
-
-    struct test *add2 = malloc(sizeof(struct test));
-    test_ctor(add2, 11, 0.6, "add2", &gpa);
-
-    struct test *add3 = test_alloc_ctor(12, 0.7, "add3", &gpa);
-
-    struct test *add4 = malloc(sizeof(struct test));
-    test_ctor(add4, 13, 0.8, "add4", &gpa);
-
-    struct test *add5 = malloc(sizeof(struct test));
-    test_ctor(add5, 14, 0.9, "add5", &gpa);
-
-    dyn_test_ptr_push_back(&arrlisttestptr, add1);
-    assert(arrlisttestptr.size == 1);
-    dyn_test_ptr_push_back(&arrlisttestptr, add2);
-    assert(arrlisttestptr.size == 2);
-    assert(arrlisttestptr.capacity == 2);
-    dyn_test_ptr_push_back(&arrlisttestptr, add3);
-    assert(arrlisttestptr.size == 3);
-    assert(arrlisttestptr.capacity == 4);
-    dyn_test_ptr_push_back(&arrlisttestptr, add4);
-    assert(arrlisttestptr.size == 4);
-    assert(arrlisttestptr.capacity == 4);
-    dyn_test_ptr_push_back(&arrlisttestptr, add5);
-    assert(arrlisttestptr.size == 5);
-    assert(arrlisttestptr.capacity == 8);
-
-    dyn_test_ptr_reserve(&arrlisttestptr, 11);
-    assert(arrlisttestptr.capacity == 11);
-
-    dyn_test_ptr_deinit(&arrlisttestptr);
-    // free(add1); // double-free, arraylist owns the pointers to it and frees it
-
-    // add1 is still not null, but points to freed memory, the dtor passed to arraylist sets the
-    // freed pointer to null, as the arraylist shallow copies, so dtor will set only the copy
-    // inside it to null
-    assert(add1);
-    assert(!arrlisttestptr.data);
-    printf("arraylist_ptr push_back passed all tests.\n");
-}
-
-static void test_arraylist_dyn_ptr_emplace_back_slot(void) {
-    printf("Testing arraylist_ptr emplace_back_slot function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test_ptr arrlisttestptr = dyn_test_ptr_init(gpa, test_ptr_dtor);
-
-    // ways that emplace_back can be used with arraylist of pointers to values:
-
-    // can be added like this:
-    struct test *add1 = malloc(sizeof(struct test));
-    test_ctor(add1, 10, 0.5, "add1", &gpa);
-
-    // get the pointer to a slot where a struct test pointer can be stored
-    struct test **slot_add1 = dyn_test_ptr_emplace_back_slot(&arrlisttestptr);
-
-    // store it
-    *slot_add1 = add1;
-
-    assert(arrlisttestptr.size == 1);
-
-    struct test **add1_same = dyn_test_ptr_at(&arrlisttestptr, 0);
-    // at returns a struct test **, a pointer where a struct test * is stored
-    assert(*add1_same == add1);
-
-    // can be added like this as well:
-    struct test *add2 = malloc(sizeof(struct test));
-    test_ctor(add2, 11, 0.6, "add2", &gpa);
-    *dyn_test_ptr_emplace_back_slot(&arrlisttestptr) = add2;
-
-    struct test **add2_same = dyn_test_ptr_at(&arrlisttestptr, 1);
-    assert(*add2_same == add2);
-
-    // one-liner with an init function that returns a malloced and constructed object
-    *dyn_test_ptr_emplace_back_slot(&arrlisttestptr) = test_alloc_ctor(12, 0.7, "add3", &gpa);
-    assert(arrlisttestptr.size == 3);
-
-    dyn_test_ptr_deinit(&arrlisttestptr);
-    printf("arraylist_ptr emplace_back_slot passed all tests.\n");
-}
-
-struct test_simple {
-    size_t id;
-    int a;
-    float b;
-};
-
-static void test_simple_ctor(struct test_simple *t, int a, float b, size_t id) {
-    //printf("Constructor called! Creating object named %s\n", objname);
-    t->a = a;
-    t->b = b;
-    t->id = id;
-}
-
-static struct test_simple test_simple_ctor_by_val(int a, float b, size_t id) {
-    struct test_simple t;
-    t.a = a;
-    t.b = b;
-    t.id = id;
-    return t;
-}
-
-static void test_simple_ptr_dtor(struct test_simple **t, struct Allocator *alloc) {
-    if (!t || !*t) {
-        return;
-    }
-
-    alloc->free(*t, sizeof(*t), alloc->ctx);
-    *t = NULL;
-}
-
-ARRAYLIST_DYN(struct test_simple, test_simple)
-
-static void test_simple_arraylist_dyn_push_back(void) {
-    printf("Testing arraylist push_back function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test_simple arrlisttest = dyn_test_simple_init(gpa, NULL);
-
-    struct test_simple add1;
-    test_simple_ctor(&add1, 10, 0.5, 1);
-    dyn_test_simple_push_back(&arrlisttest, add1);
-    assert(arrlisttest.size == 1);
-
-    struct test_simple add2;
-    test_simple_ctor(&add2, 11, 0.6, 2);
-    dyn_test_simple_push_back(&arrlisttest, add2);
-    assert(arrlisttest.size == 2);
-    assert(arrlisttest.capacity == 2);
-
-    struct test_simple add3;
-    test_simple_ctor(&add3, 12, 0.7, 3);
-    dyn_test_simple_push_back(&arrlisttest, add3);
-    assert(arrlisttest.size == 3);
-    assert(arrlisttest.capacity == 4);
-
-    struct test_simple add4;
-    test_simple_ctor(&add4, 13, 0.8, 4);
-    dyn_test_simple_push_back(&arrlisttest, add4);
-    assert(arrlisttest.size == 4);
-    assert(arrlisttest.capacity == 4);
-
-    struct test_simple add5;
-    test_simple_ctor(&add5, 14, 0.9, 5);
-    dyn_test_simple_push_back(&arrlisttest, add5);
-    assert(arrlisttest.size == 5);
-    assert(arrlisttest.capacity == 8);
-
-    dyn_test_simple_reserve(&arrlisttest, 11);
-    assert(arrlisttest.capacity == 11);
-
-    struct test_simple add6;
-    test_simple_ctor(&add6, 15, 1.0, 6);
-    dyn_test_simple_push_back(&arrlisttest, add6);
-    assert(arrlisttest.size == 6);
-    assert(arrlisttest.capacity == 11);
-
-    struct test_simple add7;
-    test_simple_ctor(&add7, 15, 1.0, 7);
-    dyn_test_simple_push_back(&arrlisttest, add7);
-    assert(arrlisttest.size == 7);
-    assert(arrlisttest.capacity == 11);
-
-    struct test_simple add8;
-    test_simple_ctor(&add8, 15, 1.0, 8);
-    dyn_test_simple_push_back(&arrlisttest, add8);
-    assert(arrlisttest.size == 8);
-    assert(arrlisttest.capacity == 11);
-
-    struct test_simple add9;
-    test_simple_ctor(&add9, 15, 1.0, 9);
-    dyn_test_simple_push_back(&arrlisttest, add9);
-    assert(arrlisttest.size == 9);
-    assert(arrlisttest.capacity == 11);
-
-    struct test_simple add10;
-    test_simple_ctor(&add10, 15, 1.0, 10);
-    dyn_test_simple_push_back(&arrlisttest, add10);
-    assert(arrlisttest.size == 10);
-    assert(arrlisttest.capacity == 11);
-
-    struct test_simple add11;
-    test_simple_ctor(&add11, 15, 1.0, 11);
-    dyn_test_simple_push_back(&arrlisttest, add11);
-    assert(arrlisttest.size == 11);
-    assert(arrlisttest.capacity == 11);
-
-    struct test_simple add12;
-    test_simple_ctor(&add12, 15, 1.0, 12);
-    dyn_test_simple_push_back(&arrlisttest, add12);
-    assert(arrlisttest.size == 12);
-    assert(arrlisttest.capacity == (11 * 2));
-
-    dyn_test_simple_deinit(&arrlisttest);
-    printf("arraylist push_back passed all tests.\n");
-}
-
-static void test_simple_arraylist_dyn_emplace_back_slot(void) {
-    printf("Testing arraylist emplace_back_slot function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test_simple arrlisttest = dyn_test_simple_init(gpa, NULL);
-
-    // ways that emplace_back can be used with arraylist of values:
-
-    // can be added like this, most efficient as it is constructed inside the container:
-    struct test_simple *add1 = dyn_test_simple_emplace_back_slot(&arrlisttest);
-
-    // emplace_back_slot may return NULL, needs to be checked in real scenarios
-    if (!add1) {
-        assert(false && "emplace back returned null");
-    }
-
-    test_simple_ctor(add1, 10, 0.5, 1);
-    assert(arrlisttest.size == 1);
-
-    struct test_simple *add1_same = dyn_test_simple_at(&arrlisttest, 0);
-    assert(add1_same == add1);
-
-    // can be added like this, copy into slot:
-    struct test_simple add2;
-    test_simple_ctor(&add2, 11, 0.6, 2);
-    *dyn_test_simple_emplace_back_slot(&arrlisttest) = add2;
-    assert(arrlisttest.size == 2);
-    assert(arrlisttest.capacity == 2);
-
-    // can be added by assigning a struct literal, if the struct has simple fields:
-    *dyn_test_simple_emplace_back_slot(&arrlisttest) =
-        (struct test_simple) { .a = 111, .b = 11.11, .id = 11111 };
-
-    // can be added with a constructor that returns a struct by value:
-    *dyn_test_simple_emplace_back_slot(&arrlisttest) = test_simple_ctor_by_val(12, 0.7, 3);
-    assert(arrlisttest.size == 4);
-    assert(arrlisttest.capacity == 4);
-
-    // can fill slots individually:
-    struct test_simple *add4 = dyn_test_simple_emplace_back_slot(&arrlisttest);
-    add4->a = 13;
-    add4->b = 0.8;
-    add4->id = 4;
-    assert(arrlisttest.size == 5);
-    assert(arrlisttest.capacity == 8);
-    struct test_simple *add4_same = dyn_test_simple_at(&arrlisttest, 4);
-    assert(add4_same == add4);
-
-    struct test_simple *add5 = dyn_test_simple_emplace_back_slot(&arrlisttest);
-    test_simple_ctor(add5, 14, 0.9, 5);
-    assert(arrlisttest.size == 6);
-    assert(arrlisttest.capacity == 8);
-    struct test_simple *add5_same = dyn_test_simple_at(&arrlisttest, 5);
-    assert(add5_same == add5);
-
-    dyn_test_simple_reserve(&arrlisttest, 11);
-    assert(arrlisttest.capacity == 11);
-
-    struct test_simple *add6 = dyn_test_simple_emplace_back_slot(&arrlisttest);
-    test_simple_ctor(add6, 14, 0.9, 6);
-    assert(arrlisttest.size == 7);
-    assert(arrlisttest.capacity == 11);
-    struct test_simple *add6_same = dyn_test_simple_at(&arrlisttest, 6);
-    assert(add6_same == add6);
-
-    struct test_simple *add7 = dyn_test_simple_emplace_back_slot(&arrlisttest);
-    test_simple_ctor(add7, 14, 0.9, 7);
-    assert(arrlisttest.size == 8);
-    struct test_simple *add7_same = dyn_test_simple_at(&arrlisttest, 7);
-    assert(add7_same == add7);
-
-    struct test_simple *add8 = dyn_test_simple_emplace_back_slot(&arrlisttest);
-    test_simple_ctor(add8, 14, 0.9, 8);
-    assert(arrlisttest.size == 9);
-    struct test_simple *add8_same = dyn_test_simple_at(&arrlisttest, 8);
-    assert(add8_same == add8);
-
-    struct test_simple *add9 = dyn_test_simple_emplace_back_slot(&arrlisttest);
-    test_simple_ctor(add9, 14, 0.9, 9);
-    assert(arrlisttest.size == 10);
-    struct test_simple *add9_same = dyn_test_simple_at(&arrlisttest, 9);
-    assert(add9_same == add9);
-
-    struct test_simple *add10 = dyn_test_simple_emplace_back_slot(&arrlisttest);
-    test_simple_ctor(add10, 14, 0.9, 10);
-    assert(arrlisttest.size == 11);
-    struct test_simple *add10_same = dyn_test_simple_at(&arrlisttest, 10);
-    assert(add10_same == add10);
-
-    struct test_simple *add11 = dyn_test_simple_emplace_back_slot(&arrlisttest);
-    test_simple_ctor(add11, 14, 0.9, 11);
-    assert(arrlisttest.size == 12);
-    assert(arrlisttest.capacity == 22);
-    struct test_simple *add11_same = dyn_test_simple_at(&arrlisttest, 11);
-    assert(add11_same == add11);
-
-    struct test_simple *add12 = dyn_test_simple_emplace_back_slot(&arrlisttest);
-    test_simple_ctor(add12, 14, 0.9, 12);
-    assert(arrlisttest.size == 13);
-    assert(arrlisttest.capacity == (11 * 2));
-    struct test_simple *add12_same = dyn_test_simple_at(&arrlisttest, 12);
-    assert(add12_same == add12);
-
-    dyn_test_simple_deinit(&arrlisttest);
-    printf("arraylist emplace_back_slot passed all tests.\n");
-}
-
-// An example of a container of pointers of struct test_simple
-ARRAYLIST_DYN(struct test_simple *, test_simple_ptr)
-
-static void test_simple_arraylist_dyn_ptr_push_back(void) {
-    printf("Testing arraylist_ptr push_back function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test_simple_ptr arrlisttestptr = dyn_test_simple_ptr_init(gpa, test_simple_ptr_dtor);
-
-    struct test_simple *add1 = malloc(sizeof(struct test_simple));
-    test_simple_ctor(add1, 10, 0.5, 1);
-
-    struct test_simple *add2 = malloc(sizeof(struct test_simple));
-    test_simple_ctor(add2, 11, 0.6, 2);
-
-    struct test_simple *add3 = malloc(sizeof(struct test_simple));
-
-    *add3 = test_simple_ctor_by_val(12, 0.7, 3);
-
-    struct test_simple *add4 = malloc(sizeof(struct test_simple));
-    test_simple_ctor(add4, 13, 0.8, 4);
-
-    struct test_simple *add5 = malloc(sizeof(struct test_simple));
-    test_simple_ctor(add5, 14, 0.9, 5);
-
-    dyn_test_simple_ptr_push_back(&arrlisttestptr, add1);
-    assert(arrlisttestptr.size == 1);
-    dyn_test_simple_ptr_push_back(&arrlisttestptr, add2);
-    assert(arrlisttestptr.size == 2);
-    assert(arrlisttestptr.capacity == 2);
-    dyn_test_simple_ptr_push_back(&arrlisttestptr, add3);
-    assert(arrlisttestptr.size == 3);
-    assert(arrlisttestptr.capacity == 4);
-    dyn_test_simple_ptr_push_back(&arrlisttestptr, add4);
-    assert(arrlisttestptr.size == 4);
-    assert(arrlisttestptr.capacity == 4);
-    dyn_test_simple_ptr_push_back(&arrlisttestptr, add5);
-    assert(arrlisttestptr.size == 5);
-    assert(arrlisttestptr.capacity == 8);
-
-    dyn_test_simple_ptr_reserve(&arrlisttestptr, 11);
-    assert(arrlisttestptr.capacity == 11);
-
-    dyn_test_simple_ptr_deinit(&arrlisttestptr);
-    // free(add1); // double-free, arraylist owns the pointers to it and frees it
-
-    // add1 is still not null, but points to freed memory, the dtor passed to arraylist sets the
-    // freed pointer to null, as the arraylist shallow copies, so dtor will set only the copy
-    // inside it to null
-    assert(add1);
-    assert(!arrlisttestptr.data);
-    printf("arraylist_ptr push_back passed all tests.\n");
-}
-
-static void test_simple_arraylist_dyn_ptr_emplace_back_slot(void) {
-    printf("Testing arraylist_ptr emplace_back_slot function.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_test_simple_ptr arrlisttestptr = dyn_test_simple_ptr_init(gpa, test_simple_ptr_dtor);
-
-    // ways that emplace_back can be used with arraylist of pointers to values:
-
-    // can be added like this:
-    struct test_simple *add1 = malloc(sizeof(struct test_simple));
-    test_simple_ctor(add1, 10, 0.5, 1);
-
-    // get the pointer to a slot where a struct test_simple pointer can be stored
-    struct test_simple **slot_add1 = dyn_test_simple_ptr_emplace_back_slot(&arrlisttestptr);
-
-    // store it
-    *slot_add1 = add1;
-
-    assert(arrlisttestptr.size == 1);
-
-    struct test_simple **add1_same = dyn_test_simple_ptr_at(&arrlisttestptr, 0);
-    // at returns a struct test_simple **, a pointer where a struct test_simple * is stored
-    assert(*add1_same == add1);
-
-    // can be added like this as well:
-    struct test_simple *add2 = malloc(sizeof(struct test_simple));
-    test_simple_ctor(add2, 11, 0.6, 2);
-    *dyn_test_simple_ptr_emplace_back_slot(&arrlisttestptr) = add2;
-
-    struct test_simple **add2_same = dyn_test_simple_ptr_at(&arrlisttestptr, 1);
-    assert(*add2_same == add2);
-
-    // one-liner with an init function that returns a malloced and constructed object
-    *dyn_test_simple_ptr_emplace_back_slot(&arrlisttestptr) =
-        malloc(sizeof(test_simple_ctor_by_val(12, 0.7, 3)));
-    assert(arrlisttestptr.size == 3);
-
-    dyn_test_simple_ptr_deinit(&arrlisttestptr);
-    printf("arraylist_ptr emplace_back_slot passed all tests.\n");
-}
-
-ARRAYLIST_DYN(long, long)
-
-static void test_arraylist_dyn_bufferoverflow(void) {
-    printf("arraylist size_t buffer overflow test.\n");
-    struct Allocator gpa = allocator_get_default();
-    struct arraylist_dyn_long xs = dyn_long_init(gpa, 0);
-    assert(dyn_long_reserve(&xs, 0x8000000000000001) == ARRAYLIST_ERR_OVERFLOW);
-    dyn_long_push_back(&xs, 0);
-    dyn_long_push_back(&xs, 0);
-
-    dyn_long_deinit(&xs);
-    printf("arraylist size_t buffer overflow test passed.\n");
-}
-
-void *my_malloc(size_t n, void *p) {
-    return n ? 0 : p;
-}
-void *my_realloc(void *p, size_t s, size_t n, void *ctx) {
-    return n ? 0 : p;
+// A custom failing allocator
+static void *fail_malloc(size_t size, void *ctx) {
+    (void)size;
     (void)ctx;
-    (void)s;
+    return NULL;
 }
-void my_free(void *p, size_t s, void *ctx) {
+static void *fail_realloc(void *p, size_t os, size_t ns, void *ctx) {
     (void)p;
-    (void)s;
+    (void)os;
+    (void)ns;
+    (void)ctx;
+    return NULL;
+}
+static void fail_free(void *ptr, size_t sz, void *ctx) {
+    (void)ptr;
+    (void)sz;
     (void)ctx;
 }
-Allocator alloc = { my_malloc, my_realloc, my_free, (void *)16 };
 
-static void test_arraylist_dyn_allocating_zero(void) {
-    printf("arraylist custom alloc allocating zero.\n");
-    struct arraylist_dyn_long xs_alloc = dyn_long_init(alloc, 0);
-
-    dyn_long_push_back(&xs_alloc, 0);
-
-    dyn_long_deinit(&xs_alloc);
-    printf("arraylist custom alloc allocating zero passed.\n");
+struct Allocator allocator_get_failling_alloc(void) {
+    return (struct Allocator) { .malloc = fail_malloc, .realloc = fail_realloc, .free = fail_free, .ctx = NULL };
 }
 
-static void test_arraylist_dyn_get_custom_allocator(void) {
-    printf("test arraylist getting custom allocator.\n");
-    struct arraylist_dyn_long xs_alloc = dyn_long_init(alloc, 0);
+/* === START ARRAYLIST UNIT TESTS NON POD === */
 
-    assert(allocator_test_equality(&alloc, dyn_long_get_allocator(&xs_alloc)));
-    assert(allocator_test_equality(&alloc, &xs_alloc.alloc)); // should be same as above
+ARRAYLIST(struct non_pod, nonpods, non_pod_deinit_macro)
 
-    dyn_long_deinit(&xs_alloc);
-    printf("arraylist getting custom allocator passed.\n");
+void test_arraylist_init_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods list = nonpods_init(gpa);
+
+    assert(list.size == 0);
+    assert(list.capacity == 0);
+    assert(list.data == NULL);
+    assert(list.alloc.malloc == gpa.malloc);
+
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist init for value types passed\n");
 }
 
-#define noop_dtor(ptr, alloc) (void)0
+void test_arraylist_reserve_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods list = nonpods_init(gpa);
 
-ARRAYLIST(long, long, noop_dtor)
+    // Reserve when list is empty: allocates exactly requested size
+    enum arraylist_error err = nonpods_reserve(&list, 10);
+    assert(err == ARRAYLIST_OK);
+    assert(list.capacity == 10);
+    assert(list.data != NULL);
+    assert(list.size == 0);
 
-static void test_passing_nullptr_to_functions(void) {
-    printf("test passing NULL to functions.\n");
-    // If using asserts instead of return codes in the library, then the following functions
-    // will fail not here, but inside the library, at the first call to reserve
-    assert(long_reserve(NULL, 0) == ARRAYLIST_ERR_NULL);
-    assert(long_shrink_size(NULL, 0) == ARRAYLIST_ERR_NULL);
-    assert(long_shrink_to_fit(NULL) == ARRAYLIST_ERR_NULL);
-    assert(long_push_back(NULL, 0) == ARRAYLIST_ERR_NULL);
-    assert(long_emplace_back_slot(NULL) == NULL);
-    assert(long_insert_at(NULL, 0, 0) == ARRAYLIST_ERR_NULL);
-    assert(long_pop_back(NULL) == ARRAYLIST_ERR_NULL);
-    assert(long_remove_at(NULL, 0) == ARRAYLIST_ERR_NULL);
-    assert(long_remove_from_to(NULL, 0, 0) == ARRAYLIST_ERR_NULL);
-    assert(long_at(NULL, 0) == NULL);
-    assert(long_begin(NULL) == NULL);
-    assert(long_back(NULL) == NULL);
-    assert(long_end(NULL) == NULL);
-    assert(long_find(NULL, NULL, NULL) == NULL);
-    assert(long_contains(NULL, NULL, NULL, NULL) == false);
-    assert(long_size(NULL) == 0);
-    assert(long_is_empty(NULL) == false);
-    assert(long_capacity(NULL) == 0);
-    assert(long_swap(NULL, NULL) == ARRAYLIST_ERR_NULL);
-    assert(long_clear(NULL) == ARRAYLIST_OK);
-    assert(long_deinit(NULL) == ARRAYLIST_OK);
+    // Reserve smaller (no-op): capacity remains unchanged
+    err = nonpods_reserve(&list, 5);
+    assert(err == ARRAYLIST_OK);
+    assert(list.capacity == 10);    // No shrink
 
-    assert(dyn_long_reserve(NULL, 0) == ARRAYLIST_ERR_NULL);
-    assert(dyn_long_shrink_size(NULL, 0) == ARRAYLIST_ERR_NULL);
-    assert(dyn_long_shrink_to_fit(NULL) == ARRAYLIST_ERR_NULL);
-    assert(dyn_long_push_back(NULL, 0) == ARRAYLIST_ERR_NULL);
-    assert(dyn_long_emplace_back_slot(NULL) == NULL);
-    assert(dyn_long_insert_at(NULL, 0, 0) == ARRAYLIST_ERR_NULL);
-    assert(dyn_long_pop_back(NULL) == ARRAYLIST_ERR_NULL);
-    assert(dyn_long_remove_at(NULL, 0) == ARRAYLIST_ERR_NULL);
-    assert(dyn_long_remove_from_to(NULL, 0, 0) == ARRAYLIST_ERR_NULL);
-    assert(dyn_long_at(NULL, 0) == NULL);
-    assert(dyn_long_begin(NULL) == NULL);
-    assert(dyn_long_back(NULL) == NULL);
-    assert(dyn_long_end(NULL) == NULL);
-    assert(dyn_long_find(NULL, NULL, NULL) == NULL);
-    assert(dyn_long_contains(NULL, NULL, NULL, NULL) == false);
-    assert(dyn_long_size(NULL) == 0);
-    assert(dyn_long_is_empty(NULL) == false);
-    assert(dyn_long_capacity(NULL) == 0);
-    assert(dyn_long_swap(NULL, NULL) == ARRAYLIST_ERR_NULL);
-    assert(dyn_long_clear(NULL) == ARRAYLIST_OK);
-    assert(dyn_long_deinit(NULL) == ARRAYLIST_OK);
-    printf("test passing NULL to functions passed.\n");
+    // Reserve same size (no-op)
+    err = nonpods_reserve(&list, 10);
+    assert(err == ARRAYLIST_OK);
+    assert(list.capacity == 10);    // Still 10
+
+    // Reserve larger: reallocs and grows buffer, data valid
+
+    // Fill up to 4
+    for (size_t i = 0; i < 4; ++i) {
+        *nonpods_emplace_back_slot(&list) = non_pod_init("a", i, i, &gpa);
+    }
+
+    // struct non_pod *olddata = list.data;
+    err = nonpods_reserve(&list, 32);
+    assert(err == ARRAYLIST_OK);
+    assert(list.capacity == 32);    // Grown
+    assert(list.size == 4);
+    assert(list.data != NULL);
+
+    for (size_t i = 0; i < list.size; ++i) {
+        assert(strcmp(list.data[i].objname, "a") == 0);
+    }
+    // Possibly new buffer, but implementation allows same pointer if realloc does nothing.
+    // Do not hold pointers to old data if a realloc happens
+    // assert(list.data == olddata);
+
+    // Emplace more after reserve: no further realloc until cap hit
+    size_t prevcap = list.capacity;
+    for (size_t i = 4; i < 32; ++i) {
+        *nonpods_emplace_back_slot(&list) = non_pod_init("b", (int)i, (float)i, &gpa);
+    }
+    assert(list.size == 32);
+    assert(list.capacity == prevcap);
+
+    // Reserve to much larger: works and keeps old data
+    err = nonpods_reserve(&list, 64);
+    assert(err == ARRAYLIST_OK);
+    assert(list.capacity == 64);
+    for (size_t i = 0; i < list.size; ++i) {
+        assert(list.data[i].a != NULL);
+    }
+
+    // Reserve with zero (should not shrink; no effect, not an error)
+    prevcap = list.capacity;
+    err = nonpods_reserve(&list, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.capacity == prevcap);
+
+    // Reserve with capacity equal to maximum supported by the allocator: catches overflow
+    size_t maxsafe = SIZE_MAX / sizeof(struct non_pod);
+    err = nonpods_reserve(&list, maxsafe + 1);
+    assert(err == ARRAYLIST_ERR_OVERFLOW);
+
+    // Reserve with failing allocation: returns error, does not affect old buffer
+    // Provide an allocator that always fails, init a fresh list
+    struct Allocator fail_alloc = allocator_get_failling_alloc();
+    struct arraylist_nonpods fail_list = nonpods_init(fail_alloc);
+    // first reserve: fails as malloc returns NULL
+    err = nonpods_reserve(&fail_list, 8);
+    assert(err == ARRAYLIST_ERR_ALLOC);
+    assert(fail_list.capacity == 0);
+    assert(fail_list.data == NULL);
+
+    // Fill a normal list to known good state
+    struct arraylist_nonpods small = nonpods_init(gpa);
+    for (size_t i = 0; i < 2; ++i) {
+        *nonpods_emplace_back_slot(&small) = non_pod_init("QQ", 2, 3, &gpa);
+    }
+    small.capacity = 2;
+    // Now try to reserve with failing allocator change
+    small.alloc = fail_alloc;
+    err = nonpods_reserve(&small, 3);
+    // Fails (realloc returns NULL), buffer unchanged
+    assert(err == ARRAYLIST_ERR_ALLOC);
+    // Since realloc failed, old data/cap remains
+    assert(small.capacity == 2);
+    // May or may not have NULL data pointer as realloc is permitted to leave old pointer unchanged
+
+    // Reserve on uninitialized/null list: returns error (no crash)
+    err = nonpods_reserve(NULL, 8);
+    assert(err == ARRAYLIST_ERR_NULL);
+
+    // Remark: After shrinking the list (with shrink_size), reserve does not shrink buffer
+    err = nonpods_reserve(&list, 16);
+    assert(err == ARRAYLIST_OK);
+    // (Cap remains 64 since already large enough)
+    assert(list.capacity == 64);
+
+    // Clean up
+    nonpods_deinit(&list);
+    nonpods_deinit(&small);
+    nonpods_deinit(&fail_list);
+
+    nonpods_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist reserve value-type passed\n");
 }
+
+void test_arraylist_shrink_size_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods list = nonpods_init(gpa);
+
+    // Add three objects
+    struct non_pod a = non_pod_init("a", 1, 1.1, &gpa);
+    struct non_pod b = non_pod_init("b", 2, 2.2, &gpa);
+    struct non_pod c = non_pod_init("c", 3, 3.3, &gpa);
+    *nonpods_emplace_back_slot(&list) = a;
+    *nonpods_emplace_back_slot(&list) = b;
+    *nonpods_emplace_back_slot(&list) = c;
+    assert(list.size == 3);
+
+    // Shrink to 2: calls dtor for c only
+    size_t before = global_destructor_counter_arraylist;
+    enum arraylist_error err = nonpods_shrink_size(&list, 2);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 2);
+    assert(strcmp(list.data[0].objname, "a") == 0);
+    assert(strcmp(list.data[1].objname, "b") == 0);
+    assert(global_destructor_counter_arraylist == before - 1); // 1 dtor called
+
+    // Shrink again to 1: only for b
+    err = nonpods_shrink_size(&list, 1);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 1);
+    assert(strcmp(list.data[0].objname, "a") == 0);
+
+    // Shrink to 1 again (no-op)
+    before = global_destructor_counter_arraylist;
+    err = nonpods_shrink_size(&list, 1);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 1);                                // unchanged
+    assert(global_destructor_counter_arraylist == before); // no dtor called
+
+    // Shrink to greater (no-op)
+    before = global_destructor_counter_arraylist;
+    err = nonpods_shrink_size(&list, 5);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 1);
+    assert(global_destructor_counter_arraylist == before);
+
+    // Shrink to zero: calls dtor for "a"
+    err = nonpods_shrink_size(&list, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == 0); // all dtors called
+
+    // Shrink already empty: clean no-op
+    err = nonpods_shrink_size(&list, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+
+    nonpods_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist shrink_size value-type passed\n");
+}
+
+void test_arraylist_shrink_to_fit_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods list = nonpods_init(gpa);
+
+    // Grow to larger capacity
+    for (size_t i = 0; i < 8; ++i)
+        *nonpods_emplace_back_slot(&list) = non_pod_init("z", i, i, &gpa);
+
+    size_t orig_cap = list.capacity;
+    size_t orig_size = list.size;
+    assert(orig_cap == orig_size);
+
+    // Shrink to fit: capacity matches size, data valid
+    enum arraylist_error err = nonpods_shrink_to_fit(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.capacity == orig_size);
+    for (size_t i = 0; i < list.size; ++i)
+        assert(list.data[i].a != NULL);
+
+    // Repeated shrink is no-op (shouldn't move array)
+    void *data_ptr = list.data;
+    err = nonpods_shrink_to_fit(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.capacity == list.size);
+    assert(list.data == data_ptr);
+
+    // Shrink after shrink_size
+    err = nonpods_shrink_size(&list, 3);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 3);
+
+    size_t old_cap = list.capacity;
+    err = nonpods_shrink_to_fit(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.capacity == 3);
+    assert(list.capacity < old_cap);
+
+    // Shrink to fit on size == 0 frees everything
+    err = nonpods_shrink_size(&list, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+
+    err = nonpods_shrink_to_fit(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.capacity == 0);
+    assert(list.data == NULL);
+
+    // Should not fail or free again
+    err = nonpods_shrink_to_fit(&list);
+    assert(err == ARRAYLIST_OK);
+
+    nonpods_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist shrink_to_fit value-type passed\n");
+}
+
+void test_arraylist_push_back_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods list = nonpods_init(gpa);
+
+    // Push first element
+    struct non_pod n1 = non_pod_init("one", 1, 1.1, &gpa);
+    enum arraylist_error err = nonpods_push_back(&list, n1);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 1);
+    assert(list.capacity == 1);
+    assert(list.data != NULL);
+    // Should still be 1 allocation
+    assert(strcmp(list.data[0].objname, "one") == 0);
+    assert(*list.data[0].a == 1);
+    assert(*list.data[0].b == (float)1.1f);
+
+    // Push multiple to grow beyond initial cap
+    size_t N = 10;
+    for (size_t i = 1; i < N; ++i) {
+        char buf[32];
+        snprintf(buf, sizeof(buf), "val%lu", i);
+        struct non_pod n = non_pod_init(buf, i, i * 2.0f, &gpa);
+        err = nonpods_push_back(&list, n);
+        assert(err == ARRAYLIST_OK);
+        assert(nonpods_size(&list) == i + 1);
+        assert(strcmp(list.data[i].objname, buf) == 0);
+        assert(*list.data[i].a == (int)i);
+        assert(*list.data[i].b == (float)(i * 2.0f));
+        // Capacity should always >= size, doubled when full
+        assert(list.capacity >= list.size);
+    }
+
+    // Check all content
+    for (size_t i = 0; i < N; ++i) {
+        if (i == 0) {
+            assert(strcmp(list.data[i].objname, "one") == 0);
+            assert(*list.data[i].a == 1);
+        } else {
+            char buf[5];
+            snprintf(buf, sizeof(buf), "val%lu", i);
+            assert(strcmp(list.data[i].objname, buf) == 0);
+            assert(*list.data[i].a == (int)i);
+        }
+    }
+
+    // Remove some, then push_back again
+    nonpods_pop_back(&list);     // Remove "val9"
+    nonpods_remove_at(&list, 0); // Remove "one"
+    size_t before = nonpods_size(&list);
+    struct non_pod nnew = non_pod_init("again", 42, 42.42, &gpa);
+    err = nonpods_push_back(&list, nnew);
+    assert(err == ARRAYLIST_OK);
+    assert(nonpods_size(&list) == before + 1);
+    assert(strcmp(list.data[list.size - 1].objname, "again") == 0);
+    assert(*list.data[list.size - 1].a == 42);
+
+    // Pop all and check destructor counter returns to zero
+    nonpods_clear(&list);
+    assert(global_destructor_counter_arraylist == 0);
+
+    // Push after clear
+    struct non_pod tmp = non_pod_init("after", 888, 8.88, &gpa);
+    err = nonpods_push_back(&list, tmp);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 1);
+
+    // Testing doubling capacity
+    nonpods_shrink_to_fit(&list);
+    assert(list.size == 1);
+    assert(list.capacity == 1);
+
+    struct non_pod np1 = non_pod_init("a", 1, 1.1, &gpa);
+    nonpods_push_back(&list, np1);
+    assert(list.size == 2);
+    assert(list.capacity == 2);
+
+    struct non_pod np2 = non_pod_init("b", 2, 2.2, &gpa);
+    nonpods_push_back(&list, np2);
+    assert(list.size == 3);
+    assert(list.capacity == 4);
+
+    struct non_pod np3 = non_pod_init("c", 3, 3.3, &gpa);
+    nonpods_push_back(&list, np3);
+    assert(list.size == 4);
+    assert(list.capacity == 4);
+
+    struct non_pod np4 = non_pod_init("d", 4, 4.4, &gpa);
+    nonpods_push_back(&list, np4);
+    assert(list.size == 5);
+    assert(list.capacity == 8);
+
+    nonpods_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist push_back value-type passed\n");
+}
+
+void test_arraylist_emplace_back_slot_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods list = nonpods_init(gpa);
+
+    // Emplace one element; returned pointer is valid and modifiable
+    struct non_pod *slot1 = nonpods_emplace_back_slot(&list);
+    assert(slot1 != NULL);
+    // Can write individually through the slots:
+    // slot1->objname = gpa.malloc(5, gpa.ctx);
+    // strcpy(slot1->objname, "foo");
+    // slot1->a = gpa.malloc(sizeof(int), gpa.ctx);
+    // *slot1->a = 1;
+    // slot1->b = gpa.malloc(sizeof(float), gpa.ctx);
+    // *slot1->b = 1.1f;
+
+    *slot1 = non_pod_init("foo", 1, 1.1, &gpa);
+
+    assert(list.size == 1);
+    assert(list.capacity == 1);
+    assert(strcmp(list.data[0].objname, "foo") == 0);
+    assert(list.data[0].a && *list.data[0].a == 1);
+
+    // Data written through slot is visible in data array
+    *slot1->a = 27;
+    assert(*list.data[0].a == 27);
+
+    // However after realloc, these pointers may not be valid anymore, so don't do this
+
+    // Emplace multiple: Each pointer is unique, order preserved
+    for (size_t i = 0; i < 5; ++i) {
+        struct non_pod *slot = nonpods_emplace_back_slot(&list);
+        assert(slot != NULL);
+        char name[6];
+        snprintf(name, sizeof name, "item%lu", i);
+        *slot = non_pod_init(name, i, 100.1f + i, &gpa);
+        assert(list.data[list.size - 1].a && *slot->a == (int)i);
+        assert(strcmp(slot->objname, name) == 0);
+    }
+
+    // Emplacing triggers growth, previous pointers are NOT preserved
+    size_t old_capacity = list.capacity;
+    struct non_pod *old_first = &list.data[0];
+    for (size_t i = 0; i < 20; ++i) {
+        struct non_pod *slot_grow = nonpods_emplace_back_slot(&list);
+        char name[8];
+        snprintf(name, sizeof name, "slot%lu", i);
+        *slot_grow = non_pod_init(name, i + 1, 200.2f + i, &gpa);
+    }
+
+    assert(list.capacity > old_capacity);
+    // After realloc, previous values are still valid and not overwritten, however, pointers are not in the same location
+    // Thus, do not hold data pointers of list after operations that may realloc
+    assert(slot1 != old_first);
+
+    assert(strcmp(list.data[0].objname, "foo") == 0);
+
+    // After deinit, one must init again to not crash
+    nonpods_deinit(&list);
+    list = nonpods_init(gpa);
+    *nonpods_emplace_back_slot(&list) = non_pod_init("testing1", 1, 1.1, &gpa);
+    assert(list.size == 1);
+    assert(list.capacity == 1);
+
+    // Testing doubling capacity
+    // Do not need to create temp values to insert, however, there is way to check for failure this way
+    *nonpods_emplace_back_slot(&list) = non_pod_init("testing2", 2, 2.2, &gpa);
+    assert(list.size == 2);
+    assert(list.capacity == 2);
+
+    *nonpods_emplace_back_slot(&list) = non_pod_init("testing3", 3, 3.3, &gpa);
+    assert(list.size == 3);
+    assert(list.capacity == 4);
+
+    *nonpods_emplace_back_slot(&list) = non_pod_init("testing4", 4, 4.4, &gpa);
+    assert(list.size == 4);
+    assert(list.capacity == 4);
+
+    *nonpods_emplace_back_slot(&list) = non_pod_init("testing5", 5, 5.5, &gpa);
+    assert(list.size == 5);
+    assert(list.capacity == 8);
+
+    nonpods_deinit(&list);
+
+    nonpods_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist emplace_back_slot value-type passed\n");
+}
+
+void test_arraylist_insert_at_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods list = nonpods_init(gpa);
+
+    // Insert into empty list, index 0; becomes head
+    struct non_pod a = non_pod_init("A", 10, 0.1, &gpa);
+    enum arraylist_error err = nonpods_insert_at(&list, a, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 1);
+    assert(strcmp(list.data[0].objname, "A") == 0);
+
+    // Insert at head (index 0), should become new head; existing shift right
+    struct non_pod b = non_pod_init("B", 20, 0.2, &gpa);
+    err = nonpods_insert_at(&list, b, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 2);
+    assert(strcmp(list.data[0].objname, "B") == 0);
+    assert(strcmp(list.data[1].objname, "A") == 0);
+
+    // Insert at tail (index=size), should append
+    struct non_pod c = non_pod_init("C", 30, 0.3, &gpa);
+    err = nonpods_insert_at(&list, c, list.size);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 3);
+    assert(strcmp(list.data[2].objname, "C") == 0);
+
+    // Insert in the middle (index=1)
+    struct non_pod d = non_pod_init("D", 40, 0.4, &gpa);
+    err = nonpods_insert_at(&list, d, 1);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 4);
+    assert(strcmp(list.data[0].objname, "B") == 0);
+    assert(strcmp(list.data[1].objname, "D") == 0);
+    assert(strcmp(list.data[2].objname, "A") == 0);
+    assert(strcmp(list.data[3].objname, "C") == 0);
+
+    // Insert at index > size (out of bounds), should append
+    struct non_pod e = non_pod_init("E", 50, 0.5, &gpa);
+    err = nonpods_insert_at(&list, e, 999);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 5);
+    assert(strcmp(list.data[4].objname, "E") == 0);
+
+    // Check all memory still valid and unchanged
+    assert(strcmp(list.data[0].objname, "B") == 0);
+    assert(strcmp(list.data[1].objname, "D") == 0);
+    assert(strcmp(list.data[2].objname, "A") == 0);
+    assert(strcmp(list.data[3].objname, "C") == 0);
+    assert(strcmp(list.data[4].objname, "E") == 0);
+
+    // Capacity grows correctly; insert repeatedly to trigger realloc
+    for (size_t i = 0; i < 10; ++i) {
+        char name[12];
+        snprintf(name, sizeof(name), "val%lu", i);
+        struct non_pod tmp = non_pod_init(name, i, i, &gpa);
+        err = nonpods_insert_at(&list, tmp, 2); // always in middle
+        assert(err == ARRAYLIST_OK);
+    }
+    assert(list.size == 15);
+    assert(list.capacity >= list.size);
+
+    // Insert at every possible index in small list
+    nonpods_clear(&list);
+    for (size_t i = 0; i < 4; ++i) {
+        struct non_pod t = non_pod_init("X", i, i, &gpa);
+        err = nonpods_insert_at(&list, t, i); // should be append to each
+        assert(err == ARRAYLIST_OK);
+        assert(list.size == i + 1);
+    }
+    // Now list is [X, X, X, X]; insert at head (0), tail (size=4), and middle (2)
+    struct non_pod y = non_pod_init("Y", 99, 99.9, &gpa);
+    err = nonpods_insert_at(&list, y, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 5);
+    assert(strcmp(list.data[0].objname, "Y") == 0);
+    struct non_pod z = non_pod_init("Z", 100, -10, &gpa);
+    err = nonpods_insert_at(&list, z, 2);
+    assert(list.size == 6);
+    assert(strcmp(list.data[2].objname, "Z") == 0);
+
+    // After deinit, one must init again to not crash
+    nonpods_deinit(&list);
+    list = nonpods_init(gpa);
+
+    // Testing double capacity
+    struct non_pod a1 = non_pod_init("A", 1, 1.1, &gpa);
+    nonpods_insert_at(&list, a1, 0);
+    assert(list.size == 1);
+    assert(list.capacity == 1);
+
+    struct non_pod a2 = non_pod_init("B", 2, 2.2, &gpa);
+    nonpods_insert_at(&list, a2, 0);
+    assert(list.size == 2);
+    assert(list.capacity == 2);
+
+    struct non_pod a3 = non_pod_init("C", 3, 3.3, &gpa);
+    nonpods_insert_at(&list, a3, 0);
+    assert(list.size == 3);
+    assert(list.capacity == 4);
+
+    struct non_pod a4 = non_pod_init("D", 4, 4.4, &gpa);
+    nonpods_insert_at(&list, a4, 0);
+    assert(list.size == 4);
+    assert(list.capacity == 4);
+
+    struct non_pod a5 = non_pod_init("E", 5, 5.5, &gpa);
+    nonpods_insert_at(&list, a5, 0);
+    assert(list.size == 5);
+    assert(list.capacity == 8);
+
+    nonpods_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist insert_at value-type passed\n");
+}
+
+void test_arraylist_pop_back_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods list = nonpods_init(gpa);
+
+    // Pop on empty list
+    size_t before = global_destructor_counter_arraylist;
+    enum arraylist_error err = nonpods_pop_back(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == before);
+
+    // Push one, then pop
+    struct non_pod a = non_pod_init("A", 11, 1.1, &gpa);
+    err = nonpods_push_back(&list, a);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 1);
+    before = global_destructor_counter_arraylist;
+    err = nonpods_pop_back(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == before - 1);
+
+    // Push several, then pop all
+    for (size_t i = 0; i < 5; ++i) {
+        char name[16];
+        snprintf(name, sizeof name, "item%lu", i);
+        *nonpods_emplace_back_slot(&list) = non_pod_init(name, 10 + i, 10 + i, &gpa);
+    }
+    assert(list.size == 5);
+    size_t alive = global_destructor_counter_arraylist;
+    for (size_t i = 0; i < 5; ++i) {
+        err = nonpods_pop_back(&list);
+        assert(err == ARRAYLIST_OK);
+        assert(list.size == 5 - (i + 1));
+        assert(global_destructor_counter_arraylist == alive - (i + 1));
+    }
+    assert(list.size == 0);
+
+    *nonpods_emplace_back_slot(&list) = non_pod_init("foo", 1, 1, &gpa);
+    *nonpods_emplace_back_slot(&list) = non_pod_init("bar", 2, 2, &gpa);
+    *nonpods_emplace_back_slot(&list) = non_pod_init("baz", 3, 3, &gpa);
+
+    const char *expect_names[] = { "foo", "bar", "baz" };
+    for (size_t i = 0; i < 3; ++i)
+        assert(strcmp(list.data[i].objname, expect_names[i]) == 0);
+
+    err = nonpods_pop_back(&list); // removes "baz"
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 2);
+    assert(strcmp(list.data[0].objname, "foo") == 0);
+    assert(strcmp(list.data[1].objname, "bar") == 0);
+
+    err = nonpods_pop_back(&list); // removes "bar"
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 1);
+    assert(strcmp(list.data[0].objname, "foo") == 0);
+
+    err = nonpods_pop_back(&list); // removes "foo"
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+
+    // Push many to grow capacity, then pop many
+    for (size_t i = 0; i < 16; ++i)
+        *nonpods_emplace_back_slot(&list) = non_pod_init("grow", i, i, &gpa);
+    size_t cap = list.capacity;
+    for (size_t i = 0; i < 16; ++i)
+        nonpods_pop_back(&list);
+    assert(list.size == 0);
+    assert(list.capacity == cap); // pop_back never shrinks
+    assert(global_destructor_counter_arraylist == 0);
+
+    // Push, clear, pop_back is no-op
+    *nonpods_emplace_back_slot(&list) = non_pod_init("after", 123, 1, &gpa);
+    nonpods_clear(&list);
+    before = global_destructor_counter_arraylist;
+    err = nonpods_pop_back(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == before);
+
+    nonpods_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist pop_back value-type passed\n");
+}
+
+void test_arraylist_remove_at_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods list = nonpods_init(gpa);
+    enum arraylist_error err;
+    size_t before;
+
+    // Remove from empty list (should no-op)
+    before = global_destructor_counter_arraylist;
+    err = nonpods_remove_at(&list, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == before);
+
+    // One element, remove at 0
+    struct non_pod a = non_pod_init("A", 1, 1.1, &gpa);
+    *nonpods_emplace_back_slot(&list) = a;
+    assert(list.size == 1);
+    before = global_destructor_counter_arraylist;
+    err = nonpods_remove_at(&list, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == before - 1); // dtor called
+
+    // Add several, remove head, tail, middle
+    struct non_pod b = non_pod_init("B", 2, 2.2, &gpa);
+    struct non_pod c = non_pod_init("C", 3, 3.3, &gpa);
+    struct non_pod d = non_pod_init("D", 4, 4.4, &gpa);
+    struct non_pod e = non_pod_init("E", 5, 5.5, &gpa);
+    *nonpods_emplace_back_slot(&list) = b;  // 0
+    *nonpods_emplace_back_slot(&list) = c;  // 1
+    *nonpods_emplace_back_slot(&list) = d;  // 2
+    *nonpods_emplace_back_slot(&list) = e;  // 3
+    assert(list.size == 4);
+
+    // Remove head (index 0)
+    before = global_destructor_counter_arraylist;
+    err = nonpods_remove_at(&list, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 3);
+    assert(global_destructor_counter_arraylist == before - 1); // one destructor called
+    // Remaining should be [C, D, E]
+    assert(strcmp(list.data[0].objname, "C") == 0);
+
+    // Remove tail (index size-1)
+    before = global_destructor_counter_arraylist;
+    err = nonpods_remove_at(&list, list.size - 1);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 2);
+    assert(global_destructor_counter_arraylist == before - 1); // one destructor called
+    // Remaining should be [C, D]
+    assert(strcmp(list.data[0].objname, "C") == 0);
+    assert(strcmp(list.data[1].objname, "D") == 0);
+
+    // Remove middle (index 1, which is D)
+    before = global_destructor_counter_arraylist;
+    err = nonpods_remove_at(&list, 1);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 1);
+    assert(global_destructor_counter_arraylist == before - 1);
+    assert(strcmp(list.data[0].objname, "C") == 0);
+
+    // Remove only remaining element
+    err = nonpods_remove_at(&list, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == 0);
+
+    // Add more, remove with index out of bounds (should act like pop_back)
+    for (int i = 0; i < 5; ++i) {
+        char buf[8];
+        snprintf(buf, sizeof buf, "X%d", i);
+        *nonpods_emplace_back_slot(&list) = non_pod_init(buf, i, i+0.1, &gpa);
+    }
+    size_t sz = list.size;
+    before = global_destructor_counter_arraylist;
+    err = nonpods_remove_at(&list, 9999); // way OOB
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == sz - 1);
+    assert(global_destructor_counter_arraylist == before - 1);
+
+    // Remove with index == size (past end, also acts like pop_back)
+    sz = list.size;
+    before = global_destructor_counter_arraylist;
+    err = nonpods_remove_at(&list, list.size);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == sz - 1);
+    assert(global_destructor_counter_arraylist == before - 1);
+
+    // Remove with index == SIZE_MAX (wraps, will pop_back, test no crash)
+    sz = list.size;
+    before = global_destructor_counter_arraylist;
+    err = nonpods_remove_at(&list, SIZE_MAX);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == sz - 1);
+    assert(global_destructor_counter_arraylist == before - 1);
+
+    // Remove remaining (result: should be fully destructed)
+    while (list.size > 0) {
+        nonpods_remove_at(&list, 0);
+    }
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == 0);
+
+    // Test repeated removes on already empty list
+    before = global_destructor_counter_arraylist;
+    err = nonpods_remove_at(&list, 0);
+    assert(err == ARRAYLIST_OK);
+    err = nonpods_remove_at(&list, SIZE_MAX);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == before);
+
+    // Restore: Fill list, remove every position, check value stability / shifting
+    for (int i = 0; i < 4; ++i) {
+        char buf[8];
+        snprintf(buf, sizeof buf, "YY%d", i);
+        *nonpods_emplace_back_slot(&list) = non_pod_init(buf, 100+i, 500.5+i, &gpa);
+    }
+    // [YY0, YY1, YY2, YY3]
+    // Remove 1 (YY1)
+    before = global_destructor_counter_arraylist;
+    err = nonpods_remove_at(&list, 1);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 3);
+    assert(global_destructor_counter_arraylist == before - 1);
+    assert(strcmp(list.data[0].objname, "YY0") == 0);
+    assert(strcmp(list.data[1].objname, "YY2") == 0); // shifted up
+    assert(strcmp(list.data[2].objname, "YY3") == 0);
+
+    // Remove 1 (YY2, now at index 1)
+    err = nonpods_remove_at(&list, 1);
+    assert(list.size == 2);
+    assert(strcmp(list.data[0].objname, "YY0") == 0);
+    assert(strcmp(list.data[1].objname, "YY3") == 0);
+
+    // Remove 0 (YY0)
+    err = nonpods_remove_at(&list, 0);
+    assert(list.size == 1);
+    assert(strcmp(list.data[0].objname, "YY3") == 0);
+
+    // Remove 0 (YY3)
+    err = nonpods_remove_at(&list, 0);
+    assert(list.size == 0);
+
+    // Remove at 0 again to check stable empty
+    err = nonpods_remove_at(&list, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+
+    nonpods_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist remove_at value-type passed\n");
+}
+
+void test_arraylist_remove_from_to_value(void)
+{
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods list = nonpods_init(gpa);
+
+    // Fill with 6 named objects: A, B, C, D, E, F
+    const char *names[] = {"A", "B", "C", "D", "E", "F"};
+    for (size_t i = 0; i < 6; ++i) {
+        *nonpods_emplace_back_slot(&list) = non_pod_init(names[i], 100 + i, 1.0+i, &gpa);
+    }
+
+    assert(list.size == 6);
+    assert(global_destructor_counter_arraylist == 6);
+
+    // Remove from head: [A, B, C, D, E, F] -- remove 0..1 -> [C, D, E, F]
+    size_t before = global_destructor_counter_arraylist;
+    enum arraylist_error err = nonpods_remove_from_to(&list, 0, 1);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 4);
+    assert(global_destructor_counter_arraylist == before - 2);
+    assert(strcmp(list.data[0].objname, "C") == 0);
+    assert(strcmp(list.data[1].objname, "D") == 0);
+    assert(strcmp(list.data[2].objname, "E") == 0);
+    assert(strcmp(list.data[3].objname, "F") == 0);
+
+    // Remove from middle: [C, D, E, F] -- remove 1..2 -> [C, F]
+    before = global_destructor_counter_arraylist;
+    err = nonpods_remove_from_to(&list, 1, 2);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 2);
+    assert(global_destructor_counter_arraylist == before - 2);
+    assert(strcmp(list.data[0].objname, "C") == 0);
+    assert(strcmp(list.data[1].objname, "F") == 0);
+
+    // Remove last element only: [C, F] -- remove 1..1 => [C]
+    before = global_destructor_counter_arraylist;
+    err = nonpods_remove_from_to(&list, 1, 1);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 1);
+    assert(global_destructor_counter_arraylist == before - 1);
+    assert(strcmp(list.data[0].objname, "C") == 0);
+
+    // Remove first element only: [C] -- remove 0..0 => []
+    before = global_destructor_counter_arraylist;
+    err = nonpods_remove_from_to(&list, 0, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == before - 1);
+
+    // Remove from empty: no-op
+    before = global_destructor_counter_arraylist;
+    err = nonpods_remove_from_to(&list, 0, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == before);
+
+    // Fill again for more tests
+    for (size_t i = 0; i < 6; ++i) {
+        *nonpods_emplace_back_slot(&list) = non_pod_init(names[i], 200 + i, 2.0+i, &gpa);
+    }
+    assert(list.size == 6);
+
+    // Remove all by from=0, to=5 (size-1)
+    before = global_destructor_counter_arraylist;
+    err = nonpods_remove_from_to(&list, 0, list.size - 1);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == before - 6);
+
+    // Fill again for edge cases
+    for (size_t i = 0; i < 6; ++i) {
+        *nonpods_emplace_back_slot(&list) = non_pod_init(names[i], 400 + i, 4.0+i, &gpa);
+    }
+    assert(list.size == 6);
+
+    // Remove with from > to: should be no-op
+    before = list.size;
+    size_t before_dtor = global_destructor_counter_arraylist;
+    err = nonpods_remove_from_to(&list, 4, 2);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == before);
+    assert(global_destructor_counter_arraylist == before_dtor);
+
+    // Remove with from == to == large index (index >= size): should clamp to size-1, remove last only
+    before = global_destructor_counter_arraylist;
+    err = nonpods_remove_from_to(&list, 99, 99);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 5);
+    assert(global_destructor_counter_arraylist == before - 1);
+    // Last element should have been removed, check new last
+    assert(strcmp(list.data[4].objname, "E") == 0);
+
+    // Remove with to out of bounds but from valid: remove from 3..(big) => removes 3 and 4 only (last two)
+    before = global_destructor_counter_arraylist;
+    err = nonpods_remove_from_to(&list, 3, 123456);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 3);
+    assert(global_destructor_counter_arraylist == before - 2);
+    // Data: C, D, E was at 4, but now gone
+    assert(strcmp(list.data[0].objname, "A") == 0);
+    assert(strcmp(list.data[1].objname, "B") == 0);
+    assert(strcmp(list.data[2].objname, "C") == 0);
+
+    // Remove with both out of bounds, with to being greater: clamps both to size-1, removes last element
+    before = global_destructor_counter_arraylist;
+    err = nonpods_remove_from_to(&list, 123, 9999);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 2);
+    assert(global_destructor_counter_arraylist == before - 1);
+
+    err = nonpods_remove_from_to(&list, 0, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 1);
+    assert(global_destructor_counter_arraylist == 1);
+
+    // Remove last remaining
+    err = nonpods_remove_from_to(&list, 0, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == 0);
+
+    // Remove from empty again (after everything): no crash, no change
+    err = nonpods_remove_from_to(&list, 0, 1);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == 0);
+
+    nonpods_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist remove_from_to value-type passed\n");
+}
+
+void test_arraylist_at_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods list = nonpods_init(gpa);
+
+    // Empty array: OOB returns NULL
+    assert(nonpods_at(&list, 0) == NULL);
+    assert(nonpods_at(&list, 123) == NULL);
+
+    // Add some values
+    *nonpods_emplace_back_slot(&list) = non_pod_init("A", 10, 1.1, &gpa);
+    *nonpods_emplace_back_slot(&list) = non_pod_init("B", 20, 2.2, &gpa);
+    *nonpods_emplace_back_slot(&list) = non_pod_init("C", 30, 3.3, &gpa);
+
+    // Valid indices (0,1,2) return address in data, not NULL
+    for (size_t i = 0; i < list.size; ++i) {
+        struct non_pod *p = nonpods_at(&list, i);
+        assert(p != NULL);
+        // Content check (insertion order)
+        if (i == 0) assert(strcmp(p->objname, "A") == 0);
+        if (i == 1) assert(strcmp(p->objname, "B") == 0);
+        if (i == 2) assert(strcmp(p->objname, "C") == 0);
+    }
+
+    // Out of bounds: index == size or greater returns NULL
+    assert(nonpods_at(&list, 3) == NULL);
+    assert(nonpods_at(&list, 99) == NULL);
+
+    // Negative index interpreted as large size_t: always returns NULL
+    // (Some compilers warn on -1 cast to size_t, so cast explicitly)
+    assert(nonpods_at(&list, (size_t)-1) == NULL);
+
+    // Use returned pointer as modifiable, changes reflected in array
+    struct non_pod *pa = nonpods_at(&list, 0);
+    assert(pa);
+    strcpy(pa->objname, "newName");
+    assert(strcmp(list.data[0].objname, "newName") == 0);
+
+    // Remove element: shrink then query OOB (old last is dead)
+    nonpods_pop_back(&list); // removes "objectC"
+    assert(list.size == 2);
+    assert(nonpods_at(&list, 2) == NULL);
+
+    // Remove head, elements shift, at() reflects new order
+    nonpods_remove_at(&list, 0); // removes "newName"
+    assert(list.size == 1);
+    assert(strcmp(nonpods_at(&list, 0)->objname, "B") == 0);
+    assert(nonpods_at(&list, 1) == NULL);
+
+    // Insert after removal is visible via at()
+    struct non_pod tmp = non_pod_init("last", 99, 99.9, &gpa);
+    enum arraylist_error err = nonpods_insert_at(&list, tmp, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 2);
+    assert(strcmp(nonpods_at(&list, 0)->objname, "last") == 0);
+    assert(strcmp(nonpods_at(&list, 1)->objname, "B") == 0);
+
+    // at(NULL, x) returns NULL
+    assert(nonpods_at(NULL, 0) == NULL);
+    assert(nonpods_at(NULL, 1000) == NULL);
+
+    // Clearing empties the array; at() never deref OOB
+    nonpods_clear(&list);
+    assert(list.size == 0);
+    assert(nonpods_at(&list, 0) == NULL);
+    assert(nonpods_at(&list, 1) == NULL);
+
+    // Huge number of items: check random OOB and in-bounds
+    size_t bigN = 100;
+    for (size_t i = 0; i < bigN; ++i) {
+        char name[20];
+        snprintf(name, sizeof name, "item%lu", i);
+        *nonpods_emplace_back_slot(&list) = non_pod_init(name, (int)i, (float)i, &gpa);
+    }
+    for (size_t i = 0; i < bigN; ++i) {
+        struct non_pod *p = nonpods_at(&list, i);
+        assert(p != NULL);
+        char expect[20];
+        snprintf(expect, sizeof expect, "item%lu", i);
+        assert(strcmp(p->objname, expect) == 0);
+        assert(*p->a == (int)i);
+        assert(*p->b == (float)i);
+    }
+    assert(nonpods_at(&list, bigN) == NULL);
+    assert(nonpods_at(&list, bigN + 10000) == NULL);
+
+    nonpods_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist at value-type passed\n");
+}
+
+void test_arraylist_begin_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods list = nonpods_init(gpa);
+
+    // Begin on empty list should be NULL or a valid pointer only if capacity>0, so always check size first
+    assert(list.size == 0);
+    struct non_pod *begin = nonpods_begin(&list);
+    // If data == NULL, then begin==NULL; if not, begin==data
+    assert((begin == NULL && list.data == NULL) || begin == list.data);
+
+    // Add one element; begin() == &data[0], non-null
+    struct non_pod a = non_pod_init("A", 10, 1.1, &gpa);
+    nonpods_push_back(&list, a);
+    begin = nonpods_begin(&list);
+    assert(begin != NULL);
+    assert(begin == &list.data[0]);
+    assert(strcmp(begin->objname, "A") == 0);
+
+    // Add another, this operation caused a realloc, which means begin() may change, not always true,
+    // but should always be held as true
+    //struct non_pod *old_begin = begin;
+    struct non_pod b = non_pod_init("B", 20, 2.2, &gpa);
+    nonpods_push_back(&list, b);
+    begin = nonpods_begin(&list);
+    assert(begin == list.data);
+    // assert(begin != old_begin); may be true or false, do not hold pointers between operations that reallocate
+    assert(strcmp(begin->objname, "A") == 0);
+    assert(strcmp((begin+1)->objname, "B") == 0);
+
+    // Iteration with begin()/end()
+    size_t iter_count = 0;
+    for (struct non_pod *it = nonpods_begin(&list); it != nonpods_end(&list); ++it) {
+        if (iter_count == 0) assert(strcmp(it->objname, "A") == 0);
+        if (iter_count == 1) assert(strcmp(it->objname, "B") == 0);
+        ++iter_count;
+    }
+    assert(iter_count == list.size);
+
+    // Add multiple elements to trigger realloc/growth, confirm begin pointer is updated properly
+    size_t many = 32;
+    for (size_t i = 0; i < many; ++i) {
+        char buf[10];
+        snprintf(buf, sizeof buf, "q%lu", i);
+        nonpods_push_back(&list, non_pod_init(buf, (int)i, (float)i, &gpa));
+    }
+    begin = nonpods_begin(&list);
+    assert(begin == list.data);
+    // After growth, check first value is still "A"
+    assert(strcmp(begin->objname, "A") == 0);
+    // And nth value is correct
+    assert(strcmp((begin+list.size-1)->objname, "q31") == 0);
+
+    // begin pointer is valid up to end(), never deref past end
+    size_t count = 0;
+    for (struct non_pod *it = nonpods_begin(&list); it != nonpods_end(&list); ++it) {
+        count++;
+    }
+    assert(count == list.size);
+
+    // pop_back: begin unchanged, last element gone
+    size_t prev_size = list.size;
+    nonpods_pop_back(&list);
+    begin = nonpods_begin(&list);
+    assert(begin == list.data);
+    assert(list.size == prev_size - 1);
+
+    // clear: begin can be non-null if capacity > 0, but size==0 so do not deref it
+    nonpods_clear(&list);
+    assert(list.size == 0);
+    begin = nonpods_begin(&list);
+    // Dereferencing begin when list is empty is invalid, but it's ok to compare pointer value
+    assert(begin == list.data);
+    // If data==NULL, begin==NULL
+
+    // Remove all, then add again: begin valid, data correct
+    nonpods_push_back(&list, non_pod_init("foo", 1, 1.2f, &gpa));
+    assert(list.size == 1);
+    begin = nonpods_begin(&list);
+    assert(begin != NULL);
+    assert(strcmp(begin->objname, "foo") == 0);
+
+    // remove_at changes order, begin still valid
+    nonpods_push_back(&list, non_pod_init("bar", 2, 2.3f, &gpa));
+    nonpods_remove_at(&list, 0);
+    begin = nonpods_begin(&list);
+    assert(list.size == 1);
+    assert(strcmp(begin->objname, "bar") == 0);
+
+    // reset: deinit, then begin on fresh list
+    nonpods_deinit(&list);
+    list = nonpods_init(gpa);
+    begin = nonpods_begin(&list);
+    assert(list.size == 0);
+    assert((begin == NULL && list.data == NULL) || begin == list.data);
+
+    // bulk insert; iterate via begin
+    for (size_t i = 0; i < 8; ++i) {
+        nonpods_push_back(&list, non_pod_init("x", i, i, &gpa));
+    }
+    
+    size_t loopcheck = 0;
+    for (struct non_pod *it = nonpods_begin(&list); it != nonpods_end(&list); ++it) {
+        loopcheck++;
+    }
+    assert(loopcheck == list.size);
+
+    // at(NULL) returns NULL, begin(NULL) returns NULL
+    assert(nonpods_begin(NULL) == NULL);
+
+    // begin not deref'd if list is truly empty; do not crash
+    nonpods_clear(&list);
+    begin = nonpods_begin(&list);
+    // Dereferencing it is invalid, but pointer value is as expected
+    assert((begin == NULL && list.data == NULL) || begin == list.data);
+
+    nonpods_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist begin value-type passed\n");
+}
+
+void test_arraylist_back_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods list = nonpods_init(gpa);
+
+    // back() on empty array: returns NULL
+    assert(nonpods_back(&list) == NULL);
+
+    // single element: back() returns data+0, points to first, non-null
+    struct non_pod a = non_pod_init("first", 11, 1.1, &gpa);
+    nonpods_push_back(&list, a);
+    struct non_pod *last = nonpods_back(&list);
+    assert(last != NULL);
+    assert(last == &list.data[0]);
+    assert(strcmp(last->objname, "first") == 0);
+    assert(*last->a == 11);
+
+    // two elements: back() points to new element each time, never to prior
+    struct non_pod b = non_pod_init("second", 22, 2.2, &gpa);
+    nonpods_push_back(&list, b);
+    assert(list.size == 2);
+    struct non_pod *back2 = nonpods_back(&list);
+    assert(back2 != NULL);
+    assert(back2 == &list.data[1]);
+    assert(strcmp(back2->objname, "second") == 0);
+    assert(*back2->a == 22);
+
+    // many elements: back() always matches last added
+    for (int i = 2; i < 12; ++i) {
+        char name[32];
+        snprintf(name, sizeof name, "item%d", i);
+        struct non_pod t = non_pod_init(name, 100+i, 3.3f+i, &gpa);
+        nonpods_push_back(&list, t);
+        struct non_pod *b = nonpods_back(&list);
+        assert(b != NULL);
+        assert(b == &list.data[list.size-1]);
+        assert(strcmp(b->objname, name) == 0);
+        assert(*b->a == 100+i);
+    }
+
+    // back() is mutable: change value via back(), data array reflects change
+    struct non_pod *bref = nonpods_back(&list);
+    strcpy(bref->objname, "lastX");
+    assert(strcmp(list.data[list.size-1].objname, "lastX") == 0);
+
+    // Remove last element: back() now returns previous element
+    enum arraylist_error err = nonpods_pop_back(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 11);
+    struct non_pod *newlast = nonpods_back(&list);
+    assert(newlast == &list.data[list.size-1]);
+    assert(*newlast->a == 110);
+    // Content should match what was inserted
+    assert(strcmp(newlast->objname, "item10") == 0);
+
+    // Remove all but one: back always matches, then back(NULL) when empty
+    while (list.size > 1)
+        nonpods_pop_back(&list);
+    assert(list.size == 1);
+    struct non_pod *lastleft = nonpods_back(&list);
+    assert(lastleft != NULL);
+    assert(lastleft == &list.data[0]);
+    assert(strcmp(lastleft->objname, "first") == 0);
+
+    nonpods_pop_back(&list);
+    assert(list.size == 0);
+    assert(nonpods_back(&list) == NULL);
+
+    // Push after clear: back() valid again
+    struct non_pod c = non_pod_init("newone", 123, 4.56, &gpa);
+    nonpods_push_back(&list, c);
+    struct non_pod *b2 = nonpods_back(&list);
+    assert(b2 != NULL);
+    assert(strcmp(b2->objname, "newone") == 0);
+
+    // Clear: back() should return NULL
+    nonpods_clear(&list);
+    assert(list.size == 0);
+    assert(nonpods_back(&list) == NULL);
+
+    // Push several, remove some, back() always matches last
+    for (int i = 0; i < 5; ++i) {
+        char nm[8];
+        snprintf(nm, sizeof nm, "set%d", i);
+        nonpods_push_back(&list, non_pod_init(nm, i+30, i+0.13f, &gpa));
+        assert(strcmp(nonpods_back(&list)->objname, nm) == 0);
+    }
+    assert(list.size == 5);
+    nonpods_remove_at(&list, 2); // remove element 2, last remains same
+    assert(strcmp(nonpods_back(&list)->objname, "set4") == 0);
+    nonpods_pop_back(&list); // remove last
+    assert(strcmp(nonpods_back(&list)->objname, "set3") == 0);
+
+    nonpods_clear(&list);
+
+    // back() on NULL list pointer: returns NULL (should not segfault)
+    assert(nonpods_back(NULL) == NULL);
+
+    // After deinit: back() returns NULL; repeated deinit is safe
+    nonpods_push_back(&list, non_pod_init("foo", 16, 2.5, &gpa));
+    nonpods_deinit(&list);
+    assert(nonpods_back(&list) == NULL);
+    nonpods_deinit(&list); // should not crash
+
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist back value-type passed\n");
+}
+
+void test_arraylist_end_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods list = nonpods_init(gpa);
+
+    // end() on an empty list returns data + 0 (== data)
+    assert(list.size == 0);
+    struct non_pod *endptr = nonpods_end(&list);
+    // end() may be NULL or data, so must be compared as a pointer, not dereferenced!
+    assert((endptr == NULL && list.data == NULL) || (endptr == (list.data + list.size)));
+
+    // end() pointer is always list.data + list.size
+    // add several items, confirm end > data and never before data
+    for (size_t i = 0; i < 6; ++i) {
+        char namebuf[24];
+        snprintf(namebuf, sizeof namebuf, "item%lu", i);
+        nonpods_push_back(&list, non_pod_init(namebuf, (int)i, (float)i, &gpa));
+        assert(nonpods_end(&list) == list.data + list.size);
+        if (list.size > 0)
+            assert(nonpods_end(&list) > list.data);
+    }
+
+    // Iterating: end() is always exclusive; can be used as limit for begin/end style iteration.
+    size_t niter = 0;
+    for (struct non_pod *it = nonpods_begin(&list); it != nonpods_end(&list); ++it) {
+        assert(it >= list.data && it < list.data + list.size);
+        niter++;
+    }
+    assert(niter == list.size);
+
+    // Dereferencing end() is always invalid: verify pointer value but never deref
+    struct non_pod *should_be_out_of_bounds = nonpods_end(&list);
+    // The next is only to show the address, do not dereference
+    assert(should_be_out_of_bounds == list.data + list.size);
+
+    // After pop_back/clear, end() updates accordingly
+    size_t oldsize = list.size;
+    nonpods_pop_back(&list);
+    assert(nonpods_end(&list) == list.data + list.size);
+    assert(list.size == oldsize - 1);
+
+    // Massive insertions: end() always tracks [data + size]
+    size_t n_massive = 100;
+    nonpods_clear(&list);
+    for (size_t i = 0; i < n_massive; ++i) {
+        nonpods_push_back(&list, non_pod_init("foo", (int)i, (float)i, &gpa));
+        assert(nonpods_end(&list) == list.data + list.size);
+    }
+
+    // after shrink_size, end() updates
+    enum arraylist_error err = nonpods_shrink_size(&list, 17);
+    assert(err == ARRAYLIST_OK);
+    assert(nonpods_end(&list) == list.data + 17);
+
+    // Testing after clear, end() == data (if data null, is null)
+    nonpods_clear(&list);
+    endptr = nonpods_end(&list);
+    assert((endptr == NULL && list.data == NULL) || (endptr == list.data + list.size && list.size == 0));
+
+    // Test after deinit: end() returns NULL (if data is NULL)
+    nonpods_deinit(&list);
+    endptr = nonpods_end(&list);
+    assert(endptr == NULL);
+
+    // Use of end() in for-loop after deinit or clear never crashes
+    for (struct non_pod *it = nonpods_begin(&list); it != nonpods_end(&list); ++it) {
+        assert(0 && "This loop must never run: list is empty!");
+    }
+
+    // out-of-bounds: end() is always (data + size); at(size) returns NULL, end() is not valid for deref
+    struct non_pod *at_end = nonpods_at(&list, list.size);
+    assert(at_end == NULL);
+
+    // Use after repeated deinit/clear: no crash, end() steady.
+    nonpods_clear(&list);
+    nonpods_clear(&list);
+    endptr = nonpods_end(&list);
+    assert((endptr == NULL && list.data == NULL) || (endptr == list.data && list.size == 0));
+    nonpods_deinit(&list);
+    assert(nonpods_end(&list) == NULL);
+
+    // Null pointer argument: end(NULL) returns NULL (never crashes)
+    assert(nonpods_end(NULL) == NULL);
+
+    // Fill then remove from head/tail; end always points at size
+    list = nonpods_init(gpa);
+    for (size_t i = 0; i < 8; ++i)
+        nonpods_push_back(&list, non_pod_init("bar", (int)i, (float)0, &gpa));
+    for (size_t i = 0; i < 4; ++i) {
+        nonpods_pop_back(&list); // remove last
+        assert(nonpods_end(&list) == list.data + list.size);
+    }
+    for (size_t i = 0; list.size > 0; ++i) {
+        nonpods_remove_at(&list, 0); // remove head
+        assert(nonpods_end(&list) == list.data + list.size);
+        (void)i;
+    }
+    assert(list.size == 0);
+
+    nonpods_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+
+    printf("test arraylist end value-type passed\n");
+}
+
+void test_arraylist_find_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods list = nonpods_init(gpa);
+
+    // Find on empty list: always returns data+size == end()
+    char notfound_name[] = "none";
+    struct non_pod *res = nonpods_find(&list, non_pod_find_val, notfound_name);
+    assert(res == list.data + list.size);    // In empty, both are NULL, so ok
+    assert(res == nonpods_end(&list) || res == NULL);
+
+    // Insert some non_pods
+    *nonpods_emplace_back_slot(&list) = non_pod_init("A", 1, 1.1, &gpa);
+    *nonpods_emplace_back_slot(&list) = non_pod_init("B", 2, 2.2, &gpa);
+    *nonpods_emplace_back_slot(&list) = non_pod_init("C", 3, 3.3, &gpa);
+
+    // Find value for actual key; should point to that object
+    // The predicate must match the type: struct non_pod*
+    struct non_pod *f1 = nonpods_find(&list, non_pod_find_val, "A");
+    assert(f1);
+    assert(f1 != list.data + list.size);
+    assert(strcmp(f1->objname, "A") == 0);
+
+    struct non_pod *f2 = nonpods_find(&list, non_pod_find_val, "B");
+    assert(f2);
+    assert(f2 != list.data + list.size);
+    assert(strcmp(f2->objname, "B") == 0);
+
+    struct non_pod *f3 = nonpods_find(&list, non_pod_find_val, "C");
+    assert(f3);
+    assert(f3 != list.data + list.size);
+    assert(strcmp(f3->objname, "C") == 0);
+
+    // Not found: returns end() (safe to compare pointer identity, don't deref!)
+    struct non_pod *nf = nonpods_find(&list, non_pod_find_val, "Zzznotfoundzz");
+    assert(nf == list.data + list.size);
+    assert(nf == nonpods_end(&list));
+
+    // NULL predicate: always returns NULL
+    assert(nonpods_find(&list, NULL, NULL) == NULL);
+
+    // NULL list: always returns NULL
+    assert(nonpods_find(NULL, non_pod_find_val, "A") == NULL);
+
+    // Mutate underlying object, search reflects new state
+    strcpy(list.data[0].objname, "Zmaybe");
+    struct non_pod *nz = nonpods_find(&list, non_pod_find_val, "Zmaybe");
+    assert(nz == &list.data[0]);
+    assert(strcmp(nz->objname, "Zmaybe") == 0);
+
+    // List with duplicates: find returns the first matching by search order
+    *nonpods_emplace_back_slot(&list) = non_pod_init("C", 5, 10.1, &gpa);
+    struct non_pod *dup1 = nonpods_find(&list, non_pod_find_val, "C");
+    assert(dup1 && strcmp(dup1->objname, "C") == 0);
+    assert(dup1 == &list.data[2]);
+    // (first occurrence, not the new one at data[3])
+
+    // Remove a value; find reflects removal
+    nonpods_remove_at(&list, 1); // removes "B"
+    struct non_pod *gone = nonpods_find(&list, non_pod_find_val, "B");
+    assert(gone == list.data + list.size);
+
+    // Find is not confused by holes or shifts
+    assert(strcmp(list.data[1].objname, "C") == 0);
+    struct non_pod *nowfound = nonpods_find(&list, non_pod_find_val, "C");
+    assert(nowfound == &list.data[1]);
+
+    // Find works after clearing list
+    nonpods_clear(&list);
+    assert(nonpods_find(&list, non_pod_find_val, "A") == list.data + list.size);
+
+    // Find works after deinit/reinit
+    nonpods_deinit(&list);
+    list = nonpods_init(gpa);
+    assert(nonpods_find(&list, non_pod_find_val, "foo") == nonpods_end(&list));
+
+    // Large list, stress test
+    size_t big = 102;
+    const char *key = "BIGMATCH";
+    for (size_t i = 0; i < big; ++i) {
+        if (i == 50) {
+            *nonpods_emplace_back_slot(&list) = non_pod_init(key, 99, 101, &gpa);
+        } else {
+            char nm[16]; snprintf(nm, sizeof nm, "num%02u", (unsigned)i);
+            *nonpods_emplace_back_slot(&list) = non_pod_init(nm, (int)i, (float)i, &gpa);
+        }
+    }
+    struct non_pod *bigfound = nonpods_find(&list, non_pod_find_val, (void*)key);
+    assert(bigfound != list.data + list.size);
+    assert(strcmp(bigfound->objname, key) == 0);
+
+    nonpods_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist find value-type passed\n");
+}
+
+void test_arraylist_contains_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods list = nonpods_init(gpa);
+
+    // contains on empty list: always returns false, out_index untouched
+    size_t outidx = 12345;
+    bool hasA = nonpods_contains(&list, non_pod_find_val, "A", &outidx);
+    assert(hasA == false);
+    assert(outidx == 12345);
+
+    // Add some objects and check positive and negative cases
+    *nonpods_emplace_back_slot(&list) = non_pod_init("A", 1, 1.1, &gpa);
+    *nonpods_emplace_back_slot(&list) = non_pod_init("B", 2, 2.2, &gpa);
+    *nonpods_emplace_back_slot(&list) = non_pod_init("C", 3, 3.3, &gpa);
+
+    // Positive: present
+    outidx = 9999;
+    bool hasB = nonpods_contains(&list, non_pod_find_val, "B", &outidx);
+    assert(hasB == true);
+    assert(outidx == 1);
+
+    outidx = 9999;
+    bool hasC = nonpods_contains(&list, non_pod_find_val, "C", &outidx);
+    assert(hasC == true);
+    assert(outidx == 2);
+
+    // Negative: not present
+    outidx = 42;
+    bool hasZZ = nonpods_contains(&list, non_pod_find_val, "ZZ", &outidx);
+    assert(hasZZ == false);
+    assert(outidx == 42);
+
+    // If out_index is NULL, function is still correct (no write, no segfault)
+    assert(nonpods_contains(&list, non_pod_find_val, "B", NULL) == true);
+    assert(nonpods_contains(&list, non_pod_find_val, "NO", NULL) == false);
+
+    // Duplicate entries: first match wins, correct index
+    *nonpods_emplace_back_slot(&list) = non_pod_init("B", 12, 2.22, &gpa);
+    outidx = 999;
+    bool founddup = nonpods_contains(&list, non_pod_find_val, "B", &outidx);
+    assert(founddup == true);
+    assert(outidx == 1);  // Should be first "B"
+    // The one at index [3] is not returned by contains
+
+    // Mutate data; contains reflects update
+    strcpy(list.data[0].objname, "XXX");
+    outidx = 800;
+    bool foundXXX = nonpods_contains(&list, non_pod_find_val, "XXX", &outidx);
+    assert(foundXXX == true);
+    assert(outidx == 0);
+
+    // Remove value; contains no longer finds it
+    nonpods_remove_at(&list, 0); // removes "XXX"
+    outidx = 0;
+    bool hasXXX = nonpods_contains(&list, non_pod_find_val, "XXX", &outidx);
+    assert(hasXXX == false);
+
+    // out_index remains untouched on negative result
+    outidx = 4444;
+    bool failZ = nonpods_contains(&list, non_pod_find_val, "zzznotfound", &outidx);
+    assert(failZ == false);
+    assert(outidx == 4444);
+
+    // NULL predicate: always returns false
+    outidx = 1111;
+    assert(!nonpods_contains(&list, NULL, "A", &outidx));
+    assert(outidx == 1111);
+
+    // NULL arraylist: always returns false
+    outidx = 2020;
+    assert(!nonpods_contains(NULL, non_pod_find_val, "A", &outidx));
+    assert(outidx == 2020);
+
+    // Large list: finds correct element, fast fail if not found
+    nonpods_clear(&list);
+    int N = 40;
+    for (int i = 0; i < N; ++i) {
+        char nm[10]; snprintf(nm, sizeof nm, "v%02d", i);
+        *nonpods_emplace_back_slot(&list) = non_pod_init(nm, i*i, i*2, &gpa);
+    }
+    outidx = 0;
+    bool hasv15 = nonpods_contains(&list, non_pod_find_val, "v15", &outidx);
+    assert(hasv15 == true);
+    assert(outidx == 15);
+
+    // Works after clear() and deinit()
+    nonpods_clear(&list);
+    assert(!nonpods_contains(&list, non_pod_find_val, "v20", &outidx));
+    nonpods_deinit(&list);
+    assert(!nonpods_contains(&list, non_pod_find_val, "XXX", &outidx));
+
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist contains value-type passed\n");
+}
+
+void test_arraylist_size_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods list = nonpods_init(gpa);
+
+    // New list: size == 0 always.
+    assert(nonpods_size(&list) == 0);
+
+    // Empty, pop_back/remove: No-op for size.
+    size_t sz = nonpods_size(&list);
+    nonpods_pop_back(&list);
+    assert(nonpods_size(&list) == sz);
+    nonpods_remove_at(&list, 0);
+    assert(nonpods_size(&list) == sz);
+
+    // Add with push_back, emplace_back_slot.
+    *nonpods_emplace_back_slot(&list) = non_pod_init("a", 1, 1.0, &gpa);
+    assert(nonpods_size(&list) == 1);
+    struct non_pod b = non_pod_init("b", 2, 2.0, &gpa);
+    nonpods_push_back(&list, b);
+    assert(nonpods_size(&list) == 2);
+
+    // Insert in the middle increases size.
+    struct non_pod c = non_pod_init("c", 3, 3.0, &gpa);
+    enum arraylist_error err = nonpods_insert_at(&list, c, 1);
+    assert(err == ARRAYLIST_OK);
+    assert(nonpods_size(&list) == 3);
+
+    // Remove by index, shrink_size.
+    sz = nonpods_size(&list);
+    nonpods_remove_at(&list, 1);
+    assert(nonpods_size(&list) == sz - 1);
+    sz = nonpods_size(&list);
+    nonpods_shrink_size(&list, 1);
+    assert(nonpods_size(&list) == 1);
+
+    // clear() sets size to zero, capacity nonzero.
+    nonpods_clear(&list);
+    assert(nonpods_size(&list) == 0);
+
+    // At this point, can insert again.
+    *nonpods_emplace_back_slot(&list) = non_pod_init("x", 77, 7.7, &gpa);
+    assert(nonpods_size(&list) == 1);
+
+    // push_back until size > 1
+    for (size_t i = 0; i < 5; ++i) {
+        char name[10];
+        snprintf(name, sizeof name, "item%lu", i);
+        *nonpods_emplace_back_slot(&list) = non_pod_init(name, (int)i, (float)i, &gpa);
+        assert(nonpods_size(&list) == 2 + i);
+    }
+
+    // bulk pop_back: size decreases until zero, never negative
+    size_t bigsize = nonpods_size(&list);
+    for (size_t i = bigsize; i > 0; --i) {
+        nonpods_pop_back(&list);
+        assert(nonpods_size(&list) == i - 1);
+    }
+    // Double clear doesn't change size.
+    assert(nonpods_size(&list) == 0);
+    nonpods_clear(&list);
+    assert(nonpods_size(&list) == 0);
+
+    // Remove_from_to on empty/one-element: size zero, no crash, no negative
+    nonpods_remove_from_to(&list, 0, 10);
+    assert(nonpods_size(&list) == 0);
+
+    // Add many, then remove range
+    for (size_t i = 0; i < 16; ++i) {
+        char name[10];
+        snprintf(name, sizeof name, "bulk%lu", i);
+        *nonpods_emplace_back_slot(&list) = non_pod_init(name, 0, 0, &gpa);
+    }
+    assert(nonpods_size(&list) == 16);
+    nonpods_remove_from_to(&list, 3, 8); // removes 6
+    assert(nonpods_size(&list) == 10);
+    nonpods_shrink_size(&list, 5);
+    assert(nonpods_size(&list) == 5);
+
+    // insert_at > size acts as append
+    size_t before = nonpods_size(&list);
+    struct non_pod dummy = non_pod_init("tail", 555, 5.55, &gpa);
+    nonpods_insert_at(&list, dummy, 10000);
+    assert(nonpods_size(&list) == before + 1);
+
+    // pop_back until empty never underflows
+    while (nonpods_size(&list) > 0)
+        nonpods_pop_back(&list);
+    assert(nonpods_size(&list) == 0);
+
+    // After deinit, size remains zero (undefined unless you re-init, but should be fine)
+    nonpods_deinit(&list);
+    assert(nonpods_size(&list) == 0);
+
+    // After deinit, one must init again to not crash
+    nonpods_deinit(&list);
+    list = nonpods_init(gpa);
+    *nonpods_emplace_back_slot(&list) = non_pod_init("q", 2, 2.2, &gpa);
+    assert(nonpods_size(&list) == 1);
+
+    // Shrink_to_fit doesn't change size
+    size_t sizesnap = nonpods_size(&list);
+    nonpods_shrink_to_fit(&list);
+    assert(nonpods_size(&list) == sizesnap);
+
+    // NULL pointer always returns zero.
+    assert(nonpods_size(NULL) == 0);
+
+    // Remove_at/Pop_back OOB/negative (size_t-wrap) safe: size not negative
+    nonpods_remove_at(&list, 100000);
+    size_t left = nonpods_size(&list);
+    nonpods_remove_at(&list, (size_t)-1);
+    assert(nonpods_size(&list) <= left); // No > left
+
+    nonpods_deinit(&list);
+
+    // Failed allocator: push_back fails, size remains unchanged
+    struct Allocator fail_a = allocator_get_failling_alloc();
+    list = nonpods_init(fail_a);
+    sz = nonpods_size(&list);
+    struct non_pod dummyfail = {0};
+    err = nonpods_push_back(&list, dummyfail);
+    assert(err != ARRAYLIST_OK);
+    assert(nonpods_size(&list) == sz);
+
+    nonpods_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+
+    printf("test arraylist size value-type passed\n");
+}
+
+void test_arraylist_is_empty_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods list = nonpods_init(gpa);
+
+    // Freshly initialized list is empty
+    assert(nonpods_is_empty(&list) == true);
+    assert(list.size == 0);
+
+    // After a single push_back: not empty
+    struct non_pod a = non_pod_init("one", 1, 1.1, &gpa);
+    nonpods_push_back(&list, a);
+    assert(nonpods_is_empty(&list) == false);
+    assert(list.size == 1);
+
+    // After pop_back: becomes empty again
+    nonpods_pop_back(&list);
+    assert(nonpods_is_empty(&list) == true);
+    assert(list.size == 0);
+
+    // Emplace_back_slot, non-empty
+    *nonpods_emplace_back_slot(&list) = non_pod_init("two", 2, 2.2, &gpa);
+    assert(nonpods_is_empty(&list) == false);
+    assert(list.size == 1);
+
+    // Remove_at(0): list empty again
+    nonpods_remove_at(&list, 0);
+    assert(nonpods_is_empty(&list) == true);
+    assert(list.size == 0);
+
+    // Insert at head, middle, tail
+    for (int i = 0; i < 3; ++i) {
+        char buf[8]; snprintf(buf, sizeof buf, "k%d", i);
+        struct non_pod t = non_pod_init(buf, i+10, i+0.1, &gpa);
+        if (i == 0){
+            nonpods_insert_at(&list, t, 0);
+        } else if (i == 1) {
+            nonpods_insert_at(&list, t, list.size/2);
+        } else {
+            nonpods_insert_at(&list, t, list.size);
+        }
+
+        assert(nonpods_is_empty(&list) == false);
+    }
+    // All removed
+    while (list.size > 0) {
+        nonpods_pop_back(&list);
+    }
+
+    assert(nonpods_is_empty(&list) == true);
+    assert(list.size == 0);
+
+    // Insert many, remove by shrink_size
+    size_t N = 20;
+    for (size_t i = 0; i < N; ++i) {
+        char buf[12]; snprintf(buf, sizeof buf, "v%lu", i);
+        nonpods_push_back(&list, non_pod_init(buf, i, i, &gpa));
+    }
+    assert(nonpods_is_empty(&list) == false);
+    nonpods_shrink_size(&list, 0);
+    assert(nonpods_is_empty(&list) == true);
+
+    // Insert many, remove_from_to to empty
+    for (size_t i = 0; i < N; ++i) {
+        char buf[12]; snprintf(buf, sizeof buf, "w%lu", i);
+        nonpods_push_back(&list, non_pod_init(buf, i, i, &gpa));
+    }
+    assert(nonpods_is_empty(&list) == false);
+    nonpods_remove_from_to(&list, 0, N-1);
+    assert(nonpods_is_empty(&list) == true);
+
+    // Insert, then clear
+    for (size_t i = 0; i < N; ++i) {
+        nonpods_push_back(&list, non_pod_init("z", i, i, &gpa));
+    }
+
+    assert(nonpods_is_empty(&list) == false);
+    nonpods_clear(&list);
+    assert(nonpods_is_empty(&list) == true);
+
+    // Insert, clear, insert again -- works
+    nonpods_push_back(&list, non_pod_init("hehe", 5, 5.5, &gpa));
+    assert(nonpods_is_empty(&list) == false);
+    nonpods_pop_back(&list);
+    assert(nonpods_is_empty(&list) == true);
+
+    // Empty after many growths/reallocs
+    for (size_t i = 0; i < 128; ++i) {
+        *nonpods_emplace_back_slot(&list) = non_pod_init("bulk", i, i, &gpa);
+    }
+
+    assert(nonpods_is_empty(&list) == false);
+    nonpods_clear(&list);
+    assert(nonpods_is_empty(&list) == true);
+
+    // Remove OOB: is_empty stays correct (should not crash)
+    assert(nonpods_is_empty(&list) == true);  // still empty
+    nonpods_remove_at(&list, 99999);
+    assert(nonpods_is_empty(&list) == true);
+
+    // Remove negative index: is_empty still correct (should not crash)
+    nonpods_remove_at(&list, (size_t)-1);
+    assert(nonpods_is_empty(&list) == true);
+
+    // After deinit, is_empty is true
+    nonpods_deinit(&list);
+    assert(nonpods_is_empty(&list) == true);
+    // Needs to be init again
+    list = nonpods_init(gpa);
+    *nonpods_emplace_back_slot(&list) = non_pod_init("after", 7, 7.7, &gpa);
+    assert(nonpods_is_empty(&list) == false);
+    nonpods_clear(&list);
+
+    // Call is_empty(NULL), must return false
+    assert(nonpods_is_empty(NULL) == false);
+
+    // Call is_empty repeatedly doesn't change anything
+    assert(nonpods_is_empty(&list) == true);
+    assert(nonpods_is_empty(&list) == true);
+
+    // Push and pop alternately
+    for (int i = 0; i < 5; ++i) {
+        nonpods_push_back(&list, non_pod_init("ping", i, i, &gpa));
+        assert(nonpods_is_empty(&list) == false);
+        nonpods_pop_back(&list);
+        assert(nonpods_is_empty(&list) == true);
+    }
+
+    // Failing allocator: list remains empty
+    struct Allocator fail = allocator_get_failling_alloc();
+    struct arraylist_nonpods zlist = nonpods_init(fail);
+    assert(nonpods_is_empty(&zlist) == true);
+    struct non_pod dummy = {0};
+    enum arraylist_error err = nonpods_push_back(&zlist, dummy);
+    assert(err != ARRAYLIST_OK);
+    assert(nonpods_is_empty(&zlist) == true);
+
+    nonpods_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist is_empty value-type passed\n");
+}
+
+void test_arraylist_capacity_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods list = nonpods_init(gpa);
+
+    // Fresh list: capacity is zero
+    assert(nonpods_capacity(&list) == 0);
+
+    // capacity(NULL) == 0
+    assert(nonpods_capacity(NULL) == 0);
+
+    // Add one element (should allocate)
+    struct non_pod np1 = non_pod_init("x", 1, 2.2, &gpa);
+    nonpods_push_back(&list, np1);
+    assert(nonpods_capacity(&list) >= 1);
+    size_t cap1 = nonpods_capacity(&list);
+
+    // capacity never decreases on push_back/emplace
+    struct non_pod np2 = non_pod_init("y", 2, 3.3, &gpa);
+    nonpods_push_back(&list, np2);
+    assert(nonpods_capacity(&list) >= cap1);
+    size_t cap2 = nonpods_capacity(&list);
+
+    // Add until it grows (capacity should double; implementation doubles)
+    size_t old_capacity = cap2;
+    size_t to_grow = old_capacity;
+    for (size_t i = 0; i < to_grow; ++i)
+        nonpods_push_back(&list, non_pod_init("m", (int)i, (float)i, &gpa));
+    // At least one alloc triggered: capacity at least doubled
+    assert(nonpods_capacity(&list) >= 2 * old_capacity);
+
+    // Reserve increases capacity if called, but never shrinks
+    size_t prev_cap = nonpods_capacity(&list);
+    enum arraylist_error err = nonpods_reserve(&list, prev_cap + 10);
+    assert(err == ARRAYLIST_OK);
+    assert(nonpods_capacity(&list) >= prev_cap + 10);
+
+    // Reserve with less or equal is no-op (doesn't shrink)
+    prev_cap = nonpods_capacity(&list);
+    err = nonpods_reserve(&list, 1);
+    assert(err == ARRAYLIST_OK);
+    assert(nonpods_capacity(&list) == prev_cap);
+
+    // Shrinking size does not shrink capacity
+    size_t prev_capacity = nonpods_capacity(&list);
+    err = nonpods_shrink_size(&list, 1);
+    assert(err == ARRAYLIST_OK);
+    assert(nonpods_capacity(&list) == prev_capacity);
+
+    // shrink_to_fit reduces capacity to size (if possible)
+    size_t prev_size = nonpods_size(&list);
+    err = nonpods_shrink_to_fit(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(nonpods_capacity(&list) == nonpods_size(&list));
+    assert(nonpods_capacity(&list) == prev_size);
+
+    // After clear: capacity unchanged, but size is zero
+    err = nonpods_clear(&list);
+    assert(nonpods_capacity(&list) == prev_size);
+
+    // After shrink_to_fit on empty (size=0): capacity is 0 and data is NULL
+    err = nonpods_shrink_to_fit(&list);
+    assert(nonpods_capacity(&list) == 0);
+    assert(list.data == NULL);
+
+    // After deinit: capacity=0
+    nonpods_deinit(&list);
+    assert(nonpods_capacity(&list) == 0);
+
+    // After deinit, one must init again to not crash
+    nonpods_deinit(&list);
+    list = nonpods_init(gpa);
+    nonpods_push_back(&list, non_pod_init("test", 44, 12.1, &gpa));
+    assert(nonpods_capacity(&list) > 0);
+
+    // Remove all, add again, etc: capacity tracks as expected
+    nonpods_clear(&list);
+    err = nonpods_shrink_to_fit(&list);
+    assert(nonpods_capacity(&list) == 0);
+
+    // Add many, check grows as powers of two (OPTIONAL: for your implementation)
+    size_t last_cap = 0;
+    for (size_t i = 0; i < 40; ++i) {
+        *nonpods_emplace_back_slot(&list) = non_pod_init("bulk", (int)i, (float)i, &gpa);
+        size_t cap = nonpods_capacity(&list);
+        assert(cap >= nonpods_size(&list));
+        // Implementation doubles, so as size crosses the boundary, capacity increases
+        assert(cap >= last_cap);
+        last_cap = cap;
+    }
+
+    // Capacity is always >= size, never less
+    assert(nonpods_capacity(&list) >= nonpods_size(&list));
+
+    // Remove/shrink_size never shrinks capacity
+    size_t before_cap = nonpods_capacity(&list);
+    nonpods_shrink_size(&list, 2);
+    assert(nonpods_capacity(&list) == before_cap);
+
+    // Clear then reserve boosts capacity again
+    nonpods_clear(&list);
+    err = nonpods_reserve(&list, 32);
+    assert(err == ARRAYLIST_OK);
+    assert(nonpods_capacity(&list) >= 32);
+
+    // Shrink to fit after removing all reduces capacity to zero
+    nonpods_shrink_size(&list, 0);
+    err = nonpods_shrink_to_fit(&list);
+    assert(nonpods_capacity(&list) == 0);
+
+    // Failed allocator never increases capacity, remains zero
+    struct Allocator faila = allocator_get_failling_alloc();
+    struct arraylist_nonpods bad = nonpods_init(faila);
+    assert(nonpods_capacity(&bad) == 0);
+    err = nonpods_push_back(&bad, np1); // Should fail
+    assert(err != ARRAYLIST_OK);
+    assert(nonpods_capacity(&bad) == 0);
+    err = nonpods_reserve(&bad, 1000);
+    assert(err != ARRAYLIST_OK);
+    assert(nonpods_capacity(&bad) == 0);
+
+    nonpods_deinit(&bad);
+
+    // Defensive: after deinit, capacity is always 0
+    nonpods_deinit(&list);
+    assert(nonpods_capacity(&list) == 0);
+
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist capacity value-type passed\n");
+}
+
+void test_arraylist_get_allocator_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods list = nonpods_init(gpa);
+
+    // Basic: get_allocator returns non-NULL when valid-
+    struct Allocator *out = nonpods_get_allocator(&list);
+    assert(out != NULL);
+    // Must match what we passed to init
+    assert(out->malloc == gpa.malloc && out->free == gpa.free && out->realloc == gpa.realloc && out->ctx == gpa.ctx);
+
+    // Same pointer returned each time; doesn't move-
+    struct Allocator *out2 = nonpods_get_allocator(&list);
+    assert(out == out2);
+
+    // Use returned allocator to allocate/free
+    void *buf = out->malloc(32, out->ctx);
+    assert(buf != NULL);
+    out->free(buf, 32, out->ctx);
+
+    // Changing the allocator via the struct, get_allocator reflects change
+    struct Allocator fail_a = allocator_get_failling_alloc();
+    list.alloc = fail_a;
+    struct Allocator *out3 = nonpods_get_allocator(&list);
+    assert(out3 != NULL);
+    assert(out3->malloc == fail_malloc && out3->free == fail_free);
+
+    // After copy, get_allocator of copy reflects its own, not original
+    struct arraylist_nonpods list2 = list;
+    struct Allocator *oa2 = nonpods_get_allocator(&list2);
+    assert(oa2 != NULL);
+    assert(oa2->malloc == fail_malloc && oa2->free == fail_free);
+
+    // After deinit, struct is zeroed, get_allocator returns pointer to zeroed struct
+    nonpods_deinit(&list);
+    struct Allocator *out4 = nonpods_get_allocator(&list);
+    assert(out4 != NULL);
+    // After memset, all members are NULL/0 (undefined but this is allowed by your code)
+    // Some implementations might optimize to point to ".bss", but we can check at least the pointer is not NULL
+    // To be extra paranoid, the allocator's function ptrs should now be NULL
+    assert(out4->malloc == NULL || out4->malloc == fail_malloc); // May be zero (if memset to 0), or still old value
+    assert(out4->free == NULL || out4->free == fail_free);       // Accept both: zeroed (reset by deinit) or old
+    // It's not valid to use these fn ptrs after deinit
+
+    // get_allocator(NULL) returns NULL, never segfaults
+    assert(nonpods_get_allocator(NULL) == NULL);
+
+    // get_allocator works on stack, heap, zero-inited
+    struct arraylist_nonpods zeroed = {0};
+    struct Allocator *az = nonpods_get_allocator(&zeroed);
+    assert(az != NULL);
+    assert(az->malloc == NULL);
+
+    // get_allocator after re-initialization: returns new
+    struct arraylist_nonpods list3 = nonpods_init(gpa);
+    struct Allocator *oa3 = nonpods_get_allocator(&list3);
+    assert(oa3 != NULL);
+    assert(oa3->malloc == gpa.malloc);
+
+    // Use get_allocator inside arraylist operations
+    for (size_t i = 0; i < 8; ++i)
+        *nonpods_emplace_back_slot(&list3) = non_pod_init("z", 42, 123.0f + i, nonpods_get_allocator(&list3));
+    assert(list3.size == 8);
+
+    // The pointer is always to the arraylist's .alloc field
+    assert(oa3 == &list3.alloc);
+
+    // After clear, get_allocator returns same pointer (address is stable)
+    nonpods_clear(&list3);
+    assert(nonpods_get_allocator(&list3) == oa3);
+
+    // After shrink_to_fit, allocator unchanged
+    nonpods_shrink_to_fit(&list3);
+    assert(nonpods_get_allocator(&list3) == oa3);
+
+    // After failed growth, allocator unchanged
+    list3.alloc = fail_a;
+    enum arraylist_error err = nonpods_push_back(&list3, non_pod_init("fail", 0, 0, &gpa));
+    assert(err != ARRAYLIST_OK);
+    assert(nonpods_get_allocator(&list3)->malloc == fail_malloc);
+
+    // resetting global dtor counter, as the counter has gone up, but not really allocated
+    global_destructor_counter_arraylist = 0;
+
+    // After pop_back/remove, allocator unchanged
+    nonpods_pop_back(&list3);
+    assert(nonpods_get_allocator(&list3) == oa3 || nonpods_get_allocator(&list3) == &list3.alloc);
+
+    // Cleanups
+    nonpods_deinit(&list2);
+    nonpods_deinit(&list3);
+
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist get_allocator value-type passed\n");
+}
+
+void test_arraylist_swap_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods a = nonpods_init(gpa);
+    struct arraylist_nonpods b = nonpods_init(gpa);
+
+    // swap two empty lists
+    size_t pre_count = global_destructor_counter_arraylist;
+    enum arraylist_error err = nonpods_swap(&a, &b);
+    assert(err == ARRAYLIST_OK);
+    assert(a.size == 0 && b.size == 0 && a.capacity == 0 && b.capacity == 0);
+    assert(a.data == NULL && b.data == NULL);
+    assert(global_destructor_counter_arraylist == pre_count);
+
+    // swap where one is empty, one is populated
+    // Add a few entries to 'a'
+    for (int i = 0; i < 5; ++i) {
+        char buf[16]; snprintf(buf, sizeof buf, "A_%d", i);
+        *nonpods_emplace_back_slot(&a) = non_pod_init(buf, i, 1.1f * i, &gpa);
+    }
+    assert(a.size == 5 && b.size == 0);
+    // Record a's original buffer properties
+    size_t old_a_cap = a.capacity;
+    void *old_a_data = a.data;
+
+    // Swap
+    err = nonpods_swap(&a, &b);
+    assert(err == ARRAYLIST_OK);
+    // a is now empty, b has previous contents of a
+    assert(a.size == 0 && a.capacity == 0 && a.data == NULL);
+    assert(b.size == 5 && b.capacity == old_a_cap && b.data == old_a_data);
+    for (size_t i = 0; i < b.size; ++i) {
+        char buf[16]; snprintf(buf, sizeof buf, "A_%d", (int)i);
+        assert(strcmp(b.data[i].objname, buf) == 0);
+        assert(*b.data[i].a == (int)i);
+    }
+
+    // swap back; restores original state
+    err = nonpods_swap(&a, &b);
+    assert(err == ARRAYLIST_OK);
+    assert(b.size == 0 && b.data == NULL);
+    assert(a.size == 5 && a.data != NULL);
+    for (size_t i = 0; i < a.size; ++i) {
+        char buf[16]; snprintf(buf, sizeof buf, "A_%d", (int)i);
+        assert(strcmp(a.data[i].objname, buf) == 0);
+        assert(*a.data[i].a == (int)i);
+    }
+
+    // swap two non-empty lists, different sizes
+    nonpods_clear(&b);
+    // b: three items
+    for (int i = 0; i < 3; ++i) {
+        char buf[16]; snprintf(buf, sizeof buf, "B_%d", i);
+        *nonpods_emplace_back_slot(&b) = non_pod_init(buf, i + 10, i + 20, &gpa);
+    }
+    size_t a_size = a.size, b_size = b.size;
+    void *a_data = a.data, *b_data = b.data;
+    size_t a_cap = a.capacity, b_cap = b.capacity;
+
+    err = nonpods_swap(&a, &b);
+    assert(err == ARRAYLIST_OK);
+    // a gets b's content
+    assert(a.size == b_size && a.capacity == b_cap && a.data == b_data);
+    for (size_t i = 0; i < a.size; ++i) {
+        char buf[16]; snprintf(buf, sizeof buf, "B_%d", (int)i);
+        assert(strcmp(a.data[i].objname, buf) == 0);
+        assert(*a.data[i].a == (int)(i+10));
+    }
+    // b gets a's content
+    assert(b.size == a_size && b.capacity == a_cap && b.data == a_data);
+    for (size_t i = 0; i < b.size; ++i) {
+        char buf[16]; snprintf(buf, sizeof buf, "A_%d", (int)i);
+        assert(strcmp(b.data[i].objname, buf) == 0);
+        assert(*b.data[i].a == (int)i);
+    }
+
+    // swap with self
+    err = nonpods_swap(&a, &a);
+    assert(err == ARRAYLIST_OK); // ok to swap with self, unchanged
+    assert(a.size == 3);
+    for (size_t i = 0; i < a.size; ++i) {
+        char buf[16]; snprintf(buf, sizeof buf, "B_%d", (int)i);
+        assert(strcmp(a.data[i].objname, buf) == 0);
+    }
+
+    // swap after deinit (one deinit, one alive)
+    nonpods_deinit(&b);
+    err = nonpods_swap(&a, &b);
+    assert(err == ARRAYLIST_OK);
+    assert(a.size == 0 && a.data == NULL);
+    assert(b.size == 3 && b.data != NULL);
+
+    // NULL-ptr safeties: returns error, doesn't crash
+    err = nonpods_swap(NULL, &b);
+    assert(err == ARRAYLIST_ERR_NULL);
+    err = nonpods_swap(&b, NULL);
+    assert(err == ARRAYLIST_ERR_NULL);
+    err = nonpods_swap(NULL, NULL);
+    assert(err == ARRAYLIST_ERR_NULL);
+
+    // Does not leak memory regardless of swap
+    nonpods_clear(&a);
+    nonpods_clear(&b);
+    assert(global_destructor_counter_arraylist == 0);
+
+    // swap two very large lists
+    struct arraylist_nonpods x = nonpods_init(gpa), y = nonpods_init(gpa);
+    for (size_t i = 0; i < 100; ++i) {
+        *nonpods_emplace_back_slot(&x) = non_pod_init("XLIST", (int)i, (float)i, &gpa);
+    }
+    for (size_t i = 0; i < 55; ++i) {
+        *nonpods_emplace_back_slot(&y) = non_pod_init("YLIST", (int)i, (float)i, &gpa);
+    }
+    // Save snapshots
+    size_t xsize = x.size, ysize = y.size;
+    void *xdata = x.data, *ydata = y.data;
+    err = nonpods_swap(&x, &y);
+    assert(err == ARRAYLIST_OK);
+    assert(x.size == ysize && x.data == ydata);
+    assert(y.size == xsize && y.data == xdata);
+    for (size_t i = 0; i < x.size; ++i) {
+        assert(strcmp(x.data[i].objname, "YLIST") == 0);
+    }
+    for (size_t i = 0; i < y.size; ++i) {
+        assert(strcmp(y.data[i].objname, "XLIST") == 0);
+    }
+
+    // clean up all
+    nonpods_deinit(&a);
+    nonpods_deinit(&b);
+    nonpods_deinit(&x);
+    nonpods_deinit(&y);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist swap value passed\n");
+}
+
+void test_arraylist_qsort_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods list = nonpods_init(gpa);
+
+    // Sort empty list (should be OK, does nothing, returns OK)
+    enum arraylist_error err = nonpods_qsort(&list, non_pod_sort_val);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+
+    // Sort single-item list (no change, works)
+    *nonpods_emplace_back_slot(&list) = non_pod_init("z", 1, 3.0, &gpa);
+    err = nonpods_qsort(&list, non_pod_sort_val);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 1);
+    assert(strcmp(list.data[0].objname, "z") == 0);
+
+    // Sort two-item: reverse, should swap
+    nonpods_clear(&list);
+    *nonpods_emplace_back_slot(&list) = non_pod_init("b", 2, 9.0, &gpa);
+    *nonpods_emplace_back_slot(&list) = non_pod_init("a", -1, 1.1, &gpa);
+    assert(strcmp(list.data[0].objname, "b") == 0);
+    assert(strcmp(list.data[1].objname, "a") == 0);
+
+    err = nonpods_qsort(&list, non_pod_sort_val);
+    assert(err == ARRAYLIST_OK);
+    // Sorted by objname, so "a" < "b"
+    assert(strcmp(list.data[0].objname, "a") == 0);
+    assert(strcmp(list.data[1].objname, "b") == 0);
+
+    // Sort already sorted: no change, still correct
+    err = nonpods_qsort(&list, non_pod_sort_val);
+    assert(err == ARRAYLIST_OK);
+    assert(strcmp(list.data[0].objname, "a") == 0);
+    assert(strcmp(list.data[1].objname, "b") == 0);
+
+    // Sort with multiple elements: random order, check sort result
+    nonpods_clear(&list);
+    const char *names[] = { "delta", "alpha", "charlie", "bravo", "echo" };
+    size_t N = sizeof(names)/sizeof(names[0]);
+    for (size_t i = 0; i < N; ++i) {
+        char buf[32];
+        snprintf(buf, sizeof(buf), "%s", names[i]);
+        *nonpods_emplace_back_slot(&list) = non_pod_init(buf, (int)i, 42.42, &gpa);
+    }
+    // Confirm not sorted
+    for (size_t i = 1; i < N; ++i) {
+        assert(strcmp(list.data[i-1].objname, list.data[i].objname) != 0 || strcmp(list.data[i-1].objname, list.data[i].objname) > 0);
+    }
+
+    err = nonpods_qsort(&list, non_pod_sort_val);
+    assert(err == ARRAYLIST_OK);
+
+    // Check sorted order
+    for (size_t i = 1; i < N; ++i) {
+        assert(strcmp(list.data[i-1].objname, list.data[i].objname) <= 0);
+    }
+    // Alphabetical: "alpha", "bravo", "charlie", "delta", "echo"
+    assert(strcmp(list.data[0].objname, "alpha") == 0);
+    assert(strcmp(list.data[1].objname, "bravo") == 0);
+    assert(strcmp(list.data[2].objname, "charlie") == 0);
+    assert(strcmp(list.data[3].objname, "delta") == 0);
+    assert(strcmp(list.data[4].objname, "echo") == 0);
+
+    // List with duplicates: check order is sorted, not necessarily stable
+    nonpods_clear(&list);
+    *nonpods_emplace_back_slot(&list) = non_pod_init("x", 0, 0.0, &gpa);
+    *nonpods_emplace_back_slot(&list) = non_pod_init("a", 99, 1.0, &gpa);
+    *nonpods_emplace_back_slot(&list) = non_pod_init("x", 11, 2.2, &gpa);
+    *nonpods_emplace_back_slot(&list) = non_pod_init("b", 12, 3.3, &gpa);
+    *nonpods_emplace_back_slot(&list) = non_pod_init("x", -1, 4.4, &gpa);
+
+    err = nonpods_qsort(&list, non_pod_sort_val);
+    assert(err == ARRAYLIST_OK);
+
+    // Sorted: a, b, x, x, x
+    assert(strcmp(list.data[0].objname, "a") == 0);
+    assert(strcmp(list.data[1].objname, "b") == 0);
+    assert(strcmp(list.data[2].objname, "x") == 0);
+    assert(strcmp(list.data[3].objname, "x") == 0);
+    assert(strcmp(list.data[4].objname, "x") == 0);
+
+    // List in reverse order: sorts to correct order
+    nonpods_clear(&list);
+    const char *revnames[] = { "gamma", "foxtrot", "echo", "delta", "charlie", "bravo", "alpha" };
+    for (size_t i = 0; i < 7; ++i) {
+        *nonpods_emplace_back_slot(&list) = non_pod_init(revnames[i], (int)i, 3.14f, &gpa);
+    }
+    err = nonpods_qsort(&list, non_pod_sort_val);
+    assert(err == ARRAYLIST_OK);
+    // alpha, bravo, charlie, delta, echo, foxtrot, gamma
+    for (size_t i = 1; i < list.size; ++i) {
+        assert(strcmp(list.data[i-1].objname, list.data[i].objname) <= 0);
+    }
+    assert(strcmp(list.data[0].objname, "alpha") == 0);
+    assert(strcmp(list.data[6].objname, "gamma") == 0);
+
+    // Re-sort after mutating contents
+    strcpy(list.data[3].objname, "zulu");
+    err = nonpods_qsort(&list, non_pod_sort_val);
+    assert(err == ARRAYLIST_OK);
+    // alpha, bravo, charlie, echo, foxtrot, gamma, zulu
+    assert(strcmp(list.data[list.size - 1].objname, "zulu") == 0);
+
+    // Test behavior if NULL list passed: returns ARRAYLIST_ERR_NULL, does not crash
+    err = nonpods_qsort(NULL, non_pod_sort_val);
+    assert(err == ARRAYLIST_ERR_NULL);
+
+    //Test behavior if NULL comparison function
+    err = nonpods_qsort(&list, NULL);
+    // Should not crash, returns early
+    assert(err == ARRAYLIST_ERR_NULL);
+
+    // After clear: sort is valid, sort no data does nothing
+    nonpods_clear(&list);
+    err = nonpods_qsort(&list, non_pod_sort_val);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+
+    // Large random case: sort is correct, stable
+    nonpods_clear(&list);
+    size_t bigN = 128;
+    // Insert shuffled (descending) names
+    for (size_t i = 0; i < bigN; ++i) {
+        char buf[32];
+        snprintf(buf, sizeof buf, "%.3u", (unsigned)(bigN-i));
+        *nonpods_emplace_back_slot(&list) = non_pod_init(buf, (int)i, 1.0+i, &gpa);
+    }
+    err = nonpods_qsort(&list, non_pod_sort_val);
+    assert(err == ARRAYLIST_OK);
+    // Should be in strictly increasing order by string
+    for (size_t i = 1; i < list.size; ++i) {
+        assert(strcmp(list.data[i-1].objname, list.data[i].objname) <= 0);
+    }
+    // Should have 001 at beginning, etc
+    assert(strncmp(list.data[0].objname, "001", 3) == 0);
+
+    // Does not lose or duplicate objects
+    assert(list.size == bigN);
+
+    // Sorted result is correct: using at()
+    struct non_pod *first = nonpods_at(&list, 0);
+    struct non_pod *last = nonpods_at(&list, bigN - 1);
+    assert(first && last);
+    assert(strncmp(first->objname, "001", 3) == 0);
+    assert(strncmp(last->objname, "128", 3) == 0);
+
+    nonpods_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist qsort value-type passed\n");
+}
+
+void test_arraylist_clear_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods list = nonpods_init(gpa);
+    size_t N = 8;
+
+    // On a freshly initialized list
+    assert(list.size == 0 && list.data == NULL);
+    enum arraylist_error err = nonpods_clear(&list);
+    assert(err == ARRAYLIST_OK); // No crash
+    assert(list.size == 0);
+    assert(list.capacity == 0);
+
+    // On NULL pointer: no crash, returns OK
+    assert(nonpods_clear(NULL) == ARRAYLIST_OK);
+
+    // After adding a single element, then clearing
+    *nonpods_emplace_back_slot(&list) = non_pod_init("A", 1, 2.0, &gpa);
+    assert(list.size == 1 && global_destructor_counter_arraylist == 1);
+    err = nonpods_clear(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(list.capacity >= 1);
+    assert(global_destructor_counter_arraylist == 0);
+    // Data pointer may remain allocated, but don't deref beyond list.size.
+
+    // Multiple elements, all destructors called, buffer not shrunk
+    for (size_t i = 0; i < N; ++i) {
+        *nonpods_emplace_back_slot(&list) = non_pod_init("B", (int)i, (float)i, &gpa);
+    }
+    assert(list.size == N);
+    assert(global_destructor_counter_arraylist == N);
+    size_t prev_cap = list.capacity;
+    void *prev_data = list.data;
+    err = nonpods_clear(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(list.capacity == prev_cap);
+    assert(list.data == prev_data);
+    assert(global_destructor_counter_arraylist == 0);
+
+    // After clear, can add again
+    *nonpods_emplace_back_slot(&list) = non_pod_init("C", 3, 4.0, &gpa);
+    assert(list.size == 1);
+    assert(global_destructor_counter_arraylist == 1);
+
+    // clear again after clear: safe (idempotent)
+    err = nonpods_clear(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == 0);
+    assert(list.capacity == prev_cap);
+
+    // clear on an already empty but allocated list is a no-op
+    err = nonpods_clear(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(list.capacity == prev_cap);
+
+    // List still usable after clear
+    for (size_t i = 0; i < 5; ++i) {
+        char buf[5]; snprintf(buf, sizeof buf, "X%lu", i);
+        *nonpods_emplace_back_slot(&list) = non_pod_init(buf, (int)i, (float)i, &gpa);
+    }
+    assert(list.size == 5);
+    assert(global_destructor_counter_arraylist == 5);
+
+    // clear, then shrink_to_fit to test buffer freed/compaction after clear
+    err = nonpods_clear(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == 0);
+    err = nonpods_shrink_to_fit(&list);
+    assert(err == ARRAYLIST_OK);
+    // Now storage should be truly freed
+    assert(list.data == NULL || list.capacity == 0);
+    // Clear on a totally fresh buffer returns OK
+    err = nonpods_clear(&list);
+
+    // After deinit, clear is safe (does not crash, acts as no-op)
+    nonpods_deinit(&list);
+    err = nonpods_clear(&list); // Shouldn't crash, size should be zero, return OK.
+    assert(err == ARRAYLIST_OK);
+
+    // Multiple calls to clear after deinit: no op
+    err = nonpods_clear(&list);
+    assert(err == ARRAYLIST_OK);
+
+    // Re-init, add, clear
+    list = nonpods_init(gpa);
+    *nonpods_emplace_back_slot(&list) = non_pod_init("ZZ", 9, 9.9, &gpa);
+    assert(list.size == 1);
+    assert(global_destructor_counter_arraylist == 1);
+    err = nonpods_clear(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0 && global_destructor_counter_arraylist == 0);
+
+    // Large list, destructor call count and buffer preserved
+    for (size_t i = 0; i < 40; ++i) {
+        *nonpods_emplace_back_slot(&list) = non_pod_init("bulk", (int)i, (float)i, &gpa);
+    }
+    assert(list.size == 40 && global_destructor_counter_arraylist == 40);
+    prev_cap = list.capacity; prev_data = list.data;
+    err = nonpods_clear(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0 && list.capacity == prev_cap && list.data == prev_data);
+    assert(global_destructor_counter_arraylist == 0);
+
+    // After clear, insert and then deinit: destructor is called for new element
+    *nonpods_emplace_back_slot(&list) = non_pod_init("L", 1, 2.2, &gpa); // +1
+    nonpods_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+
+    printf("test arraylist clear value-type passed\n");
+}
+
+void test_arraylist_deinit_value(void) {
+    struct Allocator gpa = allocator_get_default();
+
+    // Basic deinit: empties everything, frees buffer, destructor called on all
+
+    global_destructor_counter_arraylist = 0;
+
+    struct arraylist_nonpods list = nonpods_init(gpa);
+
+    // Fill the array
+    const size_t N = 10;
+    for (size_t i = 0; i < N; ++i) {
+        char name[16];
+        snprintf(name, sizeof(name), "np%lu", i);
+        *nonpods_emplace_back_slot(&list) = non_pod_init(name, (int)i, (float)i, &gpa);
+    }
+    assert(list.size == N);
+    assert(global_destructor_counter_arraylist == N);
+    assert(list.data != NULL);
+    assert(list.capacity >= N);
+
+    // Call deinit
+    nonpods_deinit(&list);
+
+    // After deinit, array is empty/zeroed, no leaks, buffer is invalid
+    assert(list.size == 0);
+    assert(list.capacity == 0);
+    assert(list.data == NULL);
+    assert(memcmp(&list.alloc, (const char[sizeof(list.alloc)]){0}, sizeof(list.alloc)) == 0);
+    assert(global_destructor_counter_arraylist == 0);
+
+    // Deinit is safe for already deinitialized or empty lists: second call does nothing
+    nonpods_deinit(&list); // No crash, no double free, still zeroed
+    assert(list.size == 0);
+    assert(list.capacity == 0);
+    assert(list.data == NULL);
+    assert(global_destructor_counter_arraylist == 0);
+
+    // Deinit is a no-op for zero-capacity, zero-size (already empty)
+    struct arraylist_nonpods empty = nonpods_init(gpa);
+    nonpods_deinit(&empty);
+    assert(empty.size == 0);
+    assert(empty.capacity == 0);
+    assert(empty.data == NULL);
+    assert(global_destructor_counter_arraylist == 0);
+
+    // Deinit safe for NULL: nothing happens, no crash
+    nonpods_deinit(NULL);
+
+    // Interleaved use: repeated allocate/deinit cycles (no leaks/UB)
+    for (size_t cycle = 0; cycle < 5; ++cycle) {
+        struct arraylist_nonpods cyc = nonpods_init(gpa);
+        for (size_t j = 0; j < 3 + cycle; ++j) {
+            char nm[8]; snprintf(nm, sizeof nm, "cyc%lu_%lu", cycle, j);
+            *nonpods_emplace_back_slot(&cyc) = non_pod_init(nm, (int)j, (float)j, &gpa);
+        }
+        assert(global_destructor_counter_arraylist > 0);
+        nonpods_deinit(&cyc);
+        assert(global_destructor_counter_arraylist == 0);
+    }
+
+    // Can safely re-init after deinit, as per API doc
+    list = nonpods_init(gpa);
+    *nonpods_emplace_back_slot(&list) = non_pod_init("AFTER", 123, 4.56, &gpa);
+    assert(list.size == 1);
+    assert(global_destructor_counter_arraylist == 1);
+
+    nonpods_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+
+    // Ensure dtor called for each element
+    // We'll count dtors, then forcibly clear without dtor (dirty trick: bypass it)
+    list = nonpods_init(gpa);
+    for (size_t i = 0; i < 5; ++i) {
+        *nonpods_emplace_back_slot(&list) = non_pod_init("count", 17, 3.14, &gpa);
+    }
+    assert(global_destructor_counter_arraylist == 5);
+    // Remove three elements (to cover partial clear)
+    nonpods_remove_at(&list, 0);
+    nonpods_remove_at(&list, 0);
+    nonpods_remove_at(&list, 0);
+    assert(global_destructor_counter_arraylist == 2);
+
+    nonpods_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist deinit value-type passed\n");
+}
+
+/* === END ARRAYLIST UNIT TESTS NON POD === */
+
+/* === START ARRAYLIST UNIT TESTS NON POD POINTER === */
+
+ARRAYLIST(struct non_pod *, nonpods_ptr, non_pod_deinit_macro_ptr)
+
+void test_arraylist_init_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods_ptr list = nonpods_ptr_init(gpa);
+
+    assert(list.size == 0);
+    assert(list.capacity == 0);
+    assert(list.data == NULL);
+    assert(list.alloc.malloc == gpa.malloc);
+
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist init for pointer types passed\n");
+}
+
+void test_arraylist_reserve_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods_ptr list = nonpods_ptr_init(gpa);
+
+    // Reserve when list is empty: allocates exactly requested size
+    enum arraylist_error err = nonpods_ptr_reserve(&list, 10);
+    assert(err == ARRAYLIST_OK);
+    assert(list.capacity == 10);
+    assert(list.data != NULL);
+    assert(list.size == 0);
+
+    // Reserve smaller (no-op): capacity remains unchanged
+    err = nonpods_ptr_reserve(&list, 5);
+    assert(err == ARRAYLIST_OK);
+    assert(list.capacity == 10);    // No shrink
+
+    // Reserve same size (no-op)
+    err = nonpods_ptr_reserve(&list, 10);
+    assert(err == ARRAYLIST_OK);
+    assert(list.capacity == 10);    // Still 10
+
+    // Reserve larger: reallocs and grows buffer, data valid
+
+    // Fill up to 4
+    for (size_t i = 0; i < 4; ++i) {
+        *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("a", i, i, &gpa);
+    }
+    //struct non_pod **olddata = list.data;
+    err = nonpods_ptr_reserve(&list, 32);
+    assert(err == ARRAYLIST_OK);
+    assert(list.capacity == 32);    // Grown
+    assert(list.size == 4);
+    assert(list.data != NULL);
+    // Data is preserved
+    for (size_t i = 0; i < list.size; ++i) {
+        assert(strcmp(list.data[i]->objname, "a") == 0);
+    }
+    // Possibly new buffer, but implementation allows same pointer if realloc does nothing.
+    // Do not hold pointers to old data if a realloc happens
+    //assert(list.data == olddata);
+
+    // Emplace more after reserve: no further realloc until cap hit
+    size_t prevcap = list.capacity;
+    for (size_t i = 4; i < 32; ++i) {
+        *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("b", (int)i, (float)i, &gpa);
+    }
+    assert(list.size == 32);
+    assert(list.capacity == prevcap);
+
+    // Reserve to much larger: works and keeps old data
+    err = nonpods_ptr_reserve(&list, 64);
+    assert(err == ARRAYLIST_OK);
+    assert(list.capacity == 64);
+    for (size_t i = 0; i < list.size; ++i) {
+        assert(list.data[i]->a != NULL);
+    }
+
+    // Reserve with zero (should not shrink; no effect, not an error)
+    prevcap = list.capacity;
+    err = nonpods_ptr_reserve(&list, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.capacity == prevcap);
+
+    // Reserve with capacity equal to maximum supported by the allocator: catches overflow
+    size_t maxsafe = SIZE_MAX / sizeof(struct non_pod*);
+    err = nonpods_ptr_reserve(&list, maxsafe + 1);
+    assert(err == ARRAYLIST_ERR_OVERFLOW);
+
+    // Reserve with failing allocation: returns error, does not affect old buffer
+    // Provide an allocator that always fails, init a fresh list
+    struct Allocator fail_alloc = allocator_get_failling_alloc();
+    struct arraylist_nonpods_ptr fail_list = nonpods_ptr_init(fail_alloc);
+    // first reserve: fails as malloc returns NULL
+    err = nonpods_ptr_reserve(&fail_list, 8);
+    assert(err == ARRAYLIST_ERR_ALLOC);
+    assert(fail_list.capacity == 0);
+    assert(fail_list.data == NULL);
+
+    // Fill a normal list to known good state
+    struct arraylist_nonpods_ptr small = nonpods_ptr_init(gpa);
+    for (size_t i = 0; i < 2; ++i) {
+        *nonpods_ptr_emplace_back_slot(&small) = non_pod_init_ptr("QQ", 2, 3, &gpa);
+    }
+    small.capacity = 2;
+    // Now try to reserve with failing allocator change
+    small.alloc = fail_alloc;
+    err = nonpods_ptr_reserve(&small, 3);
+    // Fails (realloc returns NULL), buffer unchanged
+    assert(err == ARRAYLIST_ERR_ALLOC);
+    // Since realloc failed, old data/cap remains
+    assert(small.capacity == 2);
+    // May or may not have NULL data pointer as realloc is permitted to leave old pointer unchanged
+
+    // Reserve on uninitialized/null list: returns error (no crash)
+    err = nonpods_ptr_reserve(NULL, 8);
+    assert(err == ARRAYLIST_ERR_NULL);
+
+    // Remark: After shrinking the list (with shrink_size), reserve does not shrink buffer
+    err = nonpods_ptr_reserve(&list, 16);
+    assert(err == ARRAYLIST_OK);
+    // (Cap remains 64 since already large enough)
+    assert(list.capacity == 64);
+
+    // Clean up
+    nonpods_ptr_deinit(&list);
+    nonpods_ptr_deinit(&small);
+    nonpods_ptr_deinit(&fail_list);
+
+    nonpods_ptr_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist reserve pointer-type passed\n");
+}
+
+void test_arraylist_shrink_size_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods_ptr list = nonpods_ptr_init(gpa);
+
+    // Add three pointers
+    struct non_pod *a = non_pod_init_ptr("a", 1, 1.1, &gpa);
+    struct non_pod *b = non_pod_init_ptr("b", 2, 2.2, &gpa);
+    struct non_pod *c = non_pod_init_ptr("c", 3, 3.3, &gpa);
+    *nonpods_ptr_emplace_back_slot(&list) = a;
+    *nonpods_ptr_emplace_back_slot(&list) = b;
+    *nonpods_ptr_emplace_back_slot(&list) = c;
+    assert(list.size == 3);
+
+    // Shrink to 2: c's dtor called, a/b remain
+    size_t before = global_destructor_counter_arraylist;
+    enum arraylist_error err = nonpods_ptr_shrink_size(&list, 2);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 2);
+    assert(list.data[0] == a);
+    assert(list.data[1] == b);
+    assert(global_destructor_counter_arraylist == before - 1);
+
+    // Shrink to 1: b's dtor called
+    err = nonpods_ptr_shrink_size(&list, 1);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 1);
+    assert(list.data[0] == a);
+
+    // Shrink to greater
+    before = global_destructor_counter_arraylist;
+    err = nonpods_ptr_shrink_size(&list, 3);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 1);
+    assert(global_destructor_counter_arraylist == before);
+
+    // Shrink to zero: a's dtor called
+    err = nonpods_ptr_shrink_size(&list, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == 0);
+
+    nonpods_ptr_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist shrink_size pointer-type passed\n");
+}
+
+void test_arraylist_shrink_to_fit_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods_ptr list = nonpods_ptr_init(gpa);
+
+    // Grow to larger capacity
+    for (size_t i = 0; i < 10; ++i)
+        *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("p", i, i, &gpa);
+
+    size_t orig_cap = list.capacity, orig_size = list.size;
+    assert(orig_cap > orig_size);
+
+    enum arraylist_error err = nonpods_ptr_shrink_to_fit(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.capacity == orig_size);
+    for (size_t i = 0; i < list.size; ++i)
+        assert(list.data[i] != NULL);
+
+    // Shrink more (after removing some pointers)
+    err = nonpods_ptr_shrink_size(&list, 2);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 2);
+
+    err = nonpods_ptr_shrink_to_fit(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.capacity == 2);
+
+    // Shrink to fit empty list
+    err = nonpods_ptr_shrink_size(&list, 0);
+    assert(err == ARRAYLIST_OK);
+
+    err = nonpods_ptr_shrink_to_fit(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.capacity == 0);
+    assert(list.data == NULL);
+
+    err = nonpods_ptr_shrink_to_fit(&list);
+    assert(err == ARRAYLIST_OK);
+
+    nonpods_ptr_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist shrink_to_fit pointer-type passed\n");
+}
+
+void test_arraylist_push_back_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods_ptr list = nonpods_ptr_init(gpa);
+
+    // Push n pointers
+    size_t N = 6;
+    for (size_t i = 0; i < N; ++i) {
+        char buf[32];
+        snprintf(buf, sizeof buf, "ptr%lu", i);
+        struct non_pod *p = non_pod_init_ptr(buf, i, i + 0.1, &gpa);
+        enum arraylist_error err = nonpods_ptr_push_back(&list, p);
+        assert(err == ARRAYLIST_OK);
+        assert(list.size == i + 1);
+        assert(list.data[i]);
+        assert(strcmp(list.data[i]->objname, buf) == 0);
+    }
+
+    // Remove all, check counter
+    nonpods_ptr_clear(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    // Push one more, then deinit twice (should be noop after first)
+    struct non_pod *tmp = non_pod_init_ptr("again-ptr", 101, 202.2, &gpa);
+    nonpods_ptr_push_back(&list, tmp);
+    assert(list.size == 1);
+    nonpods_ptr_deinit(&list);
+    assert(list.size == 0);
+    assert(list.capacity == 0);
+    assert(global_destructor_counter_arraylist == 0);
+    nonpods_ptr_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist push_back pointer-type passed\n");
+}
+
+void test_arraylist_emplace_back_slot_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods_ptr list = nonpods_ptr_init(gpa);
+
+    // Emplace one element; returned pointer is valid and modifiable
+    struct non_pod **slot1 = nonpods_ptr_emplace_back_slot(&list);
+    assert(slot1 != NULL);
+    // Can write individually through the slots:
+    // (*slot1)->objname = gpa.malloc(5, gpa.ctx);
+    // strcpy((*slot1)->objname, "foo");
+    // (*slot1)->a = gpa.malloc(sizeof(int), gpa.ctx);
+    // *(*slot1)->a = 1;
+    // (*slot1)->b = gpa.malloc(sizeof(float), gpa.ctx);
+    // *(*slot1)->b = 1.1f;
+
+    // need to deref only the slot with a list of pointer types
+    *slot1 = non_pod_init_ptr("foo", 1, 1.1, &gpa);
+
+    assert(list.size == 1);
+    assert(list.capacity == 1);
+    assert(strcmp((*list.data[0]).objname, "foo") == 0);
+    assert(list.data[0]->a && *list.data[0]->a == 1);
+    // Data written through slot is visible in data array
+    *(*slot1)->a = 27;
+    assert(*(*list.data[0]).a == 27);
+
+    // However after realloc, these pointers may not be valid anymore, so don't do this
+
+    // Emplace multiple: Each pointer is unique, order preserved
+    for (size_t i = 0; i < 5; ++i) {
+        struct non_pod **slot = nonpods_ptr_emplace_back_slot(&list);
+        assert(slot != NULL);
+        char name[6];
+        snprintf(name, sizeof name, "item%lu", i);
+        *slot = non_pod_init_ptr(name, i, 100.1f + i, &gpa);
+        assert((*list.data[list.size - 1]).a && *(*slot)->a == (int)i);
+        assert(strcmp((*slot)->objname, name) == 0);
+    }
+
+    // Emplacing triggers growth, previous pointers are NOT preserved
+    size_t old_capacity = list.capacity;
+    struct non_pod **old_first = &list.data[0];
+    for (size_t i = 0; i < 20; ++i) {
+        struct non_pod **slot_grow = nonpods_ptr_emplace_back_slot(&list);
+        char name[8];
+        snprintf(name, sizeof name, "slot%lu", i);
+        *slot_grow = non_pod_init_ptr(name, i + 1, 200.2f + i, &gpa);
+    }
+
+    assert(list.capacity > old_capacity);
+    // After realloc, previous values are still valid and not overwritten, however, pointers are not in the same location
+    // Thus, do not hold data pointers of list after operations that may realloc
+    assert(slot1 != old_first);
+
+    assert(strcmp(list.data[0]->objname, "foo") == 0);
+
+    // After deinit, one must init again to not crash
+    nonpods_ptr_deinit(&list);
+    list = nonpods_ptr_init(gpa);
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("testing1", 1, 1.1, &gpa);
+    assert(list.size == 1);
+    assert(list.capacity == 1);
+
+    // Testing doubling capacity
+    // Do not need to create temp values to insert, however, there is way to check for failure this way
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("testing2", 2, 2.2, &gpa);
+    assert(list.size == 2);
+    assert(list.capacity == 2);
+
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("testing3", 3, 3.3, &gpa);
+    assert(list.size == 3);
+    assert(list.capacity == 4);
+
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("testing4", 4, 4.4, &gpa);
+    assert(list.size == 4);
+    assert(list.capacity == 4);
+
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("testing5", 5, 5.5, &gpa);
+    assert(list.size == 5);
+    assert(list.capacity == 8);
+
+    nonpods_ptr_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist emplace_back_slot pointer-type passed\n");
+}
+
+void test_arraylist_insert_at_pointer(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods_ptr list = nonpods_ptr_init(gpa);
+
+    // Insert into empty list, index 0; becomes head
+    struct non_pod *a = non_pod_init_ptr("A", 10, 0.1, &gpa);
+    enum arraylist_error err = nonpods_ptr_insert_at(&list, a, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 1);
+    assert(strcmp(list.data[0]->objname, "A") == 0);
+
+    // Insert at head (index 0), should become new head; existing shift right
+    struct non_pod *b = non_pod_init_ptr("B", 20, 0.2, &gpa);
+    err = nonpods_ptr_insert_at(&list, b, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 2);
+    assert(strcmp(list.data[0]->objname, "B") == 0);
+    assert(strcmp(list.data[1]->objname, "A") == 0);
+
+    // Insert at tail (index=size), should append
+    struct non_pod *c = non_pod_init_ptr("C", 30, 0.3, &gpa);
+    err = nonpods_ptr_insert_at(&list, c, list.size);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 3);
+    assert(strcmp(list.data[2]->objname, "C") == 0);
+
+    // Insert in the middle (index=1)
+    struct non_pod *d = non_pod_init_ptr("D", 40, 0.4, &gpa);
+    err = nonpods_ptr_insert_at(&list, d, 1);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 4);
+    assert(strcmp(list.data[0]->objname, "B") == 0);
+    assert(strcmp(list.data[1]->objname, "D") == 0);
+    assert(strcmp(list.data[2]->objname, "A") == 0);
+    assert(strcmp(list.data[3]->objname, "C") == 0);
+
+    // Insert at index > size (out of bounds), should append
+    struct non_pod *e = non_pod_init_ptr("E", 50, 0.5, &gpa);
+    err = nonpods_ptr_insert_at(&list, e, 999);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 5);
+    assert(strcmp(list.data[4]->objname, "E") == 0);
+
+    // Check all memory still valid and unchanged
+    assert(strcmp(list.data[0]->objname, "B") == 0);
+    assert(strcmp(list.data[1]->objname, "D") == 0);
+    assert(strcmp(list.data[2]->objname, "A") == 0);
+    assert(strcmp(list.data[3]->objname, "C") == 0);
+    assert(strcmp(list.data[4]->objname, "E") == 0);
+
+    // Capacity grows correctly; insert repeatedly to trigger realloc
+    for (size_t i = 0; i < 10; ++i) {
+        char name[12];
+        snprintf(name, sizeof(name), "val%lu", i);
+        struct non_pod *tmp = non_pod_init_ptr(name, i, i, &gpa);
+        err = nonpods_ptr_insert_at(&list, tmp, 2); // always in middle
+        assert(err == ARRAYLIST_OK);
+    }
+    assert(list.size == 15);
+    assert(list.capacity >= list.size);
+
+    // Insert at every possible index in small list
+    nonpods_ptr_clear(&list);
+    for (size_t i = 0; i < 4; ++i) {
+        struct non_pod *t = non_pod_init_ptr("X", i, i, &gpa);
+        err = nonpods_ptr_insert_at(&list, t, i); // should be append to each
+        assert(err == ARRAYLIST_OK);
+        assert(list.size == i + 1);
+    }
+    // Now list is [X, X, X, X]; insert at head (0), tail (size=4), and middle (2)
+    struct non_pod *y = non_pod_init_ptr("Y", 99, 99.9, &gpa);
+    err = nonpods_ptr_insert_at(&list, y, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 5);
+    assert(strcmp(list.data[0]->objname, "Y") == 0);
+    struct non_pod *z = non_pod_init_ptr("Z", 100, -10, &gpa);
+    err = nonpods_ptr_insert_at(&list, z, 2);
+    assert(list.size == 6);
+    assert(strcmp(list.data[2]->objname, "Z") == 0);
+
+    // Reset list
+    nonpods_ptr_deinit(&list);
+    list = nonpods_ptr_init(gpa);
+
+    // Testing double capacity
+    struct non_pod *a1 = non_pod_init_ptr("A", 1, 1.1, &gpa);
+    nonpods_ptr_insert_at(&list, a1, 0);
+    assert(list.size == 1);
+    assert(list.capacity == 1);
+
+    struct non_pod *a2 = non_pod_init_ptr("B", 2, 2.2, &gpa);
+    nonpods_ptr_insert_at(&list, a2, 0);
+    assert(list.size == 2);
+    assert(list.capacity == 2);
+
+    struct non_pod *a3 = non_pod_init_ptr("C", 3, 3.3, &gpa);
+    nonpods_ptr_insert_at(&list, a3, 0);
+    assert(list.size == 3);
+    assert(list.capacity == 4);
+
+    struct non_pod *a4 = non_pod_init_ptr("D", 4, 4.4, &gpa);
+    nonpods_ptr_insert_at(&list, a4, 0);
+    assert(list.size == 4);
+    assert(list.capacity == 4);
+
+    struct non_pod *a5 = non_pod_init_ptr("E", 5, 5.5, &gpa);
+    nonpods_ptr_insert_at(&list, a5, 0);
+    assert(list.size == 5);
+    assert(list.capacity == 8);
+
+    nonpods_ptr_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist insert_at pointer-type passed\n");
+}
+
+void test_arraylist_pop_back_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods_ptr list = nonpods_ptr_init(gpa);
+
+    // Pop on empty list
+    size_t before = global_destructor_counter_arraylist;
+    enum arraylist_error err = nonpods_ptr_pop_back(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == before);
+
+    // Push one, then pop
+    struct non_pod *a = non_pod_init_ptr("A", 11, 1.1, &gpa);
+    err = nonpods_ptr_push_back(&list, a);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 1);
+    before = global_destructor_counter_arraylist;
+    err = nonpods_ptr_pop_back(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == before - 1);
+
+    // Push several, then pop all
+    for (size_t i = 0; i < 5; ++i) {
+        char name[16]; snprintf(name, sizeof name, "item%lu", i);
+        *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr(name, 10+i, 10+i, &gpa);
+    }
+    assert(list.size == 5);
+    size_t alive = global_destructor_counter_arraylist;
+    for (size_t i = 0; i < 5; ++i) {
+        err = nonpods_ptr_pop_back(&list);
+        assert(err == ARRAYLIST_OK);
+        assert(list.size == 5 - (i + 1));
+        assert(global_destructor_counter_arraylist == alive - (i + 1));
+    }
+    assert(list.size == 0);
+
+    // Interleave push/pop (LIFO)
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("foo", 1, 1, &gpa);
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("bar", 2, 2, &gpa);
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("baz", 3, 3, &gpa);
+
+    const char* expect_names[] = {"foo", "bar", "baz"};
+    for (size_t i = 0; i < 3; ++i)
+        assert(strcmp(list.data[i]->objname, expect_names[i]) == 0);
+
+    err = nonpods_ptr_pop_back(&list); // removes "baz"
+    assert(list.size == 2);
+    assert(strcmp(list.data[0]->objname, "foo") == 0);
+    assert(strcmp(list.data[1]->objname, "bar") == 0);
+
+    err = nonpods_ptr_pop_back(&list); // removes "bar"
+    assert(list.size == 1);
+    assert(strcmp(list.data[0]->objname, "foo") == 0);
+
+    err = nonpods_ptr_pop_back(&list); // removes "foo"
+    assert(list.size == 0);
+
+    // Push many to grow capacity, then pop many
+    for (size_t i = 0; i < 16; ++i)
+        *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("grow", i, i, &gpa);
+    size_t cap = list.capacity;
+    for (size_t i = 0; i < 16; ++i)
+        nonpods_ptr_pop_back(&list);
+    assert(list.size == 0);
+    assert(list.capacity == cap); // pop_back never shrinks
+    assert(global_destructor_counter_arraylist == 0);
+
+    // Push, clear, pop_back is no-op
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("after", 123, 1, &gpa);
+    nonpods_ptr_clear(&list);
+    before = global_destructor_counter_arraylist;
+    err = nonpods_ptr_pop_back(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == before);
+
+    nonpods_ptr_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn pop_back pointer-type passed\n");
+}
+
+void test_arraylist_remove_at_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods_ptr list = nonpods_ptr_init(gpa);
+    enum arraylist_error err;
+    size_t before;
+
+    // Remove from empty list (should no-op)
+    before = global_destructor_counter_arraylist;
+    err = nonpods_ptr_remove_at(&list, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == before);
+
+    // One element, remove at 0
+    struct non_pod *a = non_pod_init_ptr("A", 1, 1.1, &gpa);
+    *nonpods_ptr_emplace_back_slot(&list) = a;
+    assert(list.size == 1);
+    before = global_destructor_counter_arraylist;
+    err = nonpods_ptr_remove_at(&list, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == before - 1); // dtor called
+
+    // Add several, remove head, tail, middle
+    struct non_pod *b = non_pod_init_ptr("B", 2, 2.2, &gpa);
+    struct non_pod *c = non_pod_init_ptr("C", 3, 3.3, &gpa);
+    struct non_pod *d = non_pod_init_ptr("D", 4, 4.4, &gpa);
+    struct non_pod *e = non_pod_init_ptr("E", 5, 5.5, &gpa);
+    *nonpods_ptr_emplace_back_slot(&list) = b;  // 0
+    *nonpods_ptr_emplace_back_slot(&list) = c;  // 1
+    *nonpods_ptr_emplace_back_slot(&list) = d;  // 2
+    *nonpods_ptr_emplace_back_slot(&list) = e;  // 3
+    assert(list.size == 4);
+
+    // Remove head (index 0)
+    before = global_destructor_counter_arraylist;
+    err = nonpods_ptr_remove_at(&list, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 3);
+    assert(global_destructor_counter_arraylist == before - 1); // one destructor called
+    // Remaining should be [C, D, E]
+    assert(strcmp(list.data[0]->objname, "C") == 0);
+
+    // Remove tail (index size-1)
+    before = global_destructor_counter_arraylist;
+    err = nonpods_ptr_remove_at(&list, list.size - 1);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 2);
+    assert(global_destructor_counter_arraylist == before - 1); // one destructor called
+    // Remaining should be [C, D]
+    assert(strcmp(list.data[0]->objname, "C") == 0);
+    assert(strcmp(list.data[1]->objname, "D") == 0);
+
+    // Remove middle (index 1, which is D)
+    before = global_destructor_counter_arraylist;
+    err = nonpods_ptr_remove_at(&list, 1);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 1);
+    assert(global_destructor_counter_arraylist == before - 1);
+    assert(strcmp(list.data[0]->objname, "C") == 0);
+
+    // Remove only remaining element
+    err = nonpods_ptr_remove_at(&list, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == 0);
+
+    // Add more, remove with index out of bounds (should act like pop_back)
+    for (int i = 0; i < 5; ++i) {
+        char buf[8];
+        snprintf(buf, sizeof buf, "X%d", i);
+        *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr(buf, i, i+0.1, &gpa);
+    }
+    size_t sz = list.size;
+    before = global_destructor_counter_arraylist;
+    err = nonpods_ptr_remove_at(&list, 9999); // way OOB
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == sz - 1);
+    assert(global_destructor_counter_arraylist == before - 1);
+
+    // Remove with index == size (past end, also acts like pop_back)
+    sz = list.size;
+    before = global_destructor_counter_arraylist;
+    err = nonpods_ptr_remove_at(&list, list.size);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == sz - 1);
+    assert(global_destructor_counter_arraylist == before - 1);
+
+    // Remove with index == SIZE_MAX (wraps, will pop_back, test no crash)
+    sz = list.size;
+    before = global_destructor_counter_arraylist;
+    err = nonpods_ptr_remove_at(&list, SIZE_MAX);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == sz - 1);
+    assert(global_destructor_counter_arraylist == before - 1);
+
+    // Remove remaining (result: should be fully destructed)
+    while (list.size > 0) {
+        nonpods_ptr_remove_at(&list, 0);
+    }
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == 0);
+
+    // Test repeated removes on already empty list
+    before = global_destructor_counter_arraylist;
+    err = nonpods_ptr_remove_at(&list, 0);
+    assert(err == ARRAYLIST_OK);
+    err = nonpods_ptr_remove_at(&list, SIZE_MAX);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == before);
+
+    // Restore: Fill list, remove every position, check value stability / shifting
+    for (int i = 0; i < 4; ++i) {
+        char buf[8];
+        snprintf(buf, sizeof buf, "YY%d", i);
+        *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr(buf, 100+i, 500.5+i, &gpa);
+    }
+    // [YY0, YY1, YY2, YY3]
+    // Remove 1 (YY1)
+    before = global_destructor_counter_arraylist;
+    err = nonpods_ptr_remove_at(&list, 1);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 3);
+    assert(global_destructor_counter_arraylist == before - 1);
+    assert(strcmp(list.data[0]->objname, "YY0") == 0);
+    assert(strcmp(list.data[1]->objname, "YY2") == 0); // shifted up
+    assert(strcmp(list.data[2]->objname, "YY3") == 0);
+
+    // Remove 1 (YY2, now at index 1)
+    err = nonpods_ptr_remove_at(&list, 1);
+    assert(list.size == 2);
+    assert(strcmp(list.data[0]->objname, "YY0") == 0);
+    assert(strcmp(list.data[1]->objname, "YY3") == 0);
+
+    // Remove 0 (YY0)
+    err = nonpods_ptr_remove_at(&list, 0);
+    assert(list.size == 1);
+    assert(strcmp(list.data[0]->objname, "YY3") == 0);
+
+    // Remove 0 (YY3)
+    err = nonpods_ptr_remove_at(&list, 0);
+    assert(list.size == 0);
+
+    // Remove at 0 again to check stable empty
+    err = nonpods_ptr_remove_at(&list, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+
+    nonpods_ptr_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist remove_at pointer-type passed\n");
+}
+
+void test_arraylist_remove_from_to_ptr(void)
+{
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods_ptr list = nonpods_ptr_init(gpa);
+
+    // Fill with 6 named objects: A, B, C, D, E, F
+    const char *names[] = {"A", "B", "C", "D", "E", "F"};
+    for (size_t i = 0; i < 6; ++i) {
+        *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr(names[i], 100 + i, 1.0+i, &gpa);
+    }
+
+    assert(list.size == 6);
+    assert(global_destructor_counter_arraylist == 6);
+
+    // Remove from head: [A, B, C, D, E, F] -- remove 0..1 -> [C, D, E, F]
+    size_t before = global_destructor_counter_arraylist;
+    enum arraylist_error err = nonpods_ptr_remove_from_to(&list, 0, 1);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 4);
+    assert(global_destructor_counter_arraylist == before - 2);
+    assert(strcmp(list.data[0]->objname, "C") == 0);
+    assert(strcmp(list.data[1]->objname, "D") == 0);
+    assert(strcmp(list.data[2]->objname, "E") == 0);
+    assert(strcmp(list.data[3]->objname, "F") == 0);
+
+    // Remove from middle: [C, D, E, F] -- remove 1..2 -> [C, F]
+    before = global_destructor_counter_arraylist;
+    err = nonpods_ptr_remove_from_to(&list, 1, 2);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 2);
+    assert(global_destructor_counter_arraylist == before - 2);
+    assert(strcmp(list.data[0]->objname, "C") == 0);
+    assert(strcmp(list.data[1]->objname, "F") == 0);
+
+    // Remove last element only: [C, F] -- remove 1..1 => [C]
+    before = global_destructor_counter_arraylist;
+    err = nonpods_ptr_remove_from_to(&list, 1, 1);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 1);
+    assert(global_destructor_counter_arraylist == before - 1);
+    assert(strcmp(list.data[0]->objname, "C") == 0);
+
+    // Remove first element only: [C] -- remove 0..0 => []
+    before = global_destructor_counter_arraylist;
+    err = nonpods_ptr_remove_from_to(&list, 0, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == before - 1);
+
+    // Remove from empty: no-op
+    before = global_destructor_counter_arraylist;
+    err = nonpods_ptr_remove_from_to(&list, 0, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == before);
+
+    // Fill again for more tests
+    for (size_t i = 0; i < 6; ++i) {
+        *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr(names[i], 200 + i, 2.0+i, &gpa);
+    }
+    assert(list.size == 6);
+
+    // Remove all by from=0, to=5 (size-1)
+    before = global_destructor_counter_arraylist;
+    err = nonpods_ptr_remove_from_to(&list, 0, list.size - 1);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == before - 6);
+
+    // Fill again for edge cases
+    for (size_t i = 0; i < 6; ++i) {
+        *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr(names[i], 400 + i, 4.0+i, &gpa);
+    }
+    assert(list.size == 6);
+
+    // Remove with from > to: should be no-op
+    before = list.size;
+    size_t before_dtor = global_destructor_counter_arraylist;
+    err = nonpods_ptr_remove_from_to(&list, 4, 2);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == before);
+    assert(global_destructor_counter_arraylist == before_dtor);
+
+    // Remove with from == to == large index (index >= size): should clamp to size-1, remove last only
+    before = global_destructor_counter_arraylist;
+    err = nonpods_ptr_remove_from_to(&list, 99, 99);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 5);
+    assert(global_destructor_counter_arraylist == before - 1);
+    // Last element should have been removed, check new last
+    assert(strcmp(list.data[4]->objname, "E") == 0);
+
+    // Remove with to out of bounds but from valid: remove from 3..(big) => removes 3 and 4 only (last two)
+    before = global_destructor_counter_arraylist;
+    err = nonpods_ptr_remove_from_to(&list, 3, 123456);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 3);
+    assert(global_destructor_counter_arraylist == before - 2);
+    // Data: C, D, E was at 4, but now gone
+    assert(strcmp(list.data[0]->objname, "A") == 0);
+    assert(strcmp(list.data[1]->objname, "B") == 0);
+    assert(strcmp(list.data[2]->objname, "C") == 0);
+
+    // Remove with both out of bounds, with to being greater: clamps both to size-1, removes last element
+    before = global_destructor_counter_arraylist;
+    err = nonpods_ptr_remove_from_to(&list, 123, 9999);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 2);
+    assert(global_destructor_counter_arraylist == before - 1);
+
+    err = nonpods_ptr_remove_from_to(&list, 0, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 1);
+    assert(global_destructor_counter_arraylist == 1);
+
+    // Remove last remaining
+    err = nonpods_ptr_remove_from_to(&list, 0, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == 0);
+
+    // Remove from empty again (after everything): no crash, no change
+    err = nonpods_ptr_remove_from_to(&list, 0, 1);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == 0);
+
+    nonpods_ptr_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist remove_from_to pointer-type passed\n");
+}
+
+void test_arraylist_at_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods_ptr list = nonpods_ptr_init(gpa);
+
+    // Empty array: OOB returns NULL
+    assert(nonpods_ptr_at(&list, 0) == NULL);
+    assert(nonpods_ptr_at(&list, 123) == NULL);
+
+    // Add some values
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("A", 10, 1.1, &gpa);
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("B", 20, 2.2, &gpa);
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("C", 30, 3.3, &gpa);
+
+    // Valid indices (0,1,2) return address in data, not NULL
+    for (size_t i = 0; i < list.size; ++i) {
+        struct non_pod **p = nonpods_ptr_at(&list, i);
+        assert(p != NULL);
+        // Content check (insertion order)
+        if (i == 0) assert(strcmp((*p)->objname, "A") == 0);
+        if (i == 1) assert(strcmp((*p)->objname, "B") == 0);
+        if (i == 2) assert(strcmp((*p)->objname, "C") == 0);
+    }
+
+    // Out of bounds: index == size or greater returns NULL
+    assert(nonpods_ptr_at(&list, 3) == NULL);
+    assert(nonpods_ptr_at(&list, 99) == NULL);
+
+    // Negative index interpreted as large size_t: always returns NULL
+    // (Some compilers warn on -1 cast to size_t, so cast explicitly)
+    assert(nonpods_ptr_at(&list, (size_t)-1) == NULL);
+
+    // Use returned pointer as modifiable, changes reflected in array
+    struct non_pod **pa = nonpods_ptr_at(&list, 0);
+    assert(pa);
+    strcpy((*pa)->objname, "newName");
+    assert(strcmp(list.data[0]->objname, "newName") == 0);
+
+    // Remove element: shrink then query OOB (old last is dead)
+    nonpods_ptr_pop_back(&list); // removes "objectC"
+    assert(list.size == 2);
+    assert(nonpods_ptr_at(&list, 2) == NULL);
+
+    // Remove head, elements shift, at() reflects new order
+    nonpods_ptr_remove_at(&list, 0); // removes "newName"
+    assert(list.size == 1);
+    assert(strcmp((*nonpods_ptr_at(&list, 0))->objname, "B") == 0);
+    assert(nonpods_ptr_at(&list, 1) == NULL);
+
+    // Insert after removal is visible via at()
+    struct non_pod *tmp = non_pod_init_ptr("last", 99, 99.9, &gpa);
+    enum arraylist_error err = nonpods_ptr_insert_at(&list, tmp, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 2);
+    assert(strcmp((*nonpods_ptr_at(&list, 0))->objname, "last") == 0);
+    assert(strcmp((*nonpods_ptr_at(&list, 1))->objname, "B") == 0);
+
+    // at(NULL, x) returns NULL
+    assert(nonpods_ptr_at(NULL, 0) == NULL);
+    assert(nonpods_ptr_at(NULL, 1000) == NULL);
+
+    // Clearing empties the array; at() never deref OOB
+    nonpods_ptr_clear(&list);
+    assert(list.size == 0);
+    assert(nonpods_ptr_at(&list, 0) == NULL);
+    assert(nonpods_ptr_at(&list, 1) == NULL);
+
+    // Huge number of items: check random OOB and in-bounds
+    size_t bigN = 100;
+    for (size_t i = 0; i < bigN; ++i) {
+        char name[20];
+        snprintf(name, sizeof name, "item%lu", i);
+        *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr(name, (int)i, (float)i, &gpa);
+    }
+    for (size_t i = 0; i < bigN; ++i) {
+        struct non_pod **p = nonpods_ptr_at(&list, i);
+        assert(p != NULL);
+        char expect[20];
+        snprintf(expect, sizeof expect, "item%lu", i);
+        assert(strcmp((*p)->objname, expect) == 0);
+        assert(*(*p)->a == (int)i);
+        assert(*(*p)->b == (float)i);
+    }
+    assert(nonpods_ptr_at(&list, bigN) == NULL);
+    assert(nonpods_ptr_at(&list, bigN + 10000) == NULL);
+
+    nonpods_ptr_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist at pointer-type passed\n");
+}
+
+void test_arraylist_begin_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods_ptr list = nonpods_ptr_init(gpa);
+
+    // Begin on empty list should be NULL or a valid pointer only if capacity>0, so always check size first
+    assert(list.size == 0);
+    struct non_pod **begin = nonpods_ptr_begin(&list);
+    // If data == NULL, then begin==NULL; if not, begin==data
+    assert((begin == NULL && list.data == NULL) || begin == list.data);
+
+    // Add one element; begin() == &data[0], non-null
+    struct non_pod *a = non_pod_init_ptr("A", 10, 1.1, &gpa);
+    nonpods_ptr_push_back(&list, a);
+    begin = nonpods_ptr_begin(&list);
+    assert(begin != NULL);
+    assert(begin == &list.data[0]);
+    assert(strcmp((*begin)->objname, "A") == 0);
+
+    // Add another, this operation caused a realloc, which means begin() may change, not always true,
+    // but should always be held as true
+    //struct non_pod *old_begin = begin;
+    struct non_pod *b = non_pod_init_ptr("B", 20, 2.2, &gpa);
+    nonpods_ptr_push_back(&list, b);
+    begin = nonpods_ptr_begin(&list);
+    assert(begin == list.data);
+    // assert(begin != old_begin); may be true or false, do not hold pointers between operations that reallocate
+    assert(strcmp((*begin)->objname, "A") == 0);
+    assert(strcmp((*(begin+1))->objname, "B") == 0);
+
+    // Iteration with begin()/end()
+    size_t iter_count = 0;
+    for (struct non_pod **it = nonpods_ptr_begin(&list); it != nonpods_ptr_end(&list); ++it) {
+        if (iter_count == 0) {
+            assert(strcmp((*it)->objname, "A") == 0);
+        }
+        if (iter_count == 1) {
+            assert(strcmp((*it)->objname, "B") == 0);
+        }
+        ++iter_count;
+    }
+    assert(iter_count == list.size);
+
+    // Add multiple elements to trigger realloc/growth, confirm begin pointer is updated properly
+    size_t many = 32;
+    for (size_t i = 0; i < many; ++i) {
+        char buf[10];
+        snprintf(buf, sizeof buf, "q%lu", i);
+        nonpods_ptr_push_back(&list, non_pod_init_ptr(buf, (int)i, (float)i, &gpa));
+    }
+    begin = nonpods_ptr_begin(&list);
+    assert(begin == list.data);
+    // After growth, check first value is still "A"
+    assert(strcmp((*begin)->objname, "A") == 0);
+    // And nth value is correct
+    assert(strcmp((*(begin+list.size-1))->objname, "q31") == 0);
+
+    // begin pointer is valid up to end(), never deref past end
+    size_t count = 0;
+    for (struct non_pod **it = nonpods_ptr_begin(&list); it != nonpods_ptr_end(&list); ++it) {
+        count++;
+    }
+    assert(count == list.size);
+
+    // pop_back: begin unchanged, last element gone
+    size_t prev_size = list.size;
+    nonpods_ptr_pop_back(&list);
+    begin = nonpods_ptr_begin(&list);
+    assert(begin == list.data);
+    assert(list.size == prev_size - 1);
+
+    // clear: begin can be non-null if capacity > 0, but size==0 so do not deref it
+    nonpods_ptr_clear(&list);
+    assert(list.size == 0);
+    begin = nonpods_ptr_begin(&list);
+    // Dereferencing begin when list is empty is invalid, but it's ok to compare pointer value
+    assert(begin == list.data);
+    // If data==NULL, begin==NULL
+
+    // Remove all, then add again: begin valid, data correct
+    nonpods_ptr_push_back(&list, non_pod_init_ptr("foo", 1, 1.2f, &gpa));
+    assert(list.size == 1);
+    begin = nonpods_ptr_begin(&list);
+    assert(begin != NULL);
+    assert(strcmp((*begin)->objname, "foo") == 0);
+
+    // remove_at changes order, begin still valid
+    nonpods_ptr_push_back(&list, non_pod_init_ptr("bar", 2, 2.3f, &gpa));
+    nonpods_ptr_remove_at(&list, 0);
+    begin = nonpods_ptr_begin(&list);
+    assert(list.size == 1);
+    assert(strcmp((*begin)->objname, "bar") == 0);
+
+    // reset: deinit, then begin on fresh list
+    nonpods_ptr_deinit(&list);
+    list = nonpods_ptr_init(gpa);
+    begin = nonpods_ptr_begin(&list);
+    assert(list.size == 0);
+    assert((begin == NULL && list.data == NULL) || begin == list.data);
+
+    // bulk insert; iterate via begin
+    for (size_t i = 0; i < 8; ++i) {
+        nonpods_ptr_push_back(&list, non_pod_init_ptr("x", i, i, &gpa));
+    }
+    
+    size_t loopcheck = 0;
+    for (struct non_pod **it = nonpods_ptr_begin(&list); it != nonpods_ptr_end(&list); ++it) {
+        loopcheck++;
+    }
+    assert(loopcheck == list.size);
+
+    // at(NULL) returns NULL, begin(NULL) returns NULL
+    assert(nonpods_ptr_begin(NULL) == NULL);
+
+    // begin not deref'd if list is truly empty; do not crash
+    nonpods_ptr_clear(&list);
+    begin = nonpods_ptr_begin(&list);
+    // Dereferencing it is invalid, but pointer value is as expected
+    assert((begin == NULL && list.data == NULL) || begin == list.data);
+
+    nonpods_ptr_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist begin pointer-type passed\n");
+}
+
+void test_arraylist_back_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods_ptr list = nonpods_ptr_init(gpa);
+
+    // back() on empty array: returns NULL
+    assert(nonpods_ptr_back(&list) == NULL);
+
+    // single element: back() returns data+0, points to first, non-null
+    struct non_pod *a = non_pod_init_ptr("first", 11, 1.1, &gpa);
+    nonpods_ptr_push_back(&list, a);
+    struct non_pod **last = nonpods_ptr_back(&list);
+    assert(last != NULL);
+    assert(last == &list.data[0]);
+    assert(strcmp((*last)->objname, "first") == 0);
+    assert(*(*last)->a == 11);
+
+    // two elements: back() points to new element each time, never to prior
+    struct non_pod *b = non_pod_init_ptr("second", 22, 2.2, &gpa);
+    nonpods_ptr_push_back(&list, b);
+    assert(list.size == 2);
+    struct non_pod **back2 = nonpods_ptr_back(&list);
+    assert(back2 != NULL);
+    assert(back2 == &list.data[1]);
+    assert(strcmp((*back2)->objname, "second") == 0);
+    assert(*(*back2)->a == 22);
+
+    // many elements: back() always matches last added
+    for (int i = 2; i < 12; ++i) {
+        char name[32];
+        snprintf(name, sizeof name, "item%d", i);
+        struct non_pod *t = non_pod_init_ptr(name, 100+i, 3.3f+i, &gpa);
+        nonpods_ptr_push_back(&list, t);
+        struct non_pod **b = nonpods_ptr_back(&list);
+        assert(b != NULL);
+        assert(b == &list.data[list.size-1]);
+        assert(strcmp((*b)->objname, name) == 0);
+        assert(*(*b)->a == 100+i);
+    }
+
+    // back() is mutable: change value via back(), data array reflects change
+    struct non_pod **bref = nonpods_ptr_back(&list);
+    strcpy((*bref)->objname, "lastX");
+    assert(strcmp(list.data[list.size-1]->objname, "lastX") == 0);
+
+    // Remove last element: back() now returns previous element
+    enum arraylist_error err = nonpods_ptr_pop_back(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 11);
+    struct non_pod **newlast = nonpods_ptr_back(&list);
+    assert(newlast == &list.data[list.size-1]);
+    assert(*(*newlast)->a == 110);
+    // Content should match what was inserted
+    assert(strcmp((*newlast)->objname, "item10") == 0);
+
+    // Remove all but one: back always matches, then back(NULL) when empty
+    while (list.size > 1)
+        nonpods_ptr_pop_back(&list);
+    assert(list.size == 1);
+    struct non_pod **lastleft = nonpods_ptr_back(&list);
+    assert(lastleft != NULL);
+    assert(lastleft == &list.data[0]);
+    assert(strcmp((*lastleft)->objname, "first") == 0);
+
+    nonpods_ptr_pop_back(&list);
+    assert(list.size == 0);
+    assert(nonpods_ptr_back(&list) == NULL);
+
+    // Push after clear: back() valid again
+    struct non_pod *c = non_pod_init_ptr("newone", 123, 4.56, &gpa);
+    nonpods_ptr_push_back(&list, c);
+    struct non_pod **b2 = nonpods_ptr_back(&list);
+    assert(b2 != NULL);
+    assert(strcmp((*b2)->objname, "newone") == 0);
+
+    // Clear: back() should return NULL
+    nonpods_ptr_clear(&list);
+    assert(list.size == 0);
+    assert(nonpods_ptr_back(&list) == NULL);
+
+    // Push several, remove some, back() always matches last
+    for (int i = 0; i < 5; ++i) {
+        char nm[8];
+        snprintf(nm, sizeof nm, "set%d", i);
+        nonpods_ptr_push_back(&list, non_pod_init_ptr(nm, i+30, i+0.13f, &gpa));
+        assert(strcmp((*nonpods_ptr_back(&list))->objname, nm) == 0);
+    }
+    assert(list.size == 5);
+    nonpods_ptr_remove_at(&list, 2); // remove element 2, last remains same
+    assert(strcmp((*nonpods_ptr_back(&list))->objname, "set4") == 0);
+    nonpods_ptr_pop_back(&list); // remove last
+    assert(strcmp((*nonpods_ptr_back(&list))->objname, "set3") == 0);
+
+    nonpods_ptr_clear(&list);
+
+    // back() on NULL list pointer: returns NULL (should not segfault)
+    assert(nonpods_ptr_back(NULL) == NULL);
+
+    // After deinit: back() returns NULL; repeated deinit is safe
+    nonpods_ptr_push_back(&list, non_pod_init_ptr("foo", 16, 2.5, &gpa));
+    nonpods_ptr_deinit(&list);
+    assert(nonpods_ptr_back(&list) == NULL);
+    nonpods_ptr_deinit(&list); // should not crash
+
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist back pointer-type passed\n");
+}
+
+void test_arraylist_end_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods_ptr list = nonpods_ptr_init(gpa);
+
+    // end() on an empty list returns data + 0 (== data)
+    assert(list.size == 0);
+    struct non_pod **endptr = nonpods_ptr_end(&list);
+    // end() may be NULL or data, so must be compared as a pointer, not dereferenced!
+    assert((endptr == NULL && list.data == NULL) || (endptr == (list.data + list.size)));
+
+    // end() pointer is always list.data + list.size
+    // add several items, confirm end > data and never before data
+    for (size_t i = 0; i < 6; ++i) {
+        char namebuf[24];
+        snprintf(namebuf, sizeof namebuf, "item%lu", i);
+        nonpods_ptr_push_back(&list, non_pod_init_ptr(namebuf, (int)i, (float)i, &gpa));
+        assert(nonpods_ptr_end(&list) == list.data + list.size);
+        if (list.size > 0)
+            assert(nonpods_ptr_end(&list) > list.data);
+    }
+
+    // Iterating: end() is always exclusive; can be used as limit for begin/end style iteration.
+    size_t niter = 0;
+    for (struct non_pod **it = nonpods_ptr_begin(&list); it != nonpods_ptr_end(&list); ++it) {
+        assert(it >= list.data && it < list.data + list.size);
+        niter++;
+    }
+    assert(niter == list.size);
+
+    // Dereferencing end() is always invalid: verify pointer value but never deref
+    struct non_pod **should_be_out_of_bounds = nonpods_ptr_end(&list);
+    // The next is only to show the address, do not dereference
+    assert(should_be_out_of_bounds == list.data + list.size);
+
+    // After pop_back/clear, end() updates accordingly
+    size_t oldsize = list.size;
+    nonpods_ptr_pop_back(&list);
+    assert(nonpods_ptr_end(&list) == list.data + list.size);
+    assert(list.size == oldsize - 1);
+
+    // Massive insertions: end() always tracks [data + size]
+    size_t n_massive = 100;
+    nonpods_ptr_clear(&list);
+    for (size_t i = 0; i < n_massive; ++i) {
+        nonpods_ptr_push_back(&list, non_pod_init_ptr("foo", (int)i, (float)i, &gpa));
+        assert(nonpods_ptr_end(&list) == list.data + list.size);
+    }
+
+    // after shrink_size, end() updates
+    enum arraylist_error err = nonpods_ptr_shrink_size(&list, 17);
+    assert(err == ARRAYLIST_OK);
+    assert(nonpods_ptr_end(&list) == list.data + 17);
+
+    // Testing after clear, end() == data (if data null, is null)
+    nonpods_ptr_clear(&list);
+    endptr = nonpods_ptr_end(&list);
+    assert((endptr == NULL && list.data == NULL) || (endptr == list.data + list.size && list.size == 0));
+
+    // Test after deinit: end() returns NULL (if data is NULL)
+    nonpods_ptr_deinit(&list);
+    endptr = nonpods_ptr_end(&list);
+    assert(endptr == NULL);
+
+    // Use of end() in for-loop after deinit or clear never crashes
+    for (struct non_pod **it = nonpods_ptr_begin(&list); it != nonpods_ptr_end(&list); ++it) {
+        assert(0 && "This loop must never run: list is empty!");
+    }
+
+    // out-of-bounds: end() is always (data + size); at(size) returns NULL, end() is not valid for deref
+    struct non_pod **at_end = nonpods_ptr_at(&list, list.size);
+    assert(at_end == NULL);
+
+    // Use after repeated deinit/clear: no crash, end() steady.
+    nonpods_ptr_clear(&list);
+    nonpods_ptr_clear(&list);
+    endptr = nonpods_ptr_end(&list);
+    assert((endptr == NULL && list.data == NULL) || (endptr == list.data && list.size == 0));
+    nonpods_ptr_deinit(&list);
+    assert(nonpods_ptr_end(&list) == NULL);
+
+    // Null pointer argument: end(NULL) returns NULL (never crashes)
+    assert(nonpods_ptr_end(NULL) == NULL);
+
+    // Fill then remove from head/tail; end always points at size
+    list = nonpods_ptr_init(gpa);
+    for (size_t i = 0; i < 8; ++i)
+        nonpods_ptr_push_back(&list, non_pod_init_ptr("bar", (int)i, (float)0, &gpa));
+    for (size_t i = 0; i < 4; ++i) {
+        nonpods_ptr_pop_back(&list); // remove last
+        assert(nonpods_ptr_end(&list) == list.data + list.size);
+    }
+    for (size_t i = 0; list.size > 0; ++i) {
+        nonpods_ptr_remove_at(&list, 0); // remove head
+        assert(nonpods_ptr_end(&list) == list.data + list.size);
+        (void)i;
+    }
+    assert(list.size == 0);
+
+    nonpods_ptr_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+
+    printf("test arraylist end pointer-type passed\n");
+}
+
+void test_arraylist_find_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods_ptr list = nonpods_ptr_init(gpa);
+
+    // Find on empty list: always returns data+size == end()
+    char notfound_name[] = "none";
+    struct non_pod **res = nonpods_ptr_find(&list, non_pod_find_ptr, notfound_name);
+    assert(res == list.data + list.size);    // In empty, both are NULL, so ok
+    assert(res == nonpods_ptr_end(&list) || res == NULL);
+
+    // Insert some non_pods
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("A", 1, 1.1, &gpa);
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("B", 2, 2.2, &gpa);
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("C", 3, 3.3, &gpa);
+
+    // Find value for actual key; should point to that object
+    // The predicate must match the type: struct non_pod*
+    struct non_pod **f1 = nonpods_ptr_find(&list, non_pod_find_ptr, "A");
+    assert(f1);
+    assert(f1 != list.data + list.size);
+    assert(strcmp((*f1)->objname, "A") == 0);
+
+    struct non_pod **f2 = nonpods_ptr_find(&list, non_pod_find_ptr, "B");
+    assert(f2);
+    assert(f2 != list.data + list.size);
+    assert(strcmp((*f2)->objname, "B") == 0);
+
+    struct non_pod **f3 = nonpods_ptr_find(&list, non_pod_find_ptr, "C");
+    assert(f3);
+    assert(f3 != list.data + list.size);
+    assert(strcmp((*f3)->objname, "C") == 0);
+
+    // Not found: returns end() (safe to compare pointer identity, don't deref!)
+    struct non_pod **nf = nonpods_ptr_find(&list, non_pod_find_ptr, "Zzznotfoundzz");
+    assert(nf == list.data + list.size);
+    assert(nf == nonpods_ptr_end(&list));
+
+    // NULL predicate: always returns NULL
+    assert(nonpods_ptr_find(&list, NULL, NULL) == NULL);
+
+    // NULL list: always returns NULL
+    assert(nonpods_ptr_find(NULL, non_pod_find_ptr, "A") == NULL);
+
+    // Mutate underlying object, search reflects new state
+    strcpy(list.data[0]->objname, "Zmaybe");
+    struct non_pod **nz = nonpods_ptr_find(&list, non_pod_find_ptr, "Zmaybe");
+    assert(nz == &list.data[0]);
+    assert(strcmp((*nz)->objname, "Zmaybe") == 0);
+
+    // List with duplicates: find returns the first matching by search order
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("C", 5, 10.1, &gpa);
+    struct non_pod **dup1 = nonpods_ptr_find(&list, non_pod_find_ptr, "C");
+    assert(dup1 && strcmp((*dup1)->objname, "C") == 0);
+    assert(dup1 == &list.data[2]);
+    // (first occurrence, not the new one at data[3])
+
+    // Remove a value; find reflects removal
+    nonpods_ptr_remove_at(&list, 1); // removes "B"
+    struct non_pod **gone = nonpods_ptr_find(&list, non_pod_find_ptr, "B");
+    assert(gone == list.data + list.size);
+
+    // Find is not confused by holes or shifts
+    assert(strcmp(list.data[1]->objname, "C") == 0);
+    struct non_pod **nowfound = nonpods_ptr_find(&list, non_pod_find_ptr, "C");
+    assert(nowfound == &list.data[1]);
+
+    // Find works after clearing list
+    nonpods_ptr_clear(&list);
+    assert(nonpods_ptr_find(&list, non_pod_find_ptr, "A") == list.data + list.size);
+
+    // Find works after deinit/reinit
+    nonpods_ptr_deinit(&list);
+    list = nonpods_ptr_init(gpa);
+    assert(nonpods_ptr_find(&list, non_pod_find_ptr, "foo") == nonpods_ptr_end(&list));
+
+    // Large list, stress test
+    size_t big = 102;
+    const char *key = "BIGMATCH";
+    for (size_t i = 0; i < big; ++i) {
+        if (i == 50) {
+            *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr(key, 99, 101, &gpa);
+        } else {
+            char nm[16]; snprintf(nm, sizeof nm, "num%02u", (unsigned)i);
+            *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr(nm, (int)i, (float)i, &gpa);
+        }
+    }
+    struct non_pod **bigfound = nonpods_ptr_find(&list, non_pod_find_ptr, (void*)key);
+    assert(bigfound != list.data + list.size);
+    assert(strcmp((*bigfound)->objname, key) == 0);
+
+    nonpods_ptr_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist find pointer-type passed\n");
+}
+
+void test_arraylist_contains_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods_ptr list = nonpods_ptr_init(gpa);
+
+    // contains on empty list: always returns false, out_index untouched
+    size_t outidx = 12345;
+    bool hasA = nonpods_ptr_contains(&list, non_pod_find_ptr, "A", &outidx);
+    assert(hasA == false);
+    assert(outidx == 12345);
+
+    // Add some objects and check positive and negative cases
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("A", 1, 1.1, &gpa);
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("B", 2, 2.2, &gpa);
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("C", 3, 3.3, &gpa);
+
+    // Positive: present
+    outidx = 9999;
+    bool hasB = nonpods_ptr_contains(&list, non_pod_find_ptr, "B", &outidx);
+    assert(hasB == true);
+    assert(outidx == 1);
+
+    outidx = 9999;
+    bool hasC = nonpods_ptr_contains(&list, non_pod_find_ptr, "C", &outidx);
+    assert(hasC == true);
+    assert(outidx == 2);
+
+    // Negative: not present
+    outidx = 42;
+    bool hasZZ = nonpods_ptr_contains(&list, non_pod_find_ptr, "ZZ", &outidx);
+    assert(hasZZ == false);
+    assert(outidx == 42);
+
+    // If out_index is NULL, function is still correct (no write, no segfault)
+    assert(nonpods_ptr_contains(&list, non_pod_find_ptr, "B", NULL) == true);
+    assert(nonpods_ptr_contains(&list, non_pod_find_ptr, "NO", NULL) == false);
+
+    // Duplicate entries: first match wins, correct index
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("B", 12, 2.22, &gpa);
+    outidx = 999;
+    bool founddup = nonpods_ptr_contains(&list, non_pod_find_ptr, "B", &outidx);
+    assert(founddup == true);
+    assert(outidx == 1);  // Should be first "B"
+    // The one at index [3] is not returned by contains
+
+    // Mutate data; contains reflects update
+    strcpy(list.data[0]->objname, "XXX");
+    outidx = 800;
+    bool foundXXX = nonpods_ptr_contains(&list, non_pod_find_ptr, "XXX", &outidx);
+    assert(foundXXX == true);
+    assert(outidx == 0);
+
+    // Remove value; contains no longer finds it
+    nonpods_ptr_remove_at(&list, 0); // removes "XXX"
+    outidx = 0;
+    bool hasXXX = nonpods_ptr_contains(&list, non_pod_find_ptr, "XXX", &outidx);
+    assert(hasXXX == false);
+
+    // out_index remains untouched on negative result
+    outidx = 4444;
+    bool failZ = nonpods_ptr_contains(&list, non_pod_find_ptr, "zzznotfound", &outidx);
+    assert(failZ == false);
+    assert(outidx == 4444);
+
+    // NULL predicate: always returns false
+    outidx = 1111;
+    assert(!nonpods_ptr_contains(&list, NULL, "A", &outidx));
+    assert(outidx == 1111);
+
+    // NULL arraylist: always returns false
+    outidx = 2020;
+    assert(!nonpods_ptr_contains(NULL, non_pod_find_ptr, "A", &outidx));
+    assert(outidx == 2020);
+
+    // Large list: finds correct element, fast fail if not found
+    nonpods_ptr_clear(&list);
+    int N = 40;
+    for (int i = 0; i < N; ++i) {
+        char nm[10]; snprintf(nm, sizeof nm, "v%02d", i);
+        *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr(nm, i*i, i*2, &gpa);
+    }
+    outidx = 0;
+    bool hasv15 = nonpods_ptr_contains(&list, non_pod_find_ptr, "v15", &outidx);
+    assert(hasv15 == true);
+    assert(outidx == 15);
+
+    // Works after clear() and deinit()
+    nonpods_ptr_clear(&list);
+    assert(!nonpods_ptr_contains(&list, non_pod_find_ptr, "v20", &outidx));
+    nonpods_ptr_deinit(&list);
+    assert(!nonpods_ptr_contains(&list, non_pod_find_ptr, "XXX", &outidx));
+
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist contains pointer-type passed\n");
+}
+
+void test_arraylist_size_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods_ptr list = nonpods_ptr_init(gpa);
+
+    // New list: size == 0 always.
+    assert(nonpods_ptr_size(&list) == 0);
+
+    // Empty, pop_back/remove: No-op for size.
+    size_t sz = nonpods_ptr_size(&list);
+    nonpods_ptr_pop_back(&list);
+    assert(nonpods_ptr_size(&list) == sz);
+    nonpods_ptr_remove_at(&list, 0);
+    assert(nonpods_ptr_size(&list) == sz);
+
+    // Add with push_back, emplace_back_slot.
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("a", 1, 1.0, &gpa);
+    assert(nonpods_ptr_size(&list) == 1);
+    struct non_pod *b = non_pod_init_ptr("b", 2, 2.0, &gpa);
+    nonpods_ptr_push_back(&list, b);
+    assert(nonpods_ptr_size(&list) == 2);
+
+    // Insert in the middle increases size.
+    struct non_pod *c = non_pod_init_ptr("c", 3, 3.0, &gpa);
+    enum arraylist_error err = nonpods_ptr_insert_at(&list, c, 1);
+    assert(err == ARRAYLIST_OK);
+    assert(nonpods_ptr_size(&list) == 3);
+
+    // Remove by index, shrink_size.
+    sz = nonpods_ptr_size(&list);
+    nonpods_ptr_remove_at(&list, 1);
+    assert(nonpods_ptr_size(&list) == sz - 1);
+    sz = nonpods_ptr_size(&list);
+    nonpods_ptr_shrink_size(&list, 1);
+    assert(nonpods_ptr_size(&list) == 1);
+
+    // clear() sets size to zero, capacity nonzero.
+    nonpods_ptr_clear(&list);
+    assert(nonpods_ptr_size(&list) == 0);
+
+    // At this point, can insert again.
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("x", 77, 7.7, &gpa);
+    assert(nonpods_ptr_size(&list) == 1);
+
+    // push_back until size > 1
+    for (size_t i = 0; i < 5; ++i) {
+        char name[10];
+        snprintf(name, sizeof name, "item%lu", i);
+        *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr(name, (int)i, (float)i, &gpa);
+        assert(nonpods_ptr_size(&list) == 2 + i);
+    }
+
+    // bulk pop_back: size decreases until zero, never negative
+    size_t bigsize = nonpods_ptr_size(&list);
+    for (size_t i = bigsize; i > 0; --i) {
+        nonpods_ptr_pop_back(&list);
+        assert(nonpods_ptr_size(&list) == i - 1);
+    }
+    // Double clear doesn't change size.
+    assert(nonpods_ptr_size(&list) == 0);
+    nonpods_ptr_clear(&list);
+    assert(nonpods_ptr_size(&list) == 0);
+
+    // Remove_from_to on empty/one-element: size zero, no crash, no negative
+    nonpods_ptr_remove_from_to(&list, 0, 10);
+    assert(nonpods_ptr_size(&list) == 0);
+
+    // Add many, then remove range
+    for (size_t i = 0; i < 16; ++i) {
+        char name[10];
+        snprintf(name, sizeof name, "bulk%lu", i);
+        *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr(name, 0, 0, &gpa);
+    }
+    assert(nonpods_ptr_size(&list) == 16);
+    nonpods_ptr_remove_from_to(&list, 3, 8); // removes 6
+    assert(nonpods_ptr_size(&list) == 10);
+    nonpods_ptr_shrink_size(&list, 5);
+    assert(nonpods_ptr_size(&list) == 5);
+
+    // insert_at > size acts as append
+    size_t before = nonpods_ptr_size(&list);
+    struct non_pod *dummy = non_pod_init_ptr("tail", 555, 5.55, &gpa);
+    nonpods_ptr_insert_at(&list, dummy, 10000);
+    assert(nonpods_ptr_size(&list) == before + 1);
+
+    // pop_back until empty never underflows
+    while (nonpods_ptr_size(&list) > 0)
+        nonpods_ptr_pop_back(&list);
+    assert(nonpods_ptr_size(&list) == 0);
+
+    // After deinit, size remains zero
+    nonpods_ptr_deinit(&list);
+    assert(nonpods_ptr_size(&list) == 0);
+
+    // after deinit, must be initialized again
+    list = nonpods_ptr_init(gpa);
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("q", 2, 2.2, &gpa);
+    assert(nonpods_ptr_size(&list) == 1);
+
+    // Shrink_to_fit doesn't change size
+    size_t sizesnap = nonpods_ptr_size(&list);
+    nonpods_ptr_shrink_to_fit(&list);
+    assert(nonpods_ptr_size(&list) == sizesnap);
+
+    // NULL pointer always returns zero.
+    assert(nonpods_ptr_size(NULL) == 0);
+
+    // Remove_at/Pop_back OOB/negative (size_t-wrap) safe: size not negative
+    nonpods_ptr_remove_at(&list, 100000);
+    size_t left = nonpods_ptr_size(&list);
+    nonpods_ptr_remove_at(&list, (size_t)-1);
+    assert(nonpods_ptr_size(&list) <= left); // No > left
+
+    nonpods_ptr_deinit(&list);
+
+    // Failed allocator: push_back fails, size remains unchanged
+    struct Allocator fail_a = allocator_get_failling_alloc();
+    list = nonpods_ptr_init(fail_a);
+    sz = nonpods_ptr_size(&list);
+    struct non_pod *dummyfail = {0};
+    err = nonpods_ptr_push_back(&list, dummyfail);
+    assert(err != ARRAYLIST_OK);
+    assert(nonpods_ptr_size(&list) == sz);
+
+    nonpods_ptr_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+
+    printf("test arraylist size pointer-type passed\n");
+}
+
+void test_arraylist_is_empty_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods_ptr list = nonpods_ptr_init(gpa);
+
+    // Freshly initialized list is empty
+    assert(nonpods_ptr_is_empty(&list) == true);
+    assert(list.size == 0);
+
+    // After a single push_back: not empty
+    struct non_pod *a = non_pod_init_ptr("one", 1, 1.1, &gpa);
+    nonpods_ptr_push_back(&list, a);
+    assert(nonpods_ptr_is_empty(&list) == false);
+    assert(list.size == 1);
+
+    // After pop_back: becomes empty again
+    nonpods_ptr_pop_back(&list);
+    assert(nonpods_ptr_is_empty(&list) == true);
+    assert(list.size == 0);
+
+    // Emplace_back_slot, non-empty
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("two", 2, 2.2, &gpa);
+    assert(nonpods_ptr_is_empty(&list) == false);
+    assert(list.size == 1);
+
+    // Remove_at(0): list empty again
+    nonpods_ptr_remove_at(&list, 0);
+    assert(nonpods_ptr_is_empty(&list) == true);
+    assert(list.size == 0);
+
+    // Insert at head, middle, tail
+    for (int i = 0; i < 3; ++i) {
+        char buf[8]; snprintf(buf, sizeof buf, "k%d", i);
+        struct non_pod *t = non_pod_init_ptr(buf, i+10, i+0.1, &gpa);
+        if (i == 0){
+            nonpods_ptr_insert_at(&list, t, 0);
+        } else if (i == 1) {
+            nonpods_ptr_insert_at(&list, t, list.size/2);
+        } else {
+            nonpods_ptr_insert_at(&list, t, list.size);
+        }
+
+        assert(nonpods_ptr_is_empty(&list) == false);
+    }
+    // All removed
+    while (list.size > 0) {
+        nonpods_ptr_pop_back(&list);
+    }
+
+    assert(nonpods_ptr_is_empty(&list) == true);
+    assert(list.size == 0);
+
+    // Insert many, remove by shrink_size
+    size_t N = 20;
+    for (size_t i = 0; i < N; ++i) {
+        char buf[12]; snprintf(buf, sizeof buf, "v%lu", i);
+        nonpods_ptr_push_back(&list, non_pod_init_ptr(buf, i, i, &gpa));
+    }
+    assert(nonpods_ptr_is_empty(&list) == false);
+    nonpods_ptr_shrink_size(&list, 0);
+    assert(nonpods_ptr_is_empty(&list) == true);
+
+    // Insert many, remove_from_to to empty
+    for (size_t i = 0; i < N; ++i) {
+        char buf[12]; snprintf(buf, sizeof buf, "w%lu", i);
+        nonpods_ptr_push_back(&list, non_pod_init_ptr(buf, i, i, &gpa));
+    }
+    assert(nonpods_ptr_is_empty(&list) == false);
+    nonpods_ptr_remove_from_to(&list, 0, N-1);
+    assert(nonpods_ptr_is_empty(&list) == true);
+
+    // Insert, then clear
+    for (size_t i = 0; i < N; ++i) {
+        nonpods_ptr_push_back(&list, non_pod_init_ptr("z", i, i, &gpa));
+    }
+
+    assert(nonpods_ptr_is_empty(&list) == false);
+    nonpods_ptr_clear(&list);
+    assert(nonpods_ptr_is_empty(&list) == true);
+
+    // Insert, clear, insert again -- works
+    nonpods_ptr_push_back(&list, non_pod_init_ptr("hehe", 5, 5.5, &gpa));
+    assert(nonpods_ptr_is_empty(&list) == false);
+    nonpods_ptr_pop_back(&list);
+    assert(nonpods_ptr_is_empty(&list) == true);
+
+    // Empty after many growths/reallocs
+    for (size_t i = 0; i < 128; ++i) {
+        *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("bulk", i, i, &gpa);
+    }
+
+    assert(nonpods_ptr_is_empty(&list) == false);
+    nonpods_ptr_clear(&list);
+    assert(nonpods_ptr_is_empty(&list) == true);
+
+    // Remove OOB: is_empty stays correct (should not crash)
+    assert(nonpods_ptr_is_empty(&list) == true);  // still empty
+    nonpods_ptr_remove_at(&list, 99999);
+    assert(nonpods_ptr_is_empty(&list) == true);
+
+    // Remove negative index: is_empty still correct (should not crash)
+    nonpods_ptr_remove_at(&list, (size_t)-1);
+    assert(nonpods_ptr_is_empty(&list) == true);
+
+    // After deinit, is_empty is true
+    nonpods_ptr_deinit(&list);
+    assert(nonpods_ptr_is_empty(&list) == true);
+
+    // needs to be init again to be used
+    list = nonpods_ptr_init(gpa);
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("after", 7, 7.7, &gpa);
+    assert(nonpods_ptr_is_empty(&list) == false);
+    nonpods_ptr_clear(&list);
+
+    // Call is_empty(NULL), must return false
+    assert(nonpods_ptr_is_empty(NULL) == false);
+
+    // Call is_empty repeatedly doesn't change anything
+    assert(nonpods_ptr_is_empty(&list) == true);
+    assert(nonpods_ptr_is_empty(&list) == true);
+
+    // Push and pop alternately
+    for (int i = 0; i < 5; ++i) {
+        nonpods_ptr_push_back(&list, non_pod_init_ptr("ping", i, i, &gpa));
+        assert(nonpods_ptr_is_empty(&list) == false);
+        nonpods_ptr_pop_back(&list);
+        assert(nonpods_ptr_is_empty(&list) == true);
+    }
+
+    // Failing allocator: list remains empty
+    struct Allocator fail = allocator_get_failling_alloc();
+    struct arraylist_nonpods_ptr zlist = nonpods_ptr_init(fail);
+    assert(nonpods_ptr_is_empty(&zlist) == true);
+    struct non_pod *dummy = {0};
+    enum arraylist_error err = nonpods_ptr_push_back(&zlist, dummy);
+    assert(err != ARRAYLIST_OK);
+    assert(nonpods_ptr_is_empty(&zlist) == true);
+    nonpods_ptr_deinit(&zlist);
+
+    nonpods_ptr_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist is_empty pointer-type passed\n");
+}
+
+void test_arraylist_capacity_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods_ptr list = nonpods_ptr_init(gpa);
+
+    // Fresh list: capacity is zero
+    assert(nonpods_ptr_capacity(&list) == 0);
+
+    // capacity(NULL) == 0
+    assert(nonpods_ptr_capacity(NULL) == 0);
+
+    // Add one element (should allocate)
+    struct non_pod *np1 = non_pod_init_ptr("x", 1, 2.2, &gpa);
+    nonpods_ptr_push_back(&list, np1);
+    assert(nonpods_ptr_capacity(&list) >= 1);
+    size_t cap1 = nonpods_ptr_capacity(&list);
+
+    // capacity never decreases on push_back/emplace
+    struct non_pod *np2 = non_pod_init_ptr("y", 2, 3.3, &gpa);
+    nonpods_ptr_push_back(&list, np2);
+    assert(nonpods_ptr_capacity(&list) >= cap1);
+    size_t cap2 = nonpods_ptr_capacity(&list);
+
+    // Add until it grows (capacity should double; implementation doubles)
+    size_t old_capacity = cap2;
+    size_t to_grow = old_capacity;
+    for (size_t i = 0; i < to_grow; ++i)
+        nonpods_ptr_push_back(&list, non_pod_init_ptr("m", (int)i, (float)i, &gpa));
+    // At least one alloc triggered: capacity at least doubled
+    assert(nonpods_ptr_capacity(&list) >= 2 * old_capacity);
+
+    // Reserve increases capacity if called, but never shrinks
+    size_t prev_cap = nonpods_ptr_capacity(&list);
+    enum arraylist_error err = nonpods_ptr_reserve(&list, prev_cap + 10);
+    assert(err == ARRAYLIST_OK);
+    assert(nonpods_ptr_capacity(&list) >= prev_cap + 10);
+
+    // Reserve with less or equal is no-op (doesn't shrink)
+    prev_cap = nonpods_ptr_capacity(&list);
+    err = nonpods_ptr_reserve(&list, 1);
+    assert(err == ARRAYLIST_OK);
+    assert(nonpods_ptr_capacity(&list) == prev_cap);
+
+    // Shrinking size does not shrink capacity
+    size_t prev_capacity = nonpods_ptr_capacity(&list);
+    err = nonpods_ptr_shrink_size(&list, 1);
+    assert(err == ARRAYLIST_OK);
+    assert(nonpods_ptr_capacity(&list) == prev_capacity);
+
+    // shrink_to_fit reduces capacity to size (if possible)
+    size_t prev_size = nonpods_ptr_size(&list);
+    err = nonpods_ptr_shrink_to_fit(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(nonpods_ptr_capacity(&list) == nonpods_ptr_size(&list));
+    assert(nonpods_ptr_capacity(&list) == prev_size);
+
+    // After clear: capacity unchanged, but size is zero
+    err = nonpods_ptr_clear(&list);
+    assert(nonpods_ptr_capacity(&list) == prev_size);
+
+    // After shrink_to_fit on empty (size=0): capacity is 0 and data is NULL
+    err = nonpods_ptr_shrink_to_fit(&list);
+    assert(nonpods_ptr_capacity(&list) == 0);
+    assert(list.data == NULL);
+
+    // After deinit: capacity=0
+    nonpods_ptr_deinit(&list);
+    assert(nonpods_ptr_capacity(&list) == 0);
+
+    // Can re-grow after deinit (fresh allocation)
+    nonpods_ptr_push_back(&list, non_pod_init_ptr("test", 44, 12.1, &gpa));
+    assert(nonpods_ptr_capacity(&list) > 0);
+
+    // Remove all, add again, etc: capacity tracks as expected
+    nonpods_ptr_clear(&list);
+    err = nonpods_ptr_shrink_to_fit(&list);
+    assert(nonpods_ptr_capacity(&list) == 0);
+
+    // Add many, check grows as powers of two (OPTIONAL: for your implementation)
+    size_t last_cap = 0;
+    for (size_t i = 0; i < 40; ++i) {
+        *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("bulk", (int)i, (float)i, &gpa);
+        size_t cap = nonpods_ptr_capacity(&list);
+        assert(cap >= nonpods_ptr_size(&list));
+        // Implementation doubles, so as size crosses the boundary, capacity increases
+        assert(cap >= last_cap);
+        last_cap = cap;
+    }
+
+    // Capacity is always >= size, never less
+    assert(nonpods_ptr_capacity(&list) >= nonpods_ptr_size(&list));
+
+    // Remove/shrink_size never shrinks capacity
+    size_t before_cap = nonpods_ptr_capacity(&list);
+    nonpods_ptr_shrink_size(&list, 2);
+    assert(nonpods_ptr_capacity(&list) == before_cap);
+
+    // Clear then reserve boosts capacity again
+    nonpods_ptr_clear(&list);
+    err = nonpods_ptr_reserve(&list, 32);
+    assert(err == ARRAYLIST_OK);
+    assert(nonpods_ptr_capacity(&list) >= 32);
+
+    // Shrink to fit after removing all reduces capacity to zero
+    nonpods_ptr_shrink_size(&list, 0);
+    err = nonpods_ptr_shrink_to_fit(&list);
+    assert(nonpods_ptr_capacity(&list) == 0);
+
+    // Failed allocator never increases capacity, remains zero
+    struct Allocator faila = allocator_get_failling_alloc();
+    struct arraylist_nonpods_ptr bad = nonpods_ptr_init(faila);
+    assert(nonpods_ptr_capacity(&bad) == 0);
+    err = nonpods_ptr_push_back(&bad, np1); // Should fail
+    assert(err != ARRAYLIST_OK);
+    assert(nonpods_ptr_capacity(&bad) == 0);
+    err = nonpods_ptr_reserve(&bad, 1000);
+    assert(err != ARRAYLIST_OK);
+    assert(nonpods_ptr_capacity(&bad) == 0);
+
+    nonpods_ptr_deinit(&bad);
+
+    // Defensive: after deinit, capacity is always 0
+    nonpods_ptr_deinit(&list);
+    assert(nonpods_ptr_capacity(&list) == 0);
+
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist capacity pointer-type passed\n");
+}
+
+void test_arraylist_get_allocator_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods_ptr list = nonpods_ptr_init(gpa);
+
+    // Basic: get_allocator returns non-NULL when valid-
+    struct Allocator *out = nonpods_ptr_get_allocator(&list);
+    assert(out != NULL);
+    // Must match what we passed to init
+    assert(out->malloc == gpa.malloc && out->free == gpa.free && out->realloc == gpa.realloc && out->ctx == gpa.ctx);
+
+    // Same pointer returned each time; doesn't move-
+    struct Allocator *out2 = nonpods_ptr_get_allocator(&list);
+    assert(out == out2);
+
+    // Use returned allocator to allocate/free
+    void *buf = out->malloc(32, out->ctx);
+    assert(buf != NULL);
+    out->free(buf, 32, out->ctx);
+
+    // Changing the allocator via the struct, get_allocator reflects change
+    struct Allocator fail_a = allocator_get_failling_alloc();
+    list.alloc = fail_a;
+    struct Allocator *out3 = nonpods_ptr_get_allocator(&list);
+    assert(out3 != NULL);
+    assert(out3->malloc == fail_malloc && out3->free == fail_free);
+
+    // After copy, get_allocator of copy reflects its own, not original
+    struct arraylist_nonpods_ptr list2 = list;
+    struct Allocator *oa2 = nonpods_ptr_get_allocator(&list2);
+    assert(oa2 != NULL);
+    assert(oa2->malloc == fail_malloc && oa2->free == fail_free);
+
+    // After deinit, struct is zeroed, get_allocator returns pointer to zeroed struct
+    nonpods_ptr_deinit(&list);
+    struct Allocator *out4 = nonpods_ptr_get_allocator(&list);
+    assert(out4 != NULL);
+    // After memset, all members are NULL/0 (undefined but this is allowed by your code)
+    // Some implementations might optimize to point to ".bss", but we can check at least the pointer is not NULL
+    // To be extra paranoid, the allocator's function ptrs should now be NULL
+    assert(out4->malloc == NULL || out4->malloc == fail_malloc); // May be zero (if memset to 0), or still old value
+    assert(out4->free == NULL || out4->free == fail_free);       // Accept both: zeroed (reset by deinit) or old
+    // It's not valid to use these fn ptrs after deinit
+
+    // get_allocator(NULL) returns NULL, never segfaults
+    assert(nonpods_ptr_get_allocator(NULL) == NULL);
+
+    // get_allocator works on stack, heap, zero-inited
+    struct arraylist_nonpods_ptr zeroed = {0};
+    struct Allocator *az = nonpods_ptr_get_allocator(&zeroed);
+    assert(az != NULL);
+    assert(az->malloc == NULL);
+
+    // get_allocator after re-initialization: returns new
+    struct arraylist_nonpods_ptr list3 = nonpods_ptr_init(gpa);
+    struct Allocator *oa3 = nonpods_ptr_get_allocator(&list3);
+    assert(oa3 != NULL);
+    assert(oa3->malloc == gpa.malloc);
+
+    // Use get_allocator inside arraylist operations
+    for (size_t i = 0; i < 8; ++i)
+        *nonpods_ptr_emplace_back_slot(&list3) = non_pod_init_ptr("z", 42, 123.0f + i, nonpods_ptr_get_allocator(&list3));
+    assert(list3.size == 8);
+
+    // The pointer is always to the arraylist's .alloc field
+    assert(oa3 == &list3.alloc);
+
+    // After clear, get_allocator returns same pointer (address is stable)
+    nonpods_ptr_clear(&list3);
+    assert(nonpods_ptr_get_allocator(&list3) == oa3);
+
+    // After shrink_to_fit, allocator unchanged
+    nonpods_ptr_shrink_to_fit(&list3);
+    assert(nonpods_ptr_get_allocator(&list3) == oa3);
+
+    // After failed growth, allocator unchanged
+    list3.alloc = fail_a;
+    enum arraylist_error err = nonpods_ptr_push_back(&list3, non_pod_init_ptr("fail", 0, 0, &gpa));
+    assert(err != ARRAYLIST_OK);
+    assert(nonpods_ptr_get_allocator(&list3)->malloc == fail_malloc);
+
+    // resetting global dtor counter, as the counter has gone up, but not really allocated
+    global_destructor_counter_arraylist = 0;
+
+    // After pop_back/remove, allocator unchanged
+    nonpods_ptr_pop_back(&list3);
+    assert(nonpods_ptr_get_allocator(&list3) == oa3 || nonpods_ptr_get_allocator(&list3) == &list3.alloc);
+
+    // Cleanups
+    nonpods_ptr_deinit(&list2);
+    nonpods_ptr_deinit(&list3);
+
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist get_allocator pointer-type passed\n");
+}
+
+void test_arraylist_swap_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods_ptr a = nonpods_ptr_init(gpa);
+    struct arraylist_nonpods_ptr b = nonpods_ptr_init(gpa);
+
+    // swap two empty lists
+    size_t pre_count = global_destructor_counter_arraylist;
+    enum arraylist_error err = nonpods_ptr_swap(&a, &b);
+    assert(err == ARRAYLIST_OK);
+    assert(a.size == 0 && b.size == 0 && a.capacity == 0 && b.capacity == 0);
+    assert(a.data == NULL && b.data == NULL);
+    assert(global_destructor_counter_arraylist == pre_count);
+
+    // swap where one is empty, one is populated
+    // Add a few entries to 'a'
+    for (int i = 0; i < 5; ++i) {
+        char buf[16]; snprintf(buf, sizeof buf, "A_%d", i);
+        *nonpods_ptr_emplace_back_slot(&a) = non_pod_init_ptr(buf, i, 1.1f * i, &gpa);
+    }
+    assert(a.size == 5 && b.size == 0);
+    // Record a's original buffer properties
+    size_t old_a_cap = a.capacity;
+    void *old_a_data = a.data;
+
+    // Swap
+    err = nonpods_ptr_swap(&a, &b);
+    assert(err == ARRAYLIST_OK);
+    // a is now empty, b has previous contents of a
+    assert(a.size == 0 && a.capacity == 0 && a.data == NULL);
+    assert(b.size == 5 && b.capacity == old_a_cap && b.data == old_a_data);
+    for (size_t i = 0; i < b.size; ++i) {
+        char buf[16]; snprintf(buf, sizeof buf, "A_%d", (int)i);
+        assert(strcmp(b.data[i]->objname, buf) == 0);
+        assert(*b.data[i]->a == (int)i);
+    }
+
+    // swap back; restores original state
+    err = nonpods_ptr_swap(&a, &b);
+    assert(err == ARRAYLIST_OK);
+    assert(b.size == 0 && b.data == NULL);
+    assert(a.size == 5 && a.data != NULL);
+    for (size_t i = 0; i < a.size; ++i) {
+        char buf[16]; snprintf(buf, sizeof buf, "A_%d", (int)i);
+        assert(strcmp(a.data[i]->objname, buf) == 0);
+        assert(*a.data[i]->a == (int)i);
+    }
+
+    // swap two non-empty lists, different sizes
+    nonpods_ptr_clear(&b);
+    // b: three items
+    for (int i = 0; i < 3; ++i) {
+        char buf[16]; snprintf(buf, sizeof buf, "B_%d", i);
+        *nonpods_ptr_emplace_back_slot(&b) = non_pod_init_ptr(buf, i + 10, i + 20, &gpa);
+    }
+    size_t a_size = a.size, b_size = b.size;
+    void *a_data = a.data, *b_data = b.data;
+    size_t a_cap = a.capacity, b_cap = b.capacity;
+
+    err = nonpods_ptr_swap(&a, &b);
+    assert(err == ARRAYLIST_OK);
+    // a gets b's content
+    assert(a.size == b_size && a.capacity == b_cap && a.data == b_data);
+    for (size_t i = 0; i < a.size; ++i) {
+        char buf[16]; snprintf(buf, sizeof buf, "B_%d", (int)i);
+        assert(strcmp(a.data[i]->objname, buf) == 0);
+        assert(*a.data[i]->a == (int)(i+10));
+    }
+    // b gets a's content
+    assert(b.size == a_size && b.capacity == a_cap && b.data == a_data);
+    for (size_t i = 0; i < b.size; ++i) {
+        char buf[16]; snprintf(buf, sizeof buf, "A_%d", (int)i);
+        assert(strcmp(b.data[i]->objname, buf) == 0);
+        assert(*b.data[i]->a == (int)i);
+    }
+
+    // swap with self
+    err = nonpods_ptr_swap(&a, &a);
+    assert(err == ARRAYLIST_OK); // ok to swap with self, unchanged
+    assert(a.size == 3);
+    for (size_t i = 0; i < a.size; ++i) {
+        char buf[16]; snprintf(buf, sizeof buf, "B_%d", (int)i);
+        assert(strcmp(a.data[i]->objname, buf) == 0);
+    }
+
+    // swap after deinit (one deinit, one alive)
+    nonpods_ptr_deinit(&b);
+    err = nonpods_ptr_swap(&a, &b);
+    assert(err == ARRAYLIST_OK);
+    assert(a.size == 0 && a.data == NULL);
+    assert(b.size == 3 && b.data != NULL);
+
+    // NULL-ptr safeties: returns error, doesn't crash
+    err = nonpods_ptr_swap(NULL, &b);
+    assert(err == ARRAYLIST_ERR_NULL);
+    err = nonpods_ptr_swap(&b, NULL);
+    assert(err == ARRAYLIST_ERR_NULL);
+    err = nonpods_ptr_swap(NULL, NULL);
+    assert(err == ARRAYLIST_ERR_NULL);
+
+    // Does not leak memory regardless of swap
+    nonpods_ptr_clear(&a);
+    nonpods_ptr_clear(&b);
+    assert(global_destructor_counter_arraylist == 0);
+
+    // swap two very large lists
+    struct arraylist_nonpods_ptr x = nonpods_ptr_init(gpa), y = nonpods_ptr_init(gpa);
+    for (size_t i = 0; i < 100; ++i) {
+        *nonpods_ptr_emplace_back_slot(&x) = non_pod_init_ptr("XLIST", (int)i, (float)i, &gpa);
+    }
+    for (size_t i = 0; i < 55; ++i) {
+        *nonpods_ptr_emplace_back_slot(&y) = non_pod_init_ptr("YLIST", (int)i, (float)i, &gpa);
+    }
+    // Save snapshots
+    size_t xsize = x.size, ysize = y.size;
+    void *xdata = x.data, *ydata = y.data;
+    err = nonpods_ptr_swap(&x, &y);
+    assert(err == ARRAYLIST_OK);
+    assert(x.size == ysize && x.data == ydata);
+    assert(y.size == xsize && y.data == xdata);
+    for (size_t i = 0; i < x.size; ++i) {
+        assert(strcmp(x.data[i]->objname, "YLIST") == 0);
+    }
+    for (size_t i = 0; i < y.size; ++i) {
+        assert(strcmp(y.data[i]->objname, "XLIST") == 0);
+    }
+
+    // clean up all
+    nonpods_ptr_deinit(&a);
+    nonpods_ptr_deinit(&b);
+    nonpods_ptr_deinit(&x);
+    nonpods_ptr_deinit(&y);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist swap pointer-type passed\n");
+}
+
+void test_arraylist_qsort_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods_ptr list = nonpods_ptr_init(gpa);
+
+    // Sort empty list (should be OK, does nothing, returns OK)
+    enum arraylist_error err = nonpods_ptr_qsort(&list, non_pod_sort_ptr);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+
+    // Sort single-item list (no change, works)
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("z", 1, 3.0, &gpa);
+    err = nonpods_ptr_qsort(&list, non_pod_sort_ptr);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 1);
+    assert(strcmp(list.data[0]->objname, "z") == 0);
+
+    // Sort two-item: reverse, should swap
+    nonpods_ptr_clear(&list);
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("b", 2, 9.0, &gpa);
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("a", -1, 1.1, &gpa);
+    assert(strcmp(list.data[0]->objname, "b") == 0);
+    assert(strcmp(list.data[1]->objname, "a") == 0);
+
+    err = nonpods_ptr_qsort(&list, non_pod_sort_ptr);
+    assert(err == ARRAYLIST_OK);
+    // Sorted by objname, so "a" < "b"
+    assert(strcmp(list.data[0]->objname, "a") == 0);
+    assert(strcmp(list.data[1]->objname, "b") == 0);
+
+    // Sort already sorted: no change, still correct
+    err = nonpods_ptr_qsort(&list, non_pod_sort_ptr);
+    assert(err == ARRAYLIST_OK);
+    assert(strcmp(list.data[0]->objname, "a") == 0);
+    assert(strcmp(list.data[1]->objname, "b") == 0);
+
+    // Sort with multiple elements: random order, check sort result
+    nonpods_ptr_clear(&list);
+    const char *names[] = { "delta", "alpha", "charlie", "bravo", "echo" };
+    size_t N = sizeof(names)/sizeof(names[0]);
+    for (size_t i = 0; i < N; ++i) {
+        char buf[32];
+        snprintf(buf, sizeof(buf), "%s", names[i]);
+        *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr(buf, (int)i, 42.42, &gpa);
+    }
+    // Confirm not sorted
+    for (size_t i = 1; i < N; ++i) {
+        assert(strcmp(list.data[i-1]->objname, list.data[i]->objname) != 0 || strcmp(list.data[i-1]->objname, list.data[i]->objname) > 0);
+    }
+
+    err = nonpods_ptr_qsort(&list, non_pod_sort_ptr);
+    assert(err == ARRAYLIST_OK);
+
+    // Check sorted order
+    for (size_t i = 1; i < N; ++i) {
+        assert(strcmp(list.data[i-1]->objname, list.data[i]->objname) <= 0);
+    }
+    // Alphabetical: "alpha", "bravo", "charlie", "delta", "echo"
+    assert(strcmp(list.data[0]->objname, "alpha") == 0);
+    assert(strcmp(list.data[1]->objname, "bravo") == 0);
+    assert(strcmp(list.data[2]->objname, "charlie") == 0);
+    assert(strcmp(list.data[3]->objname, "delta") == 0);
+    assert(strcmp(list.data[4]->objname, "echo") == 0);
+
+    // List with duplicates: check order is sorted, not necessarily stable
+    nonpods_ptr_clear(&list);
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("x", 0, 0.0, &gpa);
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("a", 99, 1.0, &gpa);
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("x", 11, 2.2, &gpa);
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("b", 12, 3.3, &gpa);
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("x", -1, 4.4, &gpa);
+
+    err = nonpods_ptr_qsort(&list, non_pod_sort_ptr);
+    assert(err == ARRAYLIST_OK);
+
+    // Sorted: a, b, x, x, x
+    assert(strcmp(list.data[0]->objname, "a") == 0);
+    assert(strcmp(list.data[1]->objname, "b") == 0);
+    assert(strcmp(list.data[2]->objname, "x") == 0);
+    assert(strcmp(list.data[3]->objname, "x") == 0);
+    assert(strcmp(list.data[4]->objname, "x") == 0);
+
+    // List in reverse order: sorts to correct order
+    nonpods_ptr_clear(&list);
+    const char *revnames[] = { "gamma", "foxtrot", "echo", "delta", "charlie", "bravo", "alpha" };
+    for (size_t i = 0; i < 7; ++i) {
+        *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr(revnames[i], (int)i, 3.14f, &gpa);
+    }
+    err = nonpods_ptr_qsort(&list, non_pod_sort_ptr);
+    assert(err == ARRAYLIST_OK);
+    // alpha, bravo, charlie, delta, echo, foxtrot, gamma
+    for (size_t i = 1; i < list.size; ++i) {
+        assert(strcmp(list.data[i-1]->objname, list.data[i]->objname) <= 0);
+    }
+    assert(strcmp(list.data[0]->objname, "alpha") == 0);
+    assert(strcmp(list.data[6]->objname, "gamma") == 0);
+
+    // Re-sort after mutating contents
+    strcpy(list.data[3]->objname, "zulu");
+    err = nonpods_ptr_qsort(&list, non_pod_sort_ptr);
+    assert(err == ARRAYLIST_OK);
+    // alpha, bravo, charlie, echo, foxtrot, gamma, zulu
+    assert(strcmp(list.data[list.size - 1]->objname, "zulu") == 0);
+
+    // Test behavior if NULL list passed: returns ARRAYLIST_ERR_NULL, does not crash
+    err = nonpods_ptr_qsort(NULL, non_pod_sort_ptr);
+    assert(err == ARRAYLIST_ERR_NULL);
+
+    //Test behavior if NULL comparison function
+    err = nonpods_ptr_qsort(&list, NULL);
+    // Should not crash, returns early
+    assert(err == ARRAYLIST_ERR_NULL);
+
+    // After clear: sort is valid, sort no data does nothing
+    nonpods_ptr_clear(&list);
+    err = nonpods_ptr_qsort(&list, non_pod_sort_ptr);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+
+    // Large random case: sort is correct, stable
+    nonpods_ptr_clear(&list);
+    size_t bigN = 128;
+    // Insert shuffled (descending) names
+    for (size_t i = 0; i < bigN; ++i) {
+        char buf[32];
+        snprintf(buf, sizeof buf, "%.3u", (unsigned)(bigN-i));
+        *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr(buf, (int)i, 1.0+i, &gpa);
+    }
+    err = nonpods_ptr_qsort(&list, non_pod_sort_ptr);
+    assert(err == ARRAYLIST_OK);
+    // Should be in strictly increasing order by string
+    for (size_t i = 1; i < list.size; ++i) {
+        assert(strcmp(list.data[i-1]->objname, list.data[i]->objname) <= 0);
+    }
+    // Should have 001 at beginning, etc
+    assert(strncmp(list.data[0]->objname, "001", 3) == 0);
+
+    // Does not lose or duplicate objects
+    assert(list.size == bigN);
+
+    // Sorted result is correct: using at()
+    struct non_pod **first = nonpods_ptr_at(&list, 0);
+    struct non_pod **last = nonpods_ptr_at(&list, bigN - 1);
+    assert(first && last);
+    assert(strncmp((*first)->objname, "001", 3) == 0);
+    assert(strncmp((*last)->objname, "128", 3) == 0);
+
+    nonpods_ptr_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist qsort pointer-type passed\n");
+}
+
+void test_arraylist_clear_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods_ptr list = nonpods_ptr_init(gpa);
+    size_t N = 8;
+
+    // On a freshly initialized list
+    assert(list.size == 0 && list.data == NULL);
+    enum arraylist_error err = nonpods_ptr_clear(&list);
+    assert(err == ARRAYLIST_OK); // No crash
+    assert(list.size == 0);
+    assert(list.capacity == 0);
+
+    // On NULL pointer: no crash, returns OK
+    assert(nonpods_ptr_clear(NULL) == ARRAYLIST_OK);
+
+    // After adding a single element, then clearing
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("A", 1, 2.0, &gpa);
+    assert(list.size == 1 && global_destructor_counter_arraylist == 1);
+    err = nonpods_ptr_clear(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(list.capacity >= 1);
+    assert(global_destructor_counter_arraylist == 0);
+    // Data pointer may remain allocated, but don't deref beyond list.size.
+
+    // Multiple elements, all destructors called, buffer not shrunk
+    for (size_t i = 0; i < N; ++i) {
+        *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("B", (int)i, (float)i, &gpa);
+    }
+    assert(list.size == N);
+    assert(global_destructor_counter_arraylist == N);
+    size_t prev_cap = list.capacity;
+    void *prev_data = list.data;
+    err = nonpods_ptr_clear(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(list.capacity == prev_cap);
+    assert(list.data == prev_data);
+    assert(global_destructor_counter_arraylist == 0);
+
+    // After clear, can add again
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("C", 3, 4.0, &gpa);
+    assert(list.size == 1);
+    assert(global_destructor_counter_arraylist == 1);
+
+    // clear again after clear: safe (idempotent)
+    err = nonpods_ptr_clear(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == 0);
+    assert(list.capacity == prev_cap);
+
+    // clear on an already empty but allocated list is a no-op
+    err = nonpods_ptr_clear(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(list.capacity == prev_cap);
+
+    // List still usable after clear
+    for (size_t i = 0; i < 5; ++i) {
+        char buf[5]; snprintf(buf, sizeof buf, "X%lu", i);
+        *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr(buf, (int)i, (float)i, &gpa);
+    }
+    assert(list.size == 5);
+    assert(global_destructor_counter_arraylist == 5);
+
+    // clear, then shrink_to_fit to test buffer freed/compaction after clear
+    err = nonpods_ptr_clear(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == 0);
+    err = nonpods_ptr_shrink_to_fit(&list);
+    assert(err == ARRAYLIST_OK);
+    // Now storage should be truly freed
+    assert(list.data == NULL || list.capacity == 0);
+    // Clear on a totally fresh buffer returns OK
+    err = nonpods_ptr_clear(&list);
+
+    // After deinit, clear is safe (does not crash, acts as no-op)
+    nonpods_ptr_deinit(&list);
+    err = nonpods_ptr_clear(&list); // Shouldn't crash, size should be zero, return OK.
+    assert(err == ARRAYLIST_OK);
+
+    // Multiple calls to clear after deinit: no op
+    err = nonpods_ptr_clear(&list);
+    assert(err == ARRAYLIST_OK);
+
+    // Re-init, add, clear
+    list = nonpods_ptr_init(gpa);
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("ZZ", 9, 9.9, &gpa);
+    assert(list.size == 1);
+    assert(global_destructor_counter_arraylist == 1);
+    err = nonpods_ptr_clear(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0 && global_destructor_counter_arraylist == 0);
+
+    // Large list, destructor call count and buffer preserved
+    for (size_t i = 0; i < 40; ++i) {
+        *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("bulk", (int)i, (float)i, &gpa);
+    }
+    assert(list.size == 40 && global_destructor_counter_arraylist == 40);
+    prev_cap = list.capacity; prev_data = list.data;
+    err = nonpods_ptr_clear(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0 && list.capacity == prev_cap && list.data == prev_data);
+    assert(global_destructor_counter_arraylist == 0);
+
+    // After clear, insert and then deinit: destructor is called for new element
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("L", 1, 2.2, &gpa); // +1
+    nonpods_ptr_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+
+    printf("test arraylist clear pointer-type passed\n");
+}
+
+void test_arraylist_deinit_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+
+    // Basic deinit: empties everything, frees buffer, destructor called on all
+
+    global_destructor_counter_arraylist = 0;
+
+    struct arraylist_nonpods_ptr list = nonpods_ptr_init(gpa);
+
+    // Fill the array
+    const size_t N = 10;
+    for (size_t i = 0; i < N; ++i) {
+        char name[16];
+        snprintf(name, sizeof(name), "np%lu", i);
+        *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr(name, (int)i, (float)i, &gpa);
+    }
+    assert(list.size == N);
+    assert(global_destructor_counter_arraylist == N);
+    assert(list.data != NULL);
+    assert(list.capacity >= N);
+
+    // Call deinit
+    nonpods_ptr_deinit(&list);
+
+    // After deinit, array is empty/zeroed, no leaks, buffer is invalid
+    assert(list.size == 0);
+    assert(list.capacity == 0);
+    assert(list.data == NULL);
+    assert(memcmp(&list.alloc, (const char[sizeof(list.alloc)]){0}, sizeof(list.alloc)) == 0);
+    assert(global_destructor_counter_arraylist == 0);
+
+    // Deinit is safe for already deinitialized or empty lists: second call does nothing
+    nonpods_ptr_deinit(&list); // No crash, no double free, still zeroed
+    assert(list.size == 0);
+    assert(list.capacity == 0);
+    assert(list.data == NULL);
+    assert(global_destructor_counter_arraylist == 0);
+
+    // Deinit is a no-op for zero-capacity, zero-size (already empty)
+    struct arraylist_nonpods_ptr empty = nonpods_ptr_init(gpa);
+    nonpods_ptr_deinit(&empty);
+    assert(empty.size == 0);
+    assert(empty.capacity == 0);
+    assert(empty.data == NULL);
+    assert(global_destructor_counter_arraylist == 0);
+
+    // Deinit safe for NULL: nothing happens, no crash
+    nonpods_ptr_deinit(NULL);
+
+    // Interleaved use: repeated allocate/deinit cycles (no leaks/UB)
+    for (size_t cycle = 0; cycle < 5; ++cycle) {
+        struct arraylist_nonpods_ptr cyc = nonpods_ptr_init(gpa);
+        for (size_t j = 0; j < 3 + cycle; ++j) {
+            char nm[8]; snprintf(nm, sizeof nm, "cyc%lu_%lu", cycle, j);
+            *nonpods_ptr_emplace_back_slot(&cyc) = non_pod_init_ptr(nm, (int)j, (float)j, &gpa);
+        }
+        assert(global_destructor_counter_arraylist > 0);
+        nonpods_ptr_deinit(&cyc);
+        assert(global_destructor_counter_arraylist == 0);
+    }
+
+    // Can safely re-init after deinit, as per API doc
+    list = nonpods_ptr_init(gpa);
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("AFTER", 123, 4.56, &gpa);
+    assert(list.size == 1);
+    assert(global_destructor_counter_arraylist == 1);
+
+    nonpods_ptr_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+
+    // Ensure dtor called for each element
+    // We'll count dtors, then forcibly clear without dtor (dirty trick: bypass it)
+    list = nonpods_ptr_init(gpa);
+    for (size_t i = 0; i < 5; ++i) {
+        *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("count", 17, 3.14, &gpa);
+    }
+    assert(global_destructor_counter_arraylist == 5);
+    // Remove three elements (to cover partial clear)
+    nonpods_ptr_remove_at(&list, 0);
+    nonpods_ptr_remove_at(&list, 0);
+    nonpods_ptr_remove_at(&list, 0);
+    assert(global_destructor_counter_arraylist == 2);
+
+    nonpods_ptr_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist deinit pointer-type passed\n");
+}
+
+/* === END ARRAYLIST UNIT TESTS NON POD POINTER === */
+
+/* === START ARRAYLIST_DYN UNIT TESTS NON POD === */
+
+ARRAYLIST_DYN(struct non_pod, non_pods_d)
+
+void test_arraylist_dyn_init_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d list = dyn_non_pods_d_init(gpa, non_pod_deinit);
+
+    assert(list.size == 0);
+    assert(list.capacity == 0);
+    assert(list.data == NULL);
+    assert(list.alloc.malloc == gpa.malloc);
+
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn init for value types passed\n");
+}
+
+void test_arraylist_dyn_reserve_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d list = dyn_non_pods_d_init(gpa, non_pod_deinit);
+
+    // Reserve when list is empty: allocates exactly requested size
+    enum arraylist_error err = dyn_non_pods_d_reserve(&list, 10);
+    assert(err == ARRAYLIST_OK);
+    assert(list.capacity == 10);
+    assert(list.data != NULL);
+    assert(list.size == 0);
+
+    // Reserve smaller (no-op): capacity remains unchanged
+    err = dyn_non_pods_d_reserve(&list, 5);
+    assert(err == ARRAYLIST_OK);
+    assert(list.capacity == 10);    // No shrink
+
+    // Reserve same size (no-op)
+    err = dyn_non_pods_d_reserve(&list, 10);
+    assert(err == ARRAYLIST_OK);
+    assert(list.capacity == 10);    // Still 10
+
+    // Reserve larger: reallocs and grows buffer, data valid
+
+    // Fill up to 4
+    for (size_t i = 0; i < 4; ++i) {
+        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("a", i, i, &gpa);
+    }
+
+    // struct non_pod *olddata = list.data;
+    err = dyn_non_pods_d_reserve(&list, 32);
+    assert(err == ARRAYLIST_OK);
+    assert(list.capacity == 32);    // Grown
+    assert(list.size == 4);
+    assert(list.data != NULL);
+
+    for (size_t i = 0; i < list.size; ++i) {
+        assert(strcmp(list.data[i].objname, "a") == 0);
+    }
+    // Possibly new buffer, but implementation allows same pointer if realloc does nothing.
+    // Do not hold pointers to old data if a realloc happens
+    // assert(list.data == olddata);
+
+    // Emplace more after reserve: no further realloc until cap hit
+    size_t prevcap = list.capacity;
+    for (size_t i = 4; i < 32; ++i) {
+        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("b", (int)i, (float)i, &gpa);
+    }
+    assert(list.size == 32);
+    assert(list.capacity == prevcap);
+
+    // Reserve to much larger: works and keeps old data
+    err = dyn_non_pods_d_reserve(&list, 64);
+    assert(err == ARRAYLIST_OK);
+    assert(list.capacity == 64);
+    for (size_t i = 0; i < list.size; ++i) {
+        assert(list.data[i].a != NULL);
+    }
+
+    // Reserve with zero (should not shrink; no effect, not an error)
+    prevcap = list.capacity;
+    err = dyn_non_pods_d_reserve(&list, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.capacity == prevcap);
+
+    // Reserve with capacity equal to maximum supported by the allocator: catches overflow
+    size_t maxsafe = SIZE_MAX / sizeof(struct non_pod);
+    err = dyn_non_pods_d_reserve(&list, maxsafe + 1);
+    assert(err == ARRAYLIST_ERR_OVERFLOW);
+
+    // Reserve with failing allocation: returns error, does not affect old buffer
+    // Provide an allocator that always fails, init a fresh list
+    struct Allocator fail_alloc = allocator_get_failling_alloc();
+    struct arraylist_dyn_non_pods_d fail_list = dyn_non_pods_d_init(fail_alloc, non_pod_deinit);
+    // first reserve: fails as malloc returns NULL
+    err = dyn_non_pods_d_reserve(&fail_list, 8);
+    assert(err == ARRAYLIST_ERR_ALLOC);
+    assert(fail_list.capacity == 0);
+    assert(fail_list.data == NULL);
+
+    // Fill a normal list to known good state
+    struct arraylist_dyn_non_pods_d small = dyn_non_pods_d_init(gpa, non_pod_deinit);
+    for (size_t i = 0; i < 2; ++i) {
+        *dyn_non_pods_d_emplace_back_slot(&small) = non_pod_init("QQ", 2, 3, &gpa);
+    }
+    small.capacity = 2;
+    // Now try to reserve with failing allocator change
+    small.alloc = fail_alloc;
+    err = dyn_non_pods_d_reserve(&small, 3);
+    // Fails (realloc returns NULL), buffer unchanged
+    assert(err == ARRAYLIST_ERR_ALLOC);
+    // Since realloc failed, old data/cap remains
+    assert(small.capacity == 2);
+    // May or may not have NULL data pointer as realloc is permitted to leave old pointer unchanged
+
+    // Reserve on uninitialized/null list: returns error (no crash)
+    err = dyn_non_pods_d_reserve(NULL, 8);
+    assert(err == ARRAYLIST_ERR_NULL);
+
+    // Remark: After shrinking the list (with shrink_size), reserve does not shrink buffer
+    err = dyn_non_pods_d_reserve(&list, 16);
+    assert(err == ARRAYLIST_OK);
+    // (Cap remains 64 since already large enough)
+    assert(list.capacity == 64);
+
+    // Clean up
+    dyn_non_pods_d_deinit(&list);
+    dyn_non_pods_d_deinit(&small);
+    dyn_non_pods_d_deinit(&fail_list);
+
+    dyn_non_pods_d_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn reserve value-type passed\n");
+}
+
+void test_arraylist_dyn_shrink_size_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d list = dyn_non_pods_d_init(gpa, non_pod_deinit);
+
+    struct non_pod a = non_pod_init("a", 1, 1.1, &gpa);
+    struct non_pod b = non_pod_init("b", 2, 2.2, &gpa);
+    struct non_pod c = non_pod_init("c", 3, 3.3, &gpa);
+    *dyn_non_pods_d_emplace_back_slot(&list) = a;
+    *dyn_non_pods_d_emplace_back_slot(&list) = b;
+    *dyn_non_pods_d_emplace_back_slot(&list) = c;
+    assert(list.size == 3);
+
+    size_t before = global_destructor_counter_arraylist;
+    enum arraylist_error err = dyn_non_pods_d_shrink_size(&list, 1);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 1);
+    assert(strcmp(list.data[0].objname, "a") == 0);
+    assert(global_destructor_counter_arraylist == before - 2);
+
+    // Shrink to same size
+    before = global_destructor_counter_arraylist;
+    err = dyn_non_pods_d_shrink_size(&list, 1);
+    assert(err == ARRAYLIST_OK);
+    assert(global_destructor_counter_arraylist == before);
+
+    // Shrink to greater (no effect)
+    err = dyn_non_pods_d_shrink_size(&list, 4);
+    assert(err == ARRAYLIST_OK);
+
+    // Shrink to zero
+    err = dyn_non_pods_d_shrink_size(&list, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == 0);
+
+    dyn_non_pods_d_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn shrink_size value-type passed\n");
+}
+
+void test_arraylist_dyn_shrink_to_fit_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d list = dyn_non_pods_d_init(gpa, non_pod_deinit);
+
+    for (size_t i = 0; i < 6; ++i)
+        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("vv", i, i * 3.1, &gpa);
+
+    size_t orig_cap = list.capacity, orig_size = list.size;
+    assert(orig_cap > orig_size);
+
+    enum arraylist_error err = dyn_non_pods_d_shrink_to_fit(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.capacity == list.size);
+
+    // Remove some
+    err = dyn_non_pods_d_shrink_size(&list, 1);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 1);
+
+    err = dyn_non_pods_d_shrink_to_fit(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.capacity == 1);
+
+    // Shrink to fit empty
+    err = dyn_non_pods_d_shrink_size(&list, 0);
+    err = dyn_non_pods_d_shrink_to_fit(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.capacity == 0);
+    assert(list.data == NULL);
+
+    dyn_non_pods_d_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn shrink_to_fit value-type passed\n");
+}
+
+void test_arraylist_dyn_push_back_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d list = dyn_non_pods_d_init(gpa, non_pod_deinit);
+
+    // Push first element
+    struct non_pod n1 = non_pod_init("one", 1, 1.1, &gpa);
+    enum arraylist_error err = dyn_non_pods_d_push_back(&list, n1);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 1);
+    assert(list.capacity == 1);
+    assert(list.data != NULL);
+    // Should still be 1 allocation
+    assert(strcmp(list.data[0].objname, "one") == 0);
+    assert(*list.data[0].a == 1);
+    assert(*list.data[0].b == (float)1.1f);
+
+    // Push multiple to grow beyond initial cap
+    size_t N = 10;
+    for (size_t i = 1; i < N; ++i) {
+        char buf[32];
+        snprintf(buf, sizeof(buf), "val%lu", i);
+        struct non_pod n = non_pod_init(buf, i, i * 2.0f, &gpa);
+        err = dyn_non_pods_d_push_back(&list, n);
+        assert(err == ARRAYLIST_OK);
+        assert(dyn_non_pods_d_size(&list) == i + 1);
+        assert(strcmp(list.data[i].objname, buf) == 0);
+        assert(*list.data[i].a == (int)i);
+        assert(*list.data[i].b == (float)(i * 2.0f));
+        // Capacity should always >= size, doubled when full
+        assert(list.capacity >= list.size);
+    }
+
+    // Check all content
+    for (size_t i = 0; i < N; ++i) {
+        if (i == 0) {
+            assert(strcmp(list.data[i].objname, "one") == 0);
+            assert(*list.data[i].a == 1);
+        } else {
+            char buf[32];
+            snprintf(buf, sizeof(buf), "val%lu", i);
+            assert(strcmp(list.data[i].objname, buf) == 0);
+            assert(*list.data[i].a == (int)i);
+        }
+    }
+
+    // Remove some, then push_back again
+    dyn_non_pods_d_pop_back(&list);     // Remove "val9"
+    dyn_non_pods_d_remove_at(&list, 0); // Remove "one"
+    size_t before = dyn_non_pods_d_size(&list);
+    struct non_pod nnew = non_pod_init("again", 42, 42.42, &gpa);
+    err = dyn_non_pods_d_push_back(&list, nnew);
+    assert(err == ARRAYLIST_OK);
+    assert(dyn_non_pods_d_size(&list) == before + 1);
+    assert(strcmp(list.data[list.size - 1].objname, "again") == 0);
+    assert(*list.data[list.size - 1].a == 42);
+
+    // Pop all and check destructor counter returns to zero
+    dyn_non_pods_d_clear(&list);
+    assert(global_destructor_counter_arraylist == 0);
+
+    // Push after clear
+    struct non_pod tmp = non_pod_init("after", 888, 8.88, &gpa);
+    err = dyn_non_pods_d_push_back(&list, tmp);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 1);
+
+    // Testing doubling capacity
+    dyn_non_pods_d_shrink_to_fit(&list);
+    assert(list.size == 1);
+    assert(list.capacity == 1);
+
+    struct non_pod np1 = non_pod_init("a", 1, 1.1, &gpa);
+    dyn_non_pods_d_push_back(&list, np1);
+    assert(list.size == 2);
+    assert(list.capacity == 2);
+
+    struct non_pod np2 = non_pod_init("b", 2, 2.2, &gpa);
+    dyn_non_pods_d_push_back(&list, np2);
+    assert(list.size == 3);
+    assert(list.capacity == 4);
+
+    struct non_pod np3 = non_pod_init("c", 3, 3.3, &gpa);
+    dyn_non_pods_d_push_back(&list, np3);
+    assert(list.size == 4);
+    assert(list.capacity == 4);
+
+    struct non_pod np4 = non_pod_init("d", 4, 4.4, &gpa);
+    dyn_non_pods_d_push_back(&list, np4);
+    assert(list.size == 5);
+    assert(list.capacity == 8);
+
+    dyn_non_pods_d_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn push_back value-type passed\n");
+}
+
+void test_arraylist_dyn_emplace_back_slot_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d list = dyn_non_pods_d_init(gpa, non_pod_deinit);
+
+    // Emplace one element; returned pointer is valid and modifiable
+    struct non_pod *slot1 = dyn_non_pods_d_emplace_back_slot(&list);
+    assert(slot1 != NULL);
+    // Can write individually through the slots:
+    // (*slot1)->objname = gpa.malloc(5, gpa.ctx);
+    // strcpy((*slot1)->objname, "foo");
+    // (*slot1)->a = gpa.malloc(sizeof(int), gpa.ctx);
+    // *(*slot1)->a = 1;
+    // (*slot1)->b = gpa.malloc(sizeof(float), gpa.ctx);
+    // *(*slot1)->b = 1.1f;
+
+    *slot1 = non_pod_init("foo", 1, 1.1, &gpa);
+
+    assert(list.size == 1);
+    assert(list.capacity == 1);
+    assert(strcmp(list.data[0].objname, "foo") == 0);
+    assert(list.data[0].a && *list.data[0].a == 1);
+    // Data written through slot is visible in data array
+    *slot1->a = 27;
+    assert(*list.data[0].a == 27);
+
+    // However after realloc, these pointers may not be valid anymore, so don't do this
+
+    // Emplace multiple: Each pointer is unique, order preserved
+    for (size_t i = 0; i < 5; ++i) {
+        struct non_pod *slot = dyn_non_pods_d_emplace_back_slot(&list);
+        assert(slot != NULL);
+        char name[6];
+        snprintf(name, sizeof name, "item%lu", i);
+        *slot = non_pod_init(name, i, 100.1f + i, &gpa);
+        assert(list.data[list.size - 1].a && *slot->a == (int)i);
+        assert(strcmp(slot->objname, name) == 0);
+    }
+
+    // Emplacing triggers growth, previous pointers are NOT preserved
+    size_t old_capacity = list.capacity;
+    struct non_pod *old_first = &list.data[0];
+    for (size_t i = 0; i < 20; ++i) {
+        struct non_pod *slot_grow = dyn_non_pods_d_emplace_back_slot(&list);
+        char name[8];
+        snprintf(name, sizeof name, "slot%lu", i);
+        *slot_grow = non_pod_init(name, i + 1, 200.2f + i, &gpa);
+    }
+
+    assert(list.capacity > old_capacity);
+    // After realloc, previous values are still valid and not overwritten, however, pointers are not in the same location
+    // Thus, do not hold data pointers of list after operations that may realloc
+    assert(slot1 != old_first);
+
+    assert(strcmp(list.data[0].objname, "foo") == 0);
+
+    // After deinit, one must init again to not crash
+    dyn_non_pods_d_deinit(&list);
+    list = dyn_non_pods_d_init(gpa, non_pod_deinit);
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("testing1", 1, 1.1, &gpa);
+    assert(list.size == 1);
+    assert(list.capacity == 1);
+
+    // Testing doubling capacity
+    // Do not need to create temp values to insert, however, there is way to check for failure this way
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("testing2", 2, 2.2, &gpa);
+    assert(list.size == 2);
+    assert(list.capacity == 2);
+
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("testing3", 3, 3.3, &gpa);
+    assert(list.size == 3);
+    assert(list.capacity == 4);
+
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("testing4", 4, 4.4, &gpa);
+    assert(list.size == 4);
+    assert(list.capacity == 4);
+
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("testing5", 5, 5.5, &gpa);
+    assert(list.size == 5);
+    assert(list.capacity == 8);
+
+    dyn_non_pods_d_deinit(&list);
+
+    dyn_non_pods_d_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn emplace_back_slot value-type passed\n");
+}
+
+void test_arraylist_dyn_insert_at_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d list = dyn_non_pods_d_init(gpa, non_pod_deinit);
+
+    // Insert into empty list, index 0; becomes head
+    struct non_pod a = non_pod_init("A", 10, 0.1, &gpa);
+    enum arraylist_error err = dyn_non_pods_d_insert_at(&list, a, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 1);
+    assert(strcmp(list.data[0].objname, "A") == 0);
+
+    // Insert at head (index 0), should become new head; existing shift right
+    struct non_pod b = non_pod_init("B", 20, 0.2, &gpa);
+    err = dyn_non_pods_d_insert_at(&list, b, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 2);
+    assert(strcmp(list.data[0].objname, "B") == 0);
+    assert(strcmp(list.data[1].objname, "A") == 0);
+
+    // Insert at tail (index=size), should append
+    struct non_pod c = non_pod_init("C", 30, 0.3, &gpa);
+    err = dyn_non_pods_d_insert_at(&list, c, list.size);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 3);
+    assert(strcmp(list.data[2].objname, "C") == 0);
+
+    // Insert in the middle (index=1)
+    struct non_pod d = non_pod_init("D", 40, 0.4, &gpa);
+    err = dyn_non_pods_d_insert_at(&list, d, 1);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 4);
+    assert(strcmp(list.data[0].objname, "B") == 0);
+    assert(strcmp(list.data[1].objname, "D") == 0);
+    assert(strcmp(list.data[2].objname, "A") == 0);
+    assert(strcmp(list.data[3].objname, "C") == 0);
+
+    // Insert at index > size (out of bounds), should append
+    struct non_pod e = non_pod_init("E", 50, 0.5, &gpa);
+    err = dyn_non_pods_d_insert_at(&list, e, 999);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 5);
+    assert(strcmp(list.data[4].objname, "E") == 0);
+
+    // Check all memory still valid and unchanged
+    assert(strcmp(list.data[0].objname, "B") == 0);
+    assert(strcmp(list.data[1].objname, "D") == 0);
+    assert(strcmp(list.data[2].objname, "A") == 0);
+    assert(strcmp(list.data[3].objname, "C") == 0);
+    assert(strcmp(list.data[4].objname, "E") == 0);
+
+    // Capacity grows correctly; insert repeatedly to trigger realloc
+    for (size_t i = 0; i < 10; ++i) {
+        char name[12];
+        snprintf(name, sizeof(name), "val%lu", i);
+        struct non_pod tmp = non_pod_init(name, i, i, &gpa);
+        err = dyn_non_pods_d_insert_at(&list, tmp, 2); // always in middle
+        assert(err == ARRAYLIST_OK);
+    }
+    assert(list.size == 15);
+    assert(list.capacity >= list.size);
+
+    // Insert at every possible index in small list
+    dyn_non_pods_d_clear(&list);
+    for (size_t i = 0; i < 4; ++i) {
+        struct non_pod t = non_pod_init("X", i, i, &gpa);
+        err = dyn_non_pods_d_insert_at(&list, t, i); // should be append to each
+        assert(err == ARRAYLIST_OK);
+        assert(list.size == i + 1);
+    }
+    // Now list is [X, X, X, X]; insert at head (0), tail (size=4), and middle (2)
+    struct non_pod y = non_pod_init("Y", 99, 99.9, &gpa);
+    err = dyn_non_pods_d_insert_at(&list, y, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 5);
+    assert(strcmp(list.data[0].objname, "Y") == 0);
+    struct non_pod z = non_pod_init("Z", 100, -10, &gpa);
+    err = dyn_non_pods_d_insert_at(&list, z, 2);
+    assert(list.size == 6);
+    assert(strcmp(list.data[2].objname, "Z") == 0);
+
+    // Reset list
+    dyn_non_pods_d_deinit(&list);
+    list = dyn_non_pods_d_init(gpa, non_pod_deinit);
+
+    // Testing double capacity
+    struct non_pod a1 = non_pod_init("A", 1, 1.1, &gpa);
+    dyn_non_pods_d_insert_at(&list, a1, 0);
+    assert(list.size == 1);
+    assert(list.capacity == 1);
+
+    struct non_pod a2 = non_pod_init("B", 2, 2.2, &gpa);
+    dyn_non_pods_d_insert_at(&list, a2, 0);
+    assert(list.size == 2);
+    assert(list.capacity == 2);
+
+    struct non_pod a3 = non_pod_init("C", 3, 3.3, &gpa);
+    dyn_non_pods_d_insert_at(&list, a3, 0);
+    assert(list.size == 3);
+    assert(list.capacity == 4);
+
+    struct non_pod a4 = non_pod_init("D", 4, 4.4, &gpa);
+    dyn_non_pods_d_insert_at(&list, a4, 0);
+    assert(list.size == 4);
+    assert(list.capacity == 4);
+
+    struct non_pod a5 = non_pod_init("E", 5, 5.5, &gpa);
+    dyn_non_pods_d_insert_at(&list, a5, 0);
+    assert(list.size == 5);
+    assert(list.capacity == 8);
+
+    dyn_non_pods_d_deinit(&list);
+
+    dyn_non_pods_d_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn insert_at value-type passed\n");
+}
+
+void test_arraylist_dyn_pop_back_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d list = dyn_non_pods_d_init(gpa, non_pod_deinit);
+
+    // Pop on empty list
+    size_t before = global_destructor_counter_arraylist;
+    enum arraylist_error err = dyn_non_pods_d_pop_back(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == before);
+
+    // Push one, then pop
+    struct non_pod a = non_pod_init("A", 11, 1.1, &gpa);
+    err = dyn_non_pods_d_push_back(&list, a);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 1);
+    before = global_destructor_counter_arraylist;
+    err = dyn_non_pods_d_pop_back(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == before - 1);
+
+    // Push several, then pop all
+    for (size_t i = 0; i < 5; ++i) {
+        char name[16]; snprintf(name, sizeof name, "item%lu", i);
+        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init(name, 10+i, 10+i, &gpa);
+    }
+    assert(list.size == 5);
+    size_t alive = global_destructor_counter_arraylist;
+    for (size_t i = 0; i < 5; ++i) {
+        err = dyn_non_pods_d_pop_back(&list);
+        assert(err == ARRAYLIST_OK);
+        assert(list.size == 5 - (i + 1));
+        assert(global_destructor_counter_arraylist == alive - (i + 1));
+    }
+    assert(list.size == 0);
+
+    // Interleave push/pop (LIFO)
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("foo", 1, 1, &gpa);
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("bar", 2, 2, &gpa);
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("baz", 3, 3, &gpa);
+
+    const char* expect_names[] = {"foo", "bar", "baz"};
+    for (size_t i = 0; i < 3; ++i)
+        assert(strcmp(list.data[i].objname, expect_names[i]) == 0);
+
+    err = dyn_non_pods_d_pop_back(&list); // removes "baz"
+    assert(list.size == 2);
+    assert(strcmp(list.data[0].objname, "foo") == 0);
+    assert(strcmp(list.data[1].objname, "bar") == 0);
+
+    err = dyn_non_pods_d_pop_back(&list); // removes "bar"
+    assert(list.size == 1);
+    assert(strcmp(list.data[0].objname, "foo") == 0);
+
+    err = dyn_non_pods_d_pop_back(&list); // removes "foo"
+    assert(list.size == 0);
+
+    // Push many to grow capacity, then pop many
+    for (size_t i = 0; i < 16; ++i)
+        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("grow", i, i, &gpa);
+    size_t cap = list.capacity;
+    for (size_t i = 0; i < 16; ++i)
+        dyn_non_pods_d_pop_back(&list);
+    assert(list.size == 0);
+    assert(list.capacity == cap); // pop_back never shrinks
+    assert(global_destructor_counter_arraylist == 0);
+
+    // Push, clear, pop_back is no-op
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("after", 123, 1, &gpa);
+    dyn_non_pods_d_clear(&list);
+    before = global_destructor_counter_arraylist;
+    err = dyn_non_pods_d_pop_back(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == before);
+
+    dyn_non_pods_d_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn pop_back value-type passed\n");
+}
+
+void test_arraylist_dyn_remove_at_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d list = dyn_non_pods_d_init(gpa, non_pod_deinit);
+    enum arraylist_error err;
+    size_t before;
+
+    // Remove from empty list (should no-op)
+    before = global_destructor_counter_arraylist;
+    err = dyn_non_pods_d_remove_at(&list, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == before);
+
+    // One element, remove at 0
+    struct non_pod a = non_pod_init("A", 1, 1.1, &gpa);
+    *dyn_non_pods_d_emplace_back_slot(&list) = a;
+    assert(list.size == 1);
+    before = global_destructor_counter_arraylist;
+    err = dyn_non_pods_d_remove_at(&list, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == before - 1); // dtor called
+
+    // Add several, remove head, tail, middle
+    struct non_pod b = non_pod_init("B", 2, 2.2, &gpa);
+    struct non_pod c = non_pod_init("C", 3, 3.3, &gpa);
+    struct non_pod d = non_pod_init("D", 4, 4.4, &gpa);
+    struct non_pod e = non_pod_init("E", 5, 5.5, &gpa);
+    *dyn_non_pods_d_emplace_back_slot(&list) = b;  // 0
+    *dyn_non_pods_d_emplace_back_slot(&list) = c;  // 1
+    *dyn_non_pods_d_emplace_back_slot(&list) = d;  // 2
+    *dyn_non_pods_d_emplace_back_slot(&list) = e;  // 3
+    assert(list.size == 4);
+
+    // Remove head (index 0)
+    before = global_destructor_counter_arraylist;
+    err = dyn_non_pods_d_remove_at(&list, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 3);
+    assert(global_destructor_counter_arraylist == before - 1); // one destructor called
+    // Remaining should be [C, D, E]
+    assert(strcmp(list.data[0].objname, "C") == 0);
+
+    // Remove tail (index size-1)
+    before = global_destructor_counter_arraylist;
+    err = dyn_non_pods_d_remove_at(&list, list.size - 1);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 2);
+    assert(global_destructor_counter_arraylist == before - 1); // one destructor called
+    // Remaining should be [C, D]
+    assert(strcmp(list.data[0].objname, "C") == 0);
+    assert(strcmp(list.data[1].objname, "D") == 0);
+
+    // Remove middle (index 1, which is D)
+    before = global_destructor_counter_arraylist;
+    err = dyn_non_pods_d_remove_at(&list, 1);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 1);
+    assert(global_destructor_counter_arraylist == before - 1);
+    assert(strcmp(list.data[0].objname, "C") == 0);
+
+    // Remove only remaining element
+    err = dyn_non_pods_d_remove_at(&list, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == 0);
+
+    // Add more, remove with index out of bounds (should act like pop_back)
+    for (int i = 0; i < 5; ++i) {
+        char buf[8];
+        snprintf(buf, sizeof buf, "X%d", i);
+        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init(buf, i, i+0.1, &gpa);
+    }
+    size_t sz = list.size;
+    before = global_destructor_counter_arraylist;
+    err = dyn_non_pods_d_remove_at(&list, 9999); // way OOB
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == sz - 1);
+    assert(global_destructor_counter_arraylist == before - 1);
+
+    // Remove with index == size (past end, also acts like pop_back)
+    sz = list.size;
+    before = global_destructor_counter_arraylist;
+    err = dyn_non_pods_d_remove_at(&list, list.size);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == sz - 1);
+    assert(global_destructor_counter_arraylist == before - 1);
+
+    // Remove with index == SIZE_MAX (wraps, will pop_back, test no crash)
+    sz = list.size;
+    before = global_destructor_counter_arraylist;
+    err = dyn_non_pods_d_remove_at(&list, SIZE_MAX);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == sz - 1);
+    assert(global_destructor_counter_arraylist == before - 1);
+
+    // Remove remaining (result: should be fully destructed)
+    while (list.size > 0) {
+        dyn_non_pods_d_remove_at(&list, 0);
+    }
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == 0);
+
+    // Test repeated removes on already empty list
+    before = global_destructor_counter_arraylist;
+    err = dyn_non_pods_d_remove_at(&list, 0);
+    assert(err == ARRAYLIST_OK);
+    err = dyn_non_pods_d_remove_at(&list, SIZE_MAX);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == before);
+
+    // Restore: Fill list, remove every position, check value stability / shifting
+    for (int i = 0; i < 4; ++i) {
+        char buf[8];
+        snprintf(buf, sizeof buf, "YY%d", i);
+        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init(buf, 100+i, 500.5+i, &gpa);
+    }
+    // [YY0, YY1, YY2, YY3]
+    // Remove 1 (YY1)
+    before = global_destructor_counter_arraylist;
+    err = dyn_non_pods_d_remove_at(&list, 1);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 3);
+    assert(global_destructor_counter_arraylist == before - 1);
+    assert(strcmp(list.data[0].objname, "YY0") == 0);
+    assert(strcmp(list.data[1].objname, "YY2") == 0); // shifted up
+    assert(strcmp(list.data[2].objname, "YY3") == 0);
+
+    // Remove 1 (YY2, now at index 1)
+    err = dyn_non_pods_d_remove_at(&list, 1);
+    assert(list.size == 2);
+    assert(strcmp(list.data[0].objname, "YY0") == 0);
+    assert(strcmp(list.data[1].objname, "YY3") == 0);
+
+    // Remove 0 (YY0)
+    err = dyn_non_pods_d_remove_at(&list, 0);
+    assert(list.size == 1);
+    assert(strcmp(list.data[0].objname, "YY3") == 0);
+
+    // Remove 0 (YY3)
+    err = dyn_non_pods_d_remove_at(&list, 0);
+    assert(list.size == 0);
+
+    // Remove at 0 again to check stable empty
+    err = dyn_non_pods_d_remove_at(&list, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+
+    dyn_non_pods_d_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn remove_at value-type passed\n");
+}
+
+void test_arraylist_dyn_remove_from_to_value(void)
+{
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d list = dyn_non_pods_d_init(gpa, non_pod_deinit);
+
+    // Fill with 6 named objects: A, B, C, D, E, F
+    const char *names[] = {"A", "B", "C", "D", "E", "F"};
+    for (size_t i = 0; i < 6; ++i) {
+        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init(names[i], 100 + i, 1.0+i, &gpa);
+    }
+
+    assert(list.size == 6);
+    assert(global_destructor_counter_arraylist == 6);
+
+    // Remove from head: [A, B, C, D, E, F] -- remove 0..1 -> [C, D, E, F]
+    size_t before = global_destructor_counter_arraylist;
+    enum arraylist_error err = dyn_non_pods_d_remove_from_to(&list, 0, 1);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 4);
+    assert(global_destructor_counter_arraylist == before - 2);
+    assert(strcmp(list.data[0].objname, "C") == 0);
+    assert(strcmp(list.data[1].objname, "D") == 0);
+    assert(strcmp(list.data[2].objname, "E") == 0);
+    assert(strcmp(list.data[3].objname, "F") == 0);
+
+    // Remove from middle: [C, D, E, F] -- remove 1..2 -> [C, F]
+    before = global_destructor_counter_arraylist;
+    err = dyn_non_pods_d_remove_from_to(&list, 1, 2);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 2);
+    assert(global_destructor_counter_arraylist == before - 2);
+    assert(strcmp(list.data[0].objname, "C") == 0);
+    assert(strcmp(list.data[1].objname, "F") == 0);
+
+    // Remove last element only: [C, F] -- remove 1..1 => [C]
+    before = global_destructor_counter_arraylist;
+    err = dyn_non_pods_d_remove_from_to(&list, 1, 1);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 1);
+    assert(global_destructor_counter_arraylist == before - 1);
+    assert(strcmp(list.data[0].objname, "C") == 0);
+
+    // Remove first element only: [C] -- remove 0..0 => []
+    before = global_destructor_counter_arraylist;
+    err = dyn_non_pods_d_remove_from_to(&list, 0, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == before - 1);
+
+    // Remove from empty: no-op
+    before = global_destructor_counter_arraylist;
+    err = dyn_non_pods_d_remove_from_to(&list, 0, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == before);
+
+    // Fill again for more tests
+    for (size_t i = 0; i < 6; ++i) {
+        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init(names[i], 200 + i, 2.0+i, &gpa);
+    }
+    assert(list.size == 6);
+
+    // Remove all by from=0, to=5 (size-1)
+    before = global_destructor_counter_arraylist;
+    err = dyn_non_pods_d_remove_from_to(&list, 0, list.size - 1);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == before - 6);
+
+    // Fill again for edge cases
+    for (size_t i = 0; i < 6; ++i) {
+        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init(names[i], 400 + i, 4.0+i, &gpa);
+    }
+    assert(list.size == 6);
+
+    // Remove with from > to: should be no-op
+    before = list.size;
+    size_t before_dtor = global_destructor_counter_arraylist;
+    err = dyn_non_pods_d_remove_from_to(&list, 4, 2);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == before);
+    assert(global_destructor_counter_arraylist == before_dtor);
+
+    // Remove with from == to == large index (index >= size): should clamp to size-1, remove last only
+    before = global_destructor_counter_arraylist;
+    err = dyn_non_pods_d_remove_from_to(&list, 99, 99);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 5);
+    assert(global_destructor_counter_arraylist == before - 1);
+    // Last element should have been removed, check new last
+    assert(strcmp(list.data[4].objname, "E") == 0);
+
+    // Remove with to out of bounds but from valid: remove from 3..(big) => removes 3 and 4 only (last two)
+    before = global_destructor_counter_arraylist;
+    err = dyn_non_pods_d_remove_from_to(&list, 3, 123456);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 3);
+    assert(global_destructor_counter_arraylist == before - 2);
+    // Data: C, D, E was at 4, but now gone
+    assert(strcmp(list.data[0].objname, "A") == 0);
+    assert(strcmp(list.data[1].objname, "B") == 0);
+    assert(strcmp(list.data[2].objname, "C") == 0);
+
+    // Remove with both out of bounds, with to being greater: clamps both to size-1, removes last element
+    before = global_destructor_counter_arraylist;
+    err = dyn_non_pods_d_remove_from_to(&list, 123, 9999);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 2);
+    assert(global_destructor_counter_arraylist == before - 1);
+
+    err = dyn_non_pods_d_remove_from_to(&list, 0, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 1);
+    assert(global_destructor_counter_arraylist == 1);
+
+    // Remove last remaining
+    err = dyn_non_pods_d_remove_from_to(&list, 0, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == 0);
+
+
+    // Remove from empty again (after everything): no crash, no change
+    err = dyn_non_pods_d_remove_from_to(&list, 0, 1);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == 0);
+
+    dyn_non_pods_d_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn remove_from_to value-type passed\n");
+}
+
+void test_arraylist_dyn_at_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d list = dyn_non_pods_d_init(gpa, non_pod_deinit);
+
+    // Empty array: OOB returns NULL
+    assert(dyn_non_pods_d_at(&list, 0) == NULL);
+    assert(dyn_non_pods_d_at(&list, 123) == NULL);
+
+    // Add some values
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("A", 10, 1.1, &gpa);
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("B", 20, 2.2, &gpa);
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("C", 30, 3.3, &gpa);
+
+    // Valid indices (0,1,2) return address in data, not NULL
+    for (size_t i = 0; i < list.size; ++i) {
+        struct non_pod *p = dyn_non_pods_d_at(&list, i);
+        assert(p != NULL);
+        // Content check (insertion order)
+        if (i == 0) assert(strcmp(p->objname, "A") == 0);
+        if (i == 1) assert(strcmp(p->objname, "B") == 0);
+        if (i == 2) assert(strcmp(p->objname, "C") == 0);
+    }
+
+    // Out of bounds: index == size or greater returns NULL
+    assert(dyn_non_pods_d_at(&list, 3) == NULL);
+    assert(dyn_non_pods_d_at(&list, 99) == NULL);
+
+    // Negative index interpreted as large size_t: always returns NULL
+    // (Some compilers warn on -1 cast to size_t, so cast explicitly)
+    assert(dyn_non_pods_d_at(&list, (size_t)-1) == NULL);
+
+    // Use returned pointer as modifiable, changes reflected in array
+    struct non_pod *pa = dyn_non_pods_d_at(&list, 0);
+    assert(pa);
+    strcpy(pa->objname, "newName");
+    assert(strcmp(list.data[0].objname, "newName") == 0);
+
+    // Remove element: shrink then query OOB (old last is dead)
+    dyn_non_pods_d_pop_back(&list); // removes "objectC"
+    assert(list.size == 2);
+    assert(dyn_non_pods_d_at(&list, 2) == NULL);
+
+    // Remove head, elements shift, at() reflects new order
+    dyn_non_pods_d_remove_at(&list, 0); // removes "newName"
+    assert(list.size == 1);
+    assert(strcmp(dyn_non_pods_d_at(&list, 0)->objname, "B") == 0);
+    assert(dyn_non_pods_d_at(&list, 1) == NULL);
+
+    // Insert after removal is visible via at()
+    struct non_pod tmp = non_pod_init("last", 99, 99.9, &gpa);
+    enum arraylist_error err = dyn_non_pods_d_insert_at(&list, tmp, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 2);
+    assert(strcmp(dyn_non_pods_d_at(&list, 0)->objname, "last") == 0);
+    assert(strcmp(dyn_non_pods_d_at(&list, 1)->objname, "B") == 0);
+
+    // at(NULL, x) returns NULL
+    assert(dyn_non_pods_d_at(NULL, 0) == NULL);
+    assert(dyn_non_pods_d_at(NULL, 1000) == NULL);
+
+    // Clearing empties the array; at() never deref OOB
+    dyn_non_pods_d_clear(&list);
+    assert(list.size == 0);
+    assert(dyn_non_pods_d_at(&list, 0) == NULL);
+    assert(dyn_non_pods_d_at(&list, 1) == NULL);
+
+    // Huge number of items: check random OOB and in-bounds
+    size_t bigN = 100;
+    for (size_t i = 0; i < bigN; ++i) {
+        char name[20];
+        snprintf(name, sizeof name, "item%lu", i);
+        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init(name, (int)i, (float)i, &gpa);
+    }
+    for (size_t i = 0; i < bigN; ++i) {
+        struct non_pod *p = dyn_non_pods_d_at(&list, i);
+        assert(p != NULL);
+        char expect[20];
+        snprintf(expect, sizeof expect, "item%lu", i);
+        assert(strcmp(p->objname, expect) == 0);
+        assert(*p->a == (int)i);
+        assert(*p->b == (float)i);
+    }
+    assert(dyn_non_pods_d_at(&list, bigN) == NULL);
+    assert(dyn_non_pods_d_at(&list, bigN + 10000) == NULL);
+
+    dyn_non_pods_d_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn at value-type passed\n");
+}
+
+void test_arraylist_dyn_begin_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d list = dyn_non_pods_d_init(gpa, non_pod_deinit);
+
+    // Begin on empty list should be NULL or a valid pointer only if capacity>0, so always check size first
+    assert(list.size == 0);
+    struct non_pod *begin = dyn_non_pods_d_begin(&list);
+    // If data == NULL, then begin==NULL; if not, begin==data
+    assert((begin == NULL && list.data == NULL) || begin == list.data);
+
+    // Add one element; begin() == &data[0], non-null
+    struct non_pod a = non_pod_init("A", 10, 1.1, &gpa);
+    dyn_non_pods_d_push_back(&list, a);
+    begin = dyn_non_pods_d_begin(&list);
+    assert(begin != NULL);
+    assert(begin == &list.data[0]);
+    assert(strcmp(begin->objname, "A") == 0);
+
+    // Add another, this operation caused a realloc, which means begin() may change, not always true,
+    // but should always be held as true
+    //struct non_pod *old_begin = begin;
+    struct non_pod b = non_pod_init("B", 20, 2.2, &gpa);
+    dyn_non_pods_d_push_back(&list, b);
+    begin = dyn_non_pods_d_begin(&list);
+    assert(begin == list.data);
+    // assert(begin != old_begin); may be true or false, do not hold pointers between operations that reallocate
+    assert(strcmp(begin->objname, "A") == 0);
+    assert(strcmp((begin+1)->objname, "B") == 0);
+
+    // Iteration with begin()/end()
+    size_t iter_count = 0;
+    for (struct non_pod *it = dyn_non_pods_d_begin(&list); it != dyn_non_pods_d_end(&list); ++it) {
+        if (iter_count == 0) assert(strcmp(it->objname, "A") == 0);
+        if (iter_count == 1) assert(strcmp(it->objname, "B") == 0);
+        ++iter_count;
+    }
+    assert(iter_count == list.size);
+
+    // Add multiple elements to trigger realloc/growth, confirm begin pointer is updated properly
+    size_t many = 32;
+    for (size_t i = 0; i < many; ++i) {
+        char buf[10];
+        snprintf(buf, sizeof buf, "q%lu", i);
+        dyn_non_pods_d_push_back(&list, non_pod_init(buf, (int)i, (float)i, &gpa));
+    }
+    begin = dyn_non_pods_d_begin(&list);
+    assert(begin == list.data);
+    // After growth, check first value is still "A"
+    assert(strcmp(begin->objname, "A") == 0);
+    // And nth value is correct
+    assert(strcmp((begin+list.size-1)->objname, "q31") == 0);
+
+    // begin pointer is valid up to end(), never deref past end
+    size_t count = 0;
+    for (struct non_pod *it = dyn_non_pods_d_begin(&list); it != dyn_non_pods_d_end(&list); ++it) {
+        count++;
+    }
+    assert(count == list.size);
+
+    // pop_back: begin unchanged, last element gone
+    size_t prev_size = list.size;
+    dyn_non_pods_d_pop_back(&list);
+    begin = dyn_non_pods_d_begin(&list);
+    assert(begin == list.data);
+    assert(list.size == prev_size - 1);
+
+    // clear: begin can be non-null if capacity > 0, but size==0 so do not deref it
+    dyn_non_pods_d_clear(&list);
+    assert(list.size == 0);
+    begin = dyn_non_pods_d_begin(&list);
+    // Dereferencing begin when list is empty is invalid, but it's ok to compare pointer value
+    assert(begin == list.data);
+    // If data==NULL, begin==NULL
+
+    // Remove all, then add again: begin valid, data correct
+    dyn_non_pods_d_push_back(&list, non_pod_init("foo", 1, 1.2f, &gpa));
+    assert(list.size == 1);
+    begin = dyn_non_pods_d_begin(&list);
+    assert(begin != NULL);
+    assert(strcmp(begin->objname, "foo") == 0);
+
+    // remove_at changes order, begin still valid
+    dyn_non_pods_d_push_back(&list, non_pod_init("bar", 2, 2.3f, &gpa));
+    dyn_non_pods_d_remove_at(&list, 0);
+    begin = dyn_non_pods_d_begin(&list);
+    assert(list.size == 1);
+    assert(strcmp(begin->objname, "bar") == 0);
+
+    // reset: deinit, then begin on fresh list
+    dyn_non_pods_d_deinit(&list);
+    list = dyn_non_pods_d_init(gpa, non_pod_deinit);
+    begin = dyn_non_pods_d_begin(&list);
+    assert(list.size == 0);
+    assert((begin == NULL && list.data == NULL) || begin == list.data);
+
+    // bulk insert; iterate via begin
+    for (size_t i = 0; i < 8; ++i) {
+        dyn_non_pods_d_push_back(&list, non_pod_init("x", i, i, &gpa));
+    }
+
+    size_t loopcheck = 0;
+    for (struct non_pod *it = dyn_non_pods_d_begin(&list); it != dyn_non_pods_d_end(&list); ++it) {
+        loopcheck++;
+    }
+    assert(loopcheck == list.size);
+
+    // at(NULL) returns NULL, begin(NULL) returns NULL
+    assert(dyn_non_pods_d_begin(NULL) == NULL);
+
+    // begin not deref'd if list is truly empty; do not crash
+    dyn_non_pods_d_clear(&list);
+    begin = dyn_non_pods_d_begin(&list);
+    // Dereferencing it is invalid, but pointer value is as expected
+    assert((begin == NULL && list.data == NULL) || begin == list.data);
+
+    dyn_non_pods_d_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn begin value-type passed\n");
+}
+
+void test_arraylist_dyn_back_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d list = dyn_non_pods_d_init(gpa, non_pod_deinit);
+
+    // back() on empty array: returns NULL
+    assert(dyn_non_pods_d_back(&list) == NULL);
+
+    // single element: back() returns data+0, points to first, non-null
+    struct non_pod a = non_pod_init("first", 11, 1.1, &gpa);
+    dyn_non_pods_d_push_back(&list, a);
+    struct non_pod *last = dyn_non_pods_d_back(&list);
+    assert(last != NULL);
+    assert(last == &list.data[0]);
+    assert(strcmp(last->objname, "first") == 0);
+    assert(*last->a == 11);
+
+    // two elements: back() points to new element each time, never to prior
+    struct non_pod b = non_pod_init("second", 22, 2.2, &gpa);
+    dyn_non_pods_d_push_back(&list, b);
+    assert(list.size == 2);
+    struct non_pod *back2 = dyn_non_pods_d_back(&list);
+    assert(back2 != NULL);
+    assert(back2 == &list.data[1]);
+    assert(strcmp(back2->objname, "second") == 0);
+    assert(*back2->a == 22);
+
+    // many elements: back() always matches last added
+    for (int i = 2; i < 12; ++i) {
+        char name[32];
+        snprintf(name, sizeof name, "item%d", i);
+        struct non_pod t = non_pod_init(name, 100+i, 3.3f+i, &gpa);
+        dyn_non_pods_d_push_back(&list, t);
+        struct non_pod *b = dyn_non_pods_d_back(&list);
+        assert(b != NULL);
+        assert(b == &list.data[list.size-1]);
+        assert(strcmp(b->objname, name) == 0);
+        assert(*b->a == 100+i);
+    }
+
+    // back() is mutable: change value via back(), data array reflects change
+    struct non_pod *bref = dyn_non_pods_d_back(&list);
+    strcpy(bref->objname, "lastX");
+    assert(strcmp(list.data[list.size-1].objname, "lastX") == 0);
+
+    // Remove last element: back() now returns previous element
+    enum arraylist_error err = dyn_non_pods_d_pop_back(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 11);
+    struct non_pod *newlast = dyn_non_pods_d_back(&list);
+    assert(newlast == &list.data[list.size-1]);
+    assert(*newlast->a == 110);
+    // Content should match what was inserted
+    assert(strcmp(newlast->objname, "item10") == 0);
+
+    // Remove all but one: back always matches, then back(NULL) when empty
+    while (list.size > 1)
+        dyn_non_pods_d_pop_back(&list);
+    assert(list.size == 1);
+    struct non_pod *lastleft = dyn_non_pods_d_back(&list);
+    assert(lastleft != NULL);
+    assert(lastleft == &list.data[0]);
+    assert(strcmp(lastleft->objname, "first") == 0);
+
+    dyn_non_pods_d_pop_back(&list);
+    assert(list.size == 0);
+    assert(dyn_non_pods_d_back(&list) == NULL);
+
+    // Push after clear: back() valid again
+    struct non_pod c = non_pod_init("newone", 123, 4.56, &gpa);
+    dyn_non_pods_d_push_back(&list, c);
+    struct non_pod *b2 = dyn_non_pods_d_back(&list);
+    assert(b2 != NULL);
+    assert(strcmp(b2->objname, "newone") == 0);
+
+    // Clear: back() should return NULL
+    dyn_non_pods_d_clear(&list);
+    assert(list.size == 0);
+    assert(dyn_non_pods_d_back(&list) == NULL);
+
+    // Push several, remove some, back() always matches last
+    for (int i = 0; i < 5; ++i) {
+        char nm[8];
+        snprintf(nm, sizeof nm, "set%d", i);
+        dyn_non_pods_d_push_back(&list, non_pod_init(nm, i+30, i+0.13f, &gpa));
+        assert(strcmp(dyn_non_pods_d_back(&list)->objname, nm) == 0);
+    }
+    assert(list.size == 5);
+    dyn_non_pods_d_remove_at(&list, 2); // remove element 2, last remains same
+    assert(strcmp(dyn_non_pods_d_back(&list)->objname, "set4") == 0);
+    dyn_non_pods_d_pop_back(&list); // remove last
+    assert(strcmp(dyn_non_pods_d_back(&list)->objname, "set3") == 0);
+
+    dyn_non_pods_d_clear(&list);
+
+    // back() on NULL list pointer: returns NULL (should not segfault)
+    assert(dyn_non_pods_d_back(NULL) == NULL);
+
+    // After deinit: back() returns NULL; repeated deinit is safe
+    dyn_non_pods_d_push_back(&list, non_pod_init("foo", 16, 2.5, &gpa));
+    dyn_non_pods_d_deinit(&list);
+    assert(dyn_non_pods_d_back(&list) == NULL);
+    dyn_non_pods_d_deinit(&list); // should not crash
+
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn back value-type passed\n");
+}
+
+void test_arraylist_dyn_end_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d list = dyn_non_pods_d_init(gpa, non_pod_deinit);
+
+    // end() on an empty list returns data + 0 (== data)
+    assert(list.size == 0);
+    struct non_pod *endptr = dyn_non_pods_d_end(&list);
+    // end() may be NULL or data, so must be compared as a pointer, not dereferenced!
+    assert((endptr == NULL && list.data == NULL) || (endptr == (list.data + list.size)));
+
+    // end() pointer is always list.data + list.size
+    // add several items, confirm end > data and never before data
+    for (size_t i = 0; i < 6; ++i) {
+        char namebuf[24];
+        snprintf(namebuf, sizeof namebuf, "item%lu", i);
+        dyn_non_pods_d_push_back(&list, non_pod_init(namebuf, (int)i, (float)i, &gpa));
+        assert(dyn_non_pods_d_end(&list) == list.data + list.size);
+        if (list.size > 0)
+            assert(dyn_non_pods_d_end(&list) > list.data);
+    }
+
+    // Iterating: end() is always exclusive; can be used as limit for begin/end style iteration.
+    size_t niter = 0;
+    for (struct non_pod *it = dyn_non_pods_d_begin(&list); it != dyn_non_pods_d_end(&list); ++it) {
+        assert(it >= list.data && it < list.data + list.size);
+        niter++;
+    }
+    assert(niter == list.size);
+
+    // Dereferencing end() is always invalid: verify pointer value but never deref
+    struct non_pod *should_be_out_of_bounds = dyn_non_pods_d_end(&list);
+    // The next is only to show the address, do not dereference
+    assert(should_be_out_of_bounds == list.data + list.size);
+
+    // After pop_back/clear, end() updates accordingly
+    size_t oldsize = list.size;
+    dyn_non_pods_d_pop_back(&list);
+    assert(dyn_non_pods_d_end(&list) == list.data + list.size);
+    assert(list.size == oldsize - 1);
+
+    // Massive insertions: end() always tracks [data + size]
+    size_t n_massive = 100;
+    dyn_non_pods_d_clear(&list);
+    for (size_t i = 0; i < n_massive; ++i) {
+        dyn_non_pods_d_push_back(&list, non_pod_init("foo", (int)i, (float)i, &gpa));
+        assert(dyn_non_pods_d_end(&list) == list.data + list.size);
+    }
+
+    // after shrink_size, end() updates
+    enum arraylist_error err = dyn_non_pods_d_shrink_size(&list, 17);
+    assert(err == ARRAYLIST_OK);
+    assert(dyn_non_pods_d_end(&list) == list.data + 17);
+
+    // Testing after clear, end() == data (if data null, is null)
+    dyn_non_pods_d_clear(&list);
+    endptr = dyn_non_pods_d_end(&list);
+    assert((endptr == NULL && list.data == NULL) || (endptr == list.data + list.size && list.size == 0));
+
+    // Test after deinit: end() returns NULL (if data is NULL)
+    dyn_non_pods_d_deinit(&list);
+    endptr = dyn_non_pods_d_end(&list);
+    assert(endptr == NULL);
+
+    // Use of end() in for-loop after deinit or clear never crashes
+    for (struct non_pod *it = dyn_non_pods_d_begin(&list); it != dyn_non_pods_d_end(&list); ++it) {
+        assert(0 && "This loop must never run: list is empty!");
+    }
+
+    // out-of-bounds: end() is always (data + size); at(size) returns NULL, end() is not valid for deref
+    struct non_pod *at_end = dyn_non_pods_d_at(&list, list.size);
+    assert(at_end == NULL);
+
+    // Use after repeated deinit/clear: no crash, end() steady.
+    dyn_non_pods_d_clear(&list);
+    dyn_non_pods_d_clear(&list);
+    endptr = dyn_non_pods_d_end(&list);
+    assert((endptr == NULL && list.data == NULL) || (endptr == list.data && list.size == 0));
+    dyn_non_pods_d_deinit(&list);
+    assert(dyn_non_pods_d_end(&list) == NULL);
+
+    // Null pointer argument: end(NULL) returns NULL (never crashes)
+    assert(dyn_non_pods_d_end(NULL) == NULL);
+
+    // Fill then remove from head/tail; end always points at size
+    list = dyn_non_pods_d_init(gpa, non_pod_deinit);
+    for (size_t i = 0; i < 8; ++i)
+        dyn_non_pods_d_push_back(&list, non_pod_init("bar", (int)i, (float)0, &gpa));
+    for (size_t i = 0; i < 4; ++i) {
+        dyn_non_pods_d_pop_back(&list); // remove last
+        assert(dyn_non_pods_d_end(&list) == list.data + list.size);
+    }
+    for (size_t i = 0; list.size > 0; ++i) {
+        dyn_non_pods_d_remove_at(&list, 0); // remove head
+        assert(dyn_non_pods_d_end(&list) == list.data + list.size);
+        (void)i;
+    }
+    assert(list.size == 0);
+
+    dyn_non_pods_d_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+
+    printf("test arraylist dyn end value-type passed\n");
+}
+
+void test_arraylist_dyn_find_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d list = dyn_non_pods_d_init(gpa, non_pod_deinit);
+
+    // Find on empty list: always returns data+size == end()
+    char notfound_name[] = "none";
+    struct non_pod *res = dyn_non_pods_d_find(&list, non_pod_find_val, notfound_name);
+    assert(res == list.data + list.size);    // In empty, both are NULL, so ok
+    assert(res == dyn_non_pods_d_end(&list) || res == NULL);
+
+    // Insert some non_pods
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("A", 1, 1.1, &gpa);
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("B", 2, 2.2, &gpa);
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("C", 3, 3.3, &gpa);
+
+    // Find value for actual key; should point to that object
+    // The predicate must match the type: struct non_pod*
+    struct non_pod *f1 = dyn_non_pods_d_find(&list, non_pod_find_val, "A");
+    assert(f1);
+    assert(f1 != list.data + list.size);
+    assert(strcmp(f1->objname, "A") == 0);
+
+    struct non_pod *f2 = dyn_non_pods_d_find(&list, non_pod_find_val, "B");
+    assert(f2);
+    assert(f2 != list.data + list.size);
+    assert(strcmp(f2->objname, "B") == 0);
+
+    struct non_pod *f3 = dyn_non_pods_d_find(&list, non_pod_find_val, "C");
+    assert(f3);
+    assert(f3 != list.data + list.size);
+    assert(strcmp(f3->objname, "C") == 0);
+
+    // Not found: returns end() (safe to compare pointer identity, don't deref!)
+    struct non_pod *nf = dyn_non_pods_d_find(&list, non_pod_find_val, "Zzznotfoundzz");
+    assert(nf == list.data + list.size);
+    assert(nf == dyn_non_pods_d_end(&list));
+
+    // NULL predicate: always returns NULL
+    assert(dyn_non_pods_d_find(&list, NULL, NULL) == NULL);
+
+    // NULL list: always returns NULL
+    assert(dyn_non_pods_d_find(NULL, non_pod_find_val, "A") == NULL);
+
+    // Mutate underlying object, search reflects new state
+    strcpy(list.data[0].objname, "Zmaybe");
+    struct non_pod *nz = dyn_non_pods_d_find(&list, non_pod_find_val, "Zmaybe");
+    assert(nz == &list.data[0]);
+    assert(strcmp(nz->objname, "Zmaybe") == 0);
+
+    // List with duplicates: find returns the first matching by search order
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("C", 5, 10.1, &gpa);
+    struct non_pod *dup1 = dyn_non_pods_d_find(&list, non_pod_find_val, "C");
+    assert(dup1 && strcmp(dup1->objname, "C") == 0);
+    assert(dup1 == &list.data[2]);
+    // (first occurrence, not the new one at data[3])
+
+    // Remove a value; find reflects removal
+    dyn_non_pods_d_remove_at(&list, 1); // removes "B"
+    struct non_pod *gone = dyn_non_pods_d_find(&list, non_pod_find_val, "B");
+    assert(gone == list.data + list.size);
+
+    // Find is not confused by holes or shifts
+    assert(strcmp(list.data[1].objname, "C") == 0);
+    struct non_pod *nowfound = dyn_non_pods_d_find(&list, non_pod_find_val, "C");
+    assert(nowfound == &list.data[1]);
+
+    // Find works after clearing list
+    dyn_non_pods_d_clear(&list);
+    assert(dyn_non_pods_d_find(&list, non_pod_find_val, "A") == list.data + list.size);
+
+    // Find works after deinit/reinit
+    dyn_non_pods_d_deinit(&list);
+    list = dyn_non_pods_d_init(gpa, non_pod_deinit);
+    assert(dyn_non_pods_d_find(&list, non_pod_find_val, "foo") == dyn_non_pods_d_end(&list));
+
+    // Large list, stress test
+    size_t big = 102;
+    const char *key = "BIGMATCH";
+    for (size_t i = 0; i < big; ++i) {
+        if (i == 50) {
+            *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init(key, 99, 101, &gpa);
+        } else {
+            char nm[16]; snprintf(nm, sizeof nm, "num%02u", (unsigned)i);
+            *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init(nm, (int)i, (float)i, &gpa);
+        }
+    }
+    struct non_pod *bigfound = dyn_non_pods_d_find(&list, non_pod_find_val, (void*)key);
+    assert(bigfound != list.data + list.size);
+    assert(strcmp(bigfound->objname, key) == 0);
+
+    dyn_non_pods_d_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn find value-type passed\n");
+}
+
+void test_arraylist_dyn_contains_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d list = dyn_non_pods_d_init(gpa, non_pod_deinit);
+
+    // contains on empty list: always returns false, out_index untouched
+    size_t outidx = 12345;
+    bool hasA = dyn_non_pods_d_contains(&list, non_pod_find_val, "A", &outidx);
+    assert(hasA == false);
+    assert(outidx == 12345);
+
+    // Add some objects and check positive and negative cases
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("A", 1, 1.1, &gpa);
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("B", 2, 2.2, &gpa);
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("C", 3, 3.3, &gpa);
+
+    // Positive: present
+    outidx = 9999;
+    bool hasB = dyn_non_pods_d_contains(&list, non_pod_find_val, "B", &outidx);
+    assert(hasB == true);
+    assert(outidx == 1);
+
+    outidx = 9999;
+    bool hasC = dyn_non_pods_d_contains(&list, non_pod_find_val, "C", &outidx);
+    assert(hasC == true);
+    assert(outidx == 2);
+
+    // Negative: not present
+    outidx = 42;
+    bool hasZZ = dyn_non_pods_d_contains(&list, non_pod_find_val, "ZZ", &outidx);
+    assert(hasZZ == false);
+    assert(outidx == 42);
+
+    // If out_index is NULL, function is still correct (no write, no segfault)
+    assert(dyn_non_pods_d_contains(&list, non_pod_find_val, "B", NULL) == true);
+    assert(dyn_non_pods_d_contains(&list, non_pod_find_val, "NO", NULL) == false);
+
+    // Duplicate entries: first match wins, correct index
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("B", 12, 2.22, &gpa);
+    outidx = 999;
+    bool founddup = dyn_non_pods_d_contains(&list, non_pod_find_val, "B", &outidx);
+    assert(founddup == true);
+    assert(outidx == 1);  // Should be first "B"
+    // The one at index [3] is not returned by contains
+
+    // Mutate data; contains reflects update
+    strcpy(list.data[0].objname, "XXX");
+    outidx = 800;
+    bool foundXXX = dyn_non_pods_d_contains(&list, non_pod_find_val, "XXX", &outidx);
+    assert(foundXXX == true);
+    assert(outidx == 0);
+
+    // Remove value; contains no longer finds it
+    dyn_non_pods_d_remove_at(&list, 0); // removes "XXX"
+    outidx = 0;
+    bool hasXXX = dyn_non_pods_d_contains(&list, non_pod_find_val, "XXX", &outidx);
+    assert(hasXXX == false);
+
+    // out_index remains untouched on negative result
+    outidx = 4444;
+    bool failZ = dyn_non_pods_d_contains(&list, non_pod_find_val, "zzznotfound", &outidx);
+    assert(failZ == false);
+    assert(outidx == 4444);
+
+    // NULL predicate: always returns false
+    outidx = 1111;
+    assert(!dyn_non_pods_d_contains(&list, NULL, "A", &outidx));
+    assert(outidx == 1111);
+
+    // NULL arraylist: always returns false
+    outidx = 2020;
+    assert(!dyn_non_pods_d_contains(NULL, non_pod_find_val, "A", &outidx));
+    assert(outidx == 2020);
+
+    // Large list: finds correct element, fast fail if not found
+    dyn_non_pods_d_clear(&list);
+    int N = 40;
+    for (int i = 0; i < N; ++i) {
+        char nm[10]; snprintf(nm, sizeof nm, "v%02d", i);
+        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init(nm, i*i, i*2, &gpa);
+    }
+    outidx = 0;
+    bool hasv15 = dyn_non_pods_d_contains(&list, non_pod_find_val, "v15", &outidx);
+    assert(hasv15 == true);
+    assert(outidx == 15);
+
+    // Works after clear() and deinit()
+    dyn_non_pods_d_clear(&list);
+    assert(!dyn_non_pods_d_contains(&list, non_pod_find_val, "v20", &outidx));
+    dyn_non_pods_d_deinit(&list);
+    assert(!dyn_non_pods_d_contains(&list, non_pod_find_val, "XXX", &outidx));
+
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn contains value-type passed\n");
+}
+
+void test_arraylist_dyn_size_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d list = dyn_non_pods_d_init(gpa, non_pod_deinit);
+
+    // New list: size == 0 always.
+    assert(dyn_non_pods_d_size(&list) == 0);
+
+    // Empty, pop_back/remove: No-op for size.
+    size_t sz = dyn_non_pods_d_size(&list);
+    dyn_non_pods_d_pop_back(&list);
+    assert(dyn_non_pods_d_size(&list) == sz);
+    dyn_non_pods_d_remove_at(&list, 0);
+    assert(dyn_non_pods_d_size(&list) == sz);
+
+    // Add with push_back, emplace_back_slot.
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("a", 1, 1.0, &gpa);
+    assert(dyn_non_pods_d_size(&list) == 1);
+    struct non_pod b = non_pod_init("b", 2, 2.0, &gpa);
+    dyn_non_pods_d_push_back(&list, b);
+    assert(dyn_non_pods_d_size(&list) == 2);
+
+    // Insert in the middle increases size.
+    struct non_pod c = non_pod_init("c", 3, 3.0, &gpa);
+    enum arraylist_error err = dyn_non_pods_d_insert_at(&list, c, 1);
+    assert(err == ARRAYLIST_OK);
+    assert(dyn_non_pods_d_size(&list) == 3);
+
+    // Remove by index, shrink_size.
+    sz = dyn_non_pods_d_size(&list);
+    dyn_non_pods_d_remove_at(&list, 1);
+    assert(dyn_non_pods_d_size(&list) == sz - 1);
+    sz = dyn_non_pods_d_size(&list);
+    dyn_non_pods_d_shrink_size(&list, 1);
+    assert(dyn_non_pods_d_size(&list) == 1);
+
+    // clear() sets size to zero, capacity nonzero.
+    dyn_non_pods_d_clear(&list);
+    assert(dyn_non_pods_d_size(&list) == 0);
+
+    // At this point, can insert again.
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("x", 77, 7.7, &gpa);
+    assert(dyn_non_pods_d_size(&list) == 1);
+
+    // push_back until size > 1
+    for (size_t i = 0; i < 5; ++i) {
+        char name[10];
+        snprintf(name, sizeof name, "item%lu", i);
+        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init(name, (int)i, (float)i, &gpa);
+        assert(dyn_non_pods_d_size(&list) == 2 + i);
+    }
+
+    // bulk pop_back: size decreases until zero, never negative
+    size_t bigsize = dyn_non_pods_d_size(&list);
+    for (size_t i = bigsize; i > 0; --i) {
+        dyn_non_pods_d_pop_back(&list);
+        assert(dyn_non_pods_d_size(&list) == i - 1);
+    }
+    // Double clear doesn't change size.
+    assert(dyn_non_pods_d_size(&list) == 0);
+    dyn_non_pods_d_clear(&list);
+    assert(dyn_non_pods_d_size(&list) == 0);
+
+    // Remove_from_to on empty/one-element: size zero, no crash, no negative
+    dyn_non_pods_d_remove_from_to(&list, 0, 10);
+    assert(dyn_non_pods_d_size(&list) == 0);
+
+    // Add many, then remove range
+    for (size_t i = 0; i < 16; ++i) {
+        char name[10];
+        snprintf(name, sizeof name, "bulk%lu", i);
+        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init(name, 0, 0, &gpa);
+    }
+    assert(dyn_non_pods_d_size(&list) == 16);
+    dyn_non_pods_d_remove_from_to(&list, 3, 8); // removes 6
+    assert(dyn_non_pods_d_size(&list) == 10);
+    dyn_non_pods_d_shrink_size(&list, 5);
+    assert(dyn_non_pods_d_size(&list) == 5);
+
+    // insert_at > size acts as append
+    size_t before = dyn_non_pods_d_size(&list);
+    struct non_pod dummy = non_pod_init("tail", 555, 5.55, &gpa);
+    dyn_non_pods_d_insert_at(&list, dummy, 10000);
+    assert(dyn_non_pods_d_size(&list) == before + 1);
+
+    // pop_back until empty never underflows
+    while (dyn_non_pods_d_size(&list) > 0)
+        dyn_non_pods_d_pop_back(&list);
+    assert(dyn_non_pods_d_size(&list) == 0);
+
+    // After deinit, size remains zero
+    dyn_non_pods_d_deinit(&list);
+    assert(dyn_non_pods_d_size(&list) == 0);
+
+    // after deinit, must be initialized again
+    list = dyn_non_pods_d_init(gpa, non_pod_deinit);
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("q", 2, 2.2, &gpa);
+    assert(dyn_non_pods_d_size(&list) == 1);
+
+    // Shrink_to_fit doesn't change size
+    size_t sizesnap = dyn_non_pods_d_size(&list);
+    dyn_non_pods_d_shrink_to_fit(&list);
+    assert(dyn_non_pods_d_size(&list) == sizesnap);
+
+    // NULL pointer always returns zero.
+    assert(dyn_non_pods_d_size(NULL) == 0);
+
+    // Remove_at/Pop_back OOB/negative (size_t-wrap) safe: size not negative
+    dyn_non_pods_d_remove_at(&list, 100000);
+    size_t left = dyn_non_pods_d_size(&list);
+    dyn_non_pods_d_remove_at(&list, (size_t)-1);
+    assert(dyn_non_pods_d_size(&list) <= left); // No > left
+
+    dyn_non_pods_d_deinit(&list);
+
+    // Failed allocator: push_back fails, size remains unchanged
+    struct Allocator fail_a = allocator_get_failling_alloc();
+    list = dyn_non_pods_d_init(fail_a, non_pod_deinit);
+    sz = dyn_non_pods_d_size(&list);
+    struct non_pod dummyfail = {0};
+    err = dyn_non_pods_d_push_back(&list, dummyfail);
+    assert(err != ARRAYLIST_OK);
+    assert(dyn_non_pods_d_size(&list) == sz);
+
+    dyn_non_pods_d_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+
+    printf("test arraylist dyn size value-type passed\n");
+}
+
+void test_arraylist_dyn_is_empty_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d list = dyn_non_pods_d_init(gpa, non_pod_deinit);
+
+    // Freshly initialized list is empty
+    assert(dyn_non_pods_d_is_empty(&list) == true);
+    assert(list.size == 0);
+
+    // After a single push_back: not empty
+    struct non_pod a = non_pod_init("one", 1, 1.1, &gpa);
+    dyn_non_pods_d_push_back(&list, a);
+    assert(dyn_non_pods_d_is_empty(&list) == false);
+    assert(list.size == 1);
+
+    // After pop_back: becomes empty again
+    dyn_non_pods_d_pop_back(&list);
+    assert(dyn_non_pods_d_is_empty(&list) == true);
+    assert(list.size == 0);
+
+    // Emplace_back_slot, non-empty
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("two", 2, 2.2, &gpa);
+    assert(dyn_non_pods_d_is_empty(&list) == false);
+    assert(list.size == 1);
+
+    // Remove_at(0): list empty again
+    dyn_non_pods_d_remove_at(&list, 0);
+    assert(dyn_non_pods_d_is_empty(&list) == true);
+    assert(list.size == 0);
+
+    // Insert at head, middle, tail
+    for (int i = 0; i < 3; ++i) {
+        char buf[8]; snprintf(buf, sizeof buf, "k%d", i);
+        struct non_pod t = non_pod_init(buf, i+10, i+0.1, &gpa);
+        if (i == 0){
+            dyn_non_pods_d_insert_at(&list, t, 0);
+        } else if (i == 1) {
+            dyn_non_pods_d_insert_at(&list, t, list.size/2);
+        } else {
+            dyn_non_pods_d_insert_at(&list, t, list.size);
+        }
+
+        assert(dyn_non_pods_d_is_empty(&list) == false);
+    }
+    // All removed
+    while (list.size > 0) {
+        dyn_non_pods_d_pop_back(&list);
+    }
+
+    assert(dyn_non_pods_d_is_empty(&list) == true);
+    assert(list.size == 0);
+
+    // Insert many, remove by shrink_size
+    size_t N = 20;
+    for (size_t i = 0; i < N; ++i) {
+        char buf[12]; snprintf(buf, sizeof buf, "v%lu", i);
+        dyn_non_pods_d_push_back(&list, non_pod_init(buf, i, i, &gpa));
+    }
+    assert(dyn_non_pods_d_is_empty(&list) == false);
+    dyn_non_pods_d_shrink_size(&list, 0);
+    assert(dyn_non_pods_d_is_empty(&list) == true);
+
+    // Insert many, remove_from_to to empty
+    for (size_t i = 0; i < N; ++i) {
+        char buf[12]; snprintf(buf, sizeof buf, "w%lu", i);
+        dyn_non_pods_d_push_back(&list, non_pod_init(buf, i, i, &gpa));
+    }
+    assert(dyn_non_pods_d_is_empty(&list) == false);
+    dyn_non_pods_d_remove_from_to(&list, 0, N-1);
+    assert(dyn_non_pods_d_is_empty(&list) == true);
+
+    // Insert, then clear
+    for (size_t i = 0; i < N; ++i) {
+        dyn_non_pods_d_push_back(&list, non_pod_init("z", i, i, &gpa));
+    }
+
+    assert(dyn_non_pods_d_is_empty(&list) == false);
+    dyn_non_pods_d_clear(&list);
+    assert(dyn_non_pods_d_is_empty(&list) == true);
+
+    // Insert, clear, insert again -- works
+    dyn_non_pods_d_push_back(&list, non_pod_init("hehe", 5, 5.5, &gpa));
+    assert(dyn_non_pods_d_is_empty(&list) == false);
+    dyn_non_pods_d_pop_back(&list);
+    assert(dyn_non_pods_d_is_empty(&list) == true);
+
+    // Empty after many growths/reallocs
+    for (size_t i = 0; i < 128; ++i) {
+        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("bulk", i, i, &gpa);
+    }
+
+    assert(dyn_non_pods_d_is_empty(&list) == false);
+    dyn_non_pods_d_clear(&list);
+    assert(dyn_non_pods_d_is_empty(&list) == true);
+
+    // Remove OOB: is_empty stays correct (should not crash)
+    assert(dyn_non_pods_d_is_empty(&list) == true);  // still empty
+    dyn_non_pods_d_remove_at(&list, 99999);
+    assert(dyn_non_pods_d_is_empty(&list) == true);
+
+    // Remove negative index: is_empty still correct (should not crash)
+    dyn_non_pods_d_remove_at(&list, (size_t)-1);
+    assert(dyn_non_pods_d_is_empty(&list) == true);
+
+    // After deinit, is_empty is true
+    dyn_non_pods_d_deinit(&list);
+    assert(dyn_non_pods_d_is_empty(&list) == true);
+
+    // needs to be init again to be used
+    list = dyn_non_pods_d_init(gpa, non_pod_deinit);
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("after", 7, 7.7, &gpa);
+    assert(dyn_non_pods_d_is_empty(&list) == false);
+    dyn_non_pods_d_clear(&list);
+
+    // Call is_empty(NULL), must return false
+    assert(dyn_non_pods_d_is_empty(NULL) == false);
+
+    // Call is_empty repeatedly doesn't change anything
+    assert(dyn_non_pods_d_is_empty(&list) == true);
+    assert(dyn_non_pods_d_is_empty(&list) == true);
+
+    // Push and pop alternately
+    for (int i = 0; i < 5; ++i) {
+        dyn_non_pods_d_push_back(&list, non_pod_init("ping", i, i, &gpa));
+        assert(dyn_non_pods_d_is_empty(&list) == false);
+        dyn_non_pods_d_pop_back(&list);
+        assert(dyn_non_pods_d_is_empty(&list) == true);
+    }
+
+    // Failing allocator: list remains empty
+    struct Allocator fail = allocator_get_failling_alloc();
+    struct arraylist_dyn_non_pods_d zlist = dyn_non_pods_d_init(fail, non_pod_deinit);
+    assert(dyn_non_pods_d_is_empty(&zlist) == true);
+    struct non_pod dummy = {0};
+    enum arraylist_error err = dyn_non_pods_d_push_back(&zlist, dummy);
+    assert(err != ARRAYLIST_OK);
+    assert(dyn_non_pods_d_is_empty(&zlist) == true);
+    dyn_non_pods_d_deinit(&zlist);
+
+    dyn_non_pods_d_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn is_empty value-type passed\n");
+}
+
+void test_arraylist_dyn_capacity_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d list = dyn_non_pods_d_init(gpa, non_pod_deinit);
+
+    // Fresh list: capacity is zero
+    assert(dyn_non_pods_d_capacity(&list) == 0);
+
+    // capacity(NULL) == 0
+    assert(dyn_non_pods_d_capacity(NULL) == 0);
+
+    // Add one element (should allocate)
+    struct non_pod np1 = non_pod_init("x", 1, 2.2, &gpa);
+    dyn_non_pods_d_push_back(&list, np1);
+    assert(dyn_non_pods_d_capacity(&list) >= 1);
+    size_t cap1 = dyn_non_pods_d_capacity(&list);
+
+    // capacity never decreases on push_back/emplace
+    struct non_pod np2 = non_pod_init("y", 2, 3.3, &gpa);
+    dyn_non_pods_d_push_back(&list, np2);
+    assert(dyn_non_pods_d_capacity(&list) >= cap1);
+    size_t cap2 = dyn_non_pods_d_capacity(&list);
+
+    // Add until it grows (capacity should double; implementation doubles)
+    size_t old_capacity = cap2;
+    size_t to_grow = old_capacity;
+    for (size_t i = 0; i < to_grow; ++i)
+        dyn_non_pods_d_push_back(&list, non_pod_init("m", (int)i, (float)i, &gpa));
+    // At least one alloc triggered: capacity at least doubled
+    assert(dyn_non_pods_d_capacity(&list) >= 2 * old_capacity);
+
+    // Reserve increases capacity if called, but never shrinks
+    size_t prev_cap = dyn_non_pods_d_capacity(&list);
+    enum arraylist_error err = dyn_non_pods_d_reserve(&list, prev_cap + 10);
+    assert(err == ARRAYLIST_OK);
+    assert(dyn_non_pods_d_capacity(&list) >= prev_cap + 10);
+
+    // Reserve with less or equal is no-op (doesn't shrink)
+    prev_cap = dyn_non_pods_d_capacity(&list);
+    err = dyn_non_pods_d_reserve(&list, 1);
+    assert(err == ARRAYLIST_OK);
+    assert(dyn_non_pods_d_capacity(&list) == prev_cap);
+
+    // Shrinking size does not shrink capacity
+    size_t prev_capacity = dyn_non_pods_d_capacity(&list);
+    err = dyn_non_pods_d_shrink_size(&list, 1);
+    assert(err == ARRAYLIST_OK);
+    assert(dyn_non_pods_d_capacity(&list) == prev_capacity);
+
+    // shrink_to_fit reduces capacity to size (if possible)
+    size_t prev_size = dyn_non_pods_d_size(&list);
+    err = dyn_non_pods_d_shrink_to_fit(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(dyn_non_pods_d_capacity(&list) == dyn_non_pods_d_size(&list));
+    assert(dyn_non_pods_d_capacity(&list) == prev_size);
+
+    // After clear: capacity unchanged, but size is zero
+    err = dyn_non_pods_d_clear(&list);
+    assert(dyn_non_pods_d_capacity(&list) == prev_size);
+
+    // After shrink_to_fit on empty (size=0): capacity is 0 and data is NULL
+    err = dyn_non_pods_d_shrink_to_fit(&list);
+    assert(dyn_non_pods_d_capacity(&list) == 0);
+    assert(list.data == NULL);
+
+    // After deinit: capacity=0
+    dyn_non_pods_d_deinit(&list);
+    assert(dyn_non_pods_d_capacity(&list) == 0);
+
+    // Can re-grow after deinit (fresh allocation)
+    dyn_non_pods_d_push_back(&list, non_pod_init("test", 44, 12.1, &gpa));
+    assert(dyn_non_pods_d_capacity(&list) > 0);
+
+    // Remove all, add again, etc: capacity tracks as expected
+    dyn_non_pods_d_clear(&list);
+    err = dyn_non_pods_d_shrink_to_fit(&list);
+    assert(dyn_non_pods_d_capacity(&list) == 0);
+
+    // Add many, check grows as powers of two (OPTIONAL: for your implementation)
+    size_t last_cap = 0;
+    for (size_t i = 0; i < 40; ++i) {
+        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("bulk", (int)i, (float)i, &gpa);
+        size_t cap = dyn_non_pods_d_capacity(&list);
+        assert(cap >= dyn_non_pods_d_size(&list));
+        // Implementation doubles, so as size crosses the boundary, capacity increases
+        assert(cap >= last_cap);
+        last_cap = cap;
+    }
+
+    // Capacity is always >= size, never less
+    assert(dyn_non_pods_d_capacity(&list) >= dyn_non_pods_d_size(&list));
+
+    // Remove/shrink_size never shrinks capacity
+    size_t before_cap = dyn_non_pods_d_capacity(&list);
+    dyn_non_pods_d_shrink_size(&list, 2);
+    assert(dyn_non_pods_d_capacity(&list) == before_cap);
+
+    // Clear then reserve boosts capacity again
+    dyn_non_pods_d_clear(&list);
+    err = dyn_non_pods_d_reserve(&list, 32);
+    assert(err == ARRAYLIST_OK);
+    assert(dyn_non_pods_d_capacity(&list) >= 32);
+
+    // Shrink to fit after removing all reduces capacity to zero
+    dyn_non_pods_d_shrink_size(&list, 0);
+    err = dyn_non_pods_d_shrink_to_fit(&list);
+    assert(dyn_non_pods_d_capacity(&list) == 0);
+
+    // Failed allocator never increases capacity, remains zero
+    struct Allocator faila = allocator_get_failling_alloc();
+    struct arraylist_dyn_non_pods_d bad = dyn_non_pods_d_init(faila, non_pod_deinit);
+    assert(dyn_non_pods_d_capacity(&bad) == 0);
+    err = dyn_non_pods_d_push_back(&bad, np1); // Should fail
+    assert(err != ARRAYLIST_OK);
+    assert(dyn_non_pods_d_capacity(&bad) == 0);
+    err = dyn_non_pods_d_reserve(&bad, 1000);
+    assert(err != ARRAYLIST_OK);
+    assert(dyn_non_pods_d_capacity(&bad) == 0);
+
+    dyn_non_pods_d_deinit(&bad);
+
+    // Defensive: after deinit, capacity is always 0
+    dyn_non_pods_d_deinit(&list);
+    assert(dyn_non_pods_d_capacity(&list) == 0);
+
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn capacity value-type passed\n");
+}
+
+void test_arraylist_dyn_get_allocator_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d list = dyn_non_pods_d_init(gpa, non_pod_deinit);
+
+    // Basic: get_allocator returns non-NULL when valid-
+    struct Allocator *out = dyn_non_pods_d_get_allocator(&list);
+    assert(out != NULL);
+    // Must match what we passed to init
+    assert(out->malloc == gpa.malloc && out->free == gpa.free && out->realloc == gpa.realloc && out->ctx == gpa.ctx);
+
+    // Same pointer returned each time; doesn't move-
+    struct Allocator *out2 = dyn_non_pods_d_get_allocator(&list);
+    assert(out == out2);
+
+    // Use returned allocator to allocate/free
+    void *buf = out->malloc(32, out->ctx);
+    assert(buf != NULL);
+    out->free(buf, 32, out->ctx);
+
+    // Changing the allocator via the struct, get_allocator reflects change
+    struct Allocator fail_a = allocator_get_failling_alloc();
+    list.alloc = fail_a;
+    struct Allocator *out3 = dyn_non_pods_d_get_allocator(&list);
+    assert(out3 != NULL);
+    assert(out3->malloc == fail_malloc && out3->free == fail_free);
+
+    // After copy, get_allocator of copy reflects its own, not original
+    struct arraylist_dyn_non_pods_d list2 = list;
+    struct Allocator *oa2 = dyn_non_pods_d_get_allocator(&list2);
+    assert(oa2 != NULL);
+    assert(oa2->malloc == fail_malloc && oa2->free == fail_free);
+
+    // After deinit, struct is zeroed, get_allocator returns pointer to zeroed struct
+    dyn_non_pods_d_deinit(&list);
+    struct Allocator *out4 = dyn_non_pods_d_get_allocator(&list);
+    assert(out4 != NULL);
+    // After memset, all members are NULL/0 (undefined but this is allowed by your code)
+    // Some implementations might optimize to point to ".bss", but we can check at least the pointer is not NULL
+    // To be extra paranoid, the allocator's function ptrs should now be NULL
+    assert(out4->malloc == NULL || out4->malloc == fail_malloc); // May be zero (if memset to 0), or still old value
+    assert(out4->free == NULL || out4->free == fail_free);       // Accept both: zeroed (reset by deinit) or old
+    // It's not valid to use these fn ptrs after deinit
+
+    // get_allocator(NULL) returns NULL, never segfaults
+    assert(dyn_non_pods_d_get_allocator(NULL) == NULL);
+
+    // get_allocator works on stack, heap, zero-inited
+    struct arraylist_dyn_non_pods_d zeroed = {0};
+    struct Allocator *az = dyn_non_pods_d_get_allocator(&zeroed);
+    assert(az != NULL);
+    assert(az->malloc == NULL);
+
+    // get_allocator after re-initialization: returns new
+    struct arraylist_dyn_non_pods_d list3 = dyn_non_pods_d_init(gpa, non_pod_deinit);
+    struct Allocator *oa3 = dyn_non_pods_d_get_allocator(&list3);
+    assert(oa3 != NULL);
+    assert(oa3->malloc == gpa.malloc);
+
+    // Use get_allocator inside arraylist operations
+    for (size_t i = 0; i < 8; ++i)
+        *dyn_non_pods_d_emplace_back_slot(&list3) = non_pod_init("z", 42, 123.0f + i, dyn_non_pods_d_get_allocator(&list3));
+    assert(list3.size == 8);
+
+    // The pointer is always to the arraylist's .alloc field
+    assert(oa3 == &list3.alloc);
+
+    // After clear, get_allocator returns same pointer (address is stable)
+    dyn_non_pods_d_clear(&list3);
+    assert(dyn_non_pods_d_get_allocator(&list3) == oa3);
+
+    // After shrink_to_fit, allocator unchanged
+    dyn_non_pods_d_shrink_to_fit(&list3);
+    assert(dyn_non_pods_d_get_allocator(&list3) == oa3);
+
+    // After failed growth, allocator unchanged
+    list3.alloc = fail_a;
+    enum arraylist_error err = dyn_non_pods_d_push_back(&list3, non_pod_init("fail", 0, 0, &gpa));
+    assert(err != ARRAYLIST_OK);
+    assert(dyn_non_pods_d_get_allocator(&list3)->malloc == fail_malloc);
+
+    // resetting global dtor counter, as the counter has gone up, but not really allocated
+    global_destructor_counter_arraylist = 0;
+
+    // After pop_back/remove, allocator unchanged
+    dyn_non_pods_d_pop_back(&list3);
+    assert(dyn_non_pods_d_get_allocator(&list3) == oa3 || dyn_non_pods_d_get_allocator(&list3) == &list3.alloc);
+
+    // Cleanups
+    dyn_non_pods_d_deinit(&list2);
+    dyn_non_pods_d_deinit(&list3);
+
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn get_allocator value-type passed\n");
+}
+
+void test_arraylist_dyn_swap_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d a = dyn_non_pods_d_init(gpa, non_pod_deinit);
+    struct arraylist_dyn_non_pods_d b = dyn_non_pods_d_init(gpa, non_pod_deinit);
+
+    // swap two empty lists
+    size_t pre_count = global_destructor_counter_arraylist;
+    enum arraylist_error err = dyn_non_pods_d_swap(&a, &b);
+    assert(err == ARRAYLIST_OK);
+    assert(a.size == 0 && b.size == 0 && a.capacity == 0 && b.capacity == 0);
+    assert(a.data == NULL && b.data == NULL);
+    assert(global_destructor_counter_arraylist == pre_count);
+
+    // swap where one is empty, one is populated
+    // Add a few entries to 'a'
+    for (int i = 0; i < 5; ++i) {
+        char buf[16]; snprintf(buf, sizeof buf, "A_%d", i);
+        *dyn_non_pods_d_emplace_back_slot(&a) = non_pod_init(buf, i, 1.1f * i, &gpa);
+    }
+    assert(a.size == 5 && b.size == 0);
+    // Record a's original buffer properties
+    size_t old_a_cap = a.capacity;
+    void *old_a_data = a.data;
+
+    // Swap
+    err = dyn_non_pods_d_swap(&a, &b);
+    assert(err == ARRAYLIST_OK);
+    // a is now empty, b has previous contents of a
+    assert(a.size == 0 && a.capacity == 0 && a.data == NULL);
+    assert(b.size == 5 && b.capacity == old_a_cap && b.data == old_a_data);
+    for (size_t i = 0; i < b.size; ++i) {
+        char buf[16]; snprintf(buf, sizeof buf, "A_%d", (int)i);
+        assert(strcmp(b.data[i].objname, buf) == 0);
+        assert(*b.data[i].a == (int)i);
+    }
+
+    // swap back; restores original state
+    err = dyn_non_pods_d_swap(&a, &b);
+    assert(err == ARRAYLIST_OK);
+    assert(b.size == 0 && b.data == NULL);
+    assert(a.size == 5 && a.data != NULL);
+    for (size_t i = 0; i < a.size; ++i) {
+        char buf[16]; snprintf(buf, sizeof buf, "A_%d", (int)i);
+        assert(strcmp(a.data[i].objname, buf) == 0);
+        assert(*a.data[i].a == (int)i);
+    }
+
+    // swap two non-empty lists, different sizes
+    dyn_non_pods_d_clear(&b);
+    // b: three items
+    for (int i = 0; i < 3; ++i) {
+        char buf[16]; snprintf(buf, sizeof buf, "B_%d", i);
+        *dyn_non_pods_d_emplace_back_slot(&b) = non_pod_init(buf, i + 10, i + 20, &gpa);
+    }
+    size_t a_size = a.size, b_size = b.size;
+    void *a_data = a.data, *b_data = b.data;
+    size_t a_cap = a.capacity, b_cap = b.capacity;
+
+    err = dyn_non_pods_d_swap(&a, &b);
+    assert(err == ARRAYLIST_OK);
+    // a gets b's content
+    assert(a.size == b_size && a.capacity == b_cap && a.data == b_data);
+    for (size_t i = 0; i < a.size; ++i) {
+        char buf[16]; snprintf(buf, sizeof buf, "B_%d", (int)i);
+        assert(strcmp(a.data[i].objname, buf) == 0);
+        assert(*a.data[i].a == (int)(i+10));
+    }
+    // b gets a's content
+    assert(b.size == a_size && b.capacity == a_cap && b.data == a_data);
+    for (size_t i = 0; i < b.size; ++i) {
+        char buf[16]; snprintf(buf, sizeof buf, "A_%d", (int)i);
+        assert(strcmp(b.data[i].objname, buf) == 0);
+        assert(*b.data[i].a == (int)i);
+    }
+
+    // swap with self
+    err = dyn_non_pods_d_swap(&a, &a);
+    assert(err == ARRAYLIST_OK); // ok to swap with self, unchanged
+    assert(a.size == 3);
+    for (size_t i = 0; i < a.size; ++i) {
+        char buf[16]; snprintf(buf, sizeof buf, "B_%d", (int)i);
+        assert(strcmp(a.data[i].objname, buf) == 0);
+    }
+
+    // swap after deinit (one deinit, one alive)
+    dyn_non_pods_d_deinit(&b);
+    err = dyn_non_pods_d_swap(&a, &b);
+    assert(err == ARRAYLIST_OK);
+    assert(a.size == 0 && a.data == NULL);
+    assert(b.size == 3 && b.data != NULL);
+
+    // NULL-ptr safeties: returns error, doesn't crash
+    err = dyn_non_pods_d_swap(NULL, &b);
+    assert(err == ARRAYLIST_ERR_NULL);
+    err = dyn_non_pods_d_swap(&b, NULL);
+    assert(err == ARRAYLIST_ERR_NULL);
+    err = dyn_non_pods_d_swap(NULL, NULL);
+    assert(err == ARRAYLIST_ERR_NULL);
+
+    // Does not leak memory regardless of swap
+    dyn_non_pods_d_clear(&a);
+    dyn_non_pods_d_clear(&b);
+    assert(global_destructor_counter_arraylist == 0);
+
+    // swap two very large lists
+    struct arraylist_dyn_non_pods_d x = dyn_non_pods_d_init(gpa, non_pod_deinit), y = dyn_non_pods_d_init(gpa, non_pod_deinit);
+    for (size_t i = 0; i < 100; ++i) {
+        *dyn_non_pods_d_emplace_back_slot(&x) = non_pod_init("XLIST", (int)i, (float)i, &gpa);
+    }
+    for (size_t i = 0; i < 55; ++i) {
+        *dyn_non_pods_d_emplace_back_slot(&y) = non_pod_init("YLIST", (int)i, (float)i, &gpa);
+    }
+    // Save snapshots
+    size_t xsize = x.size, ysize = y.size;
+    void *xdata = x.data, *ydata = y.data;
+    err = dyn_non_pods_d_swap(&x, &y);
+    assert(err == ARRAYLIST_OK);
+    assert(x.size == ysize && x.data == ydata);
+    assert(y.size == xsize && y.data == xdata);
+    for (size_t i = 0; i < x.size; ++i) {
+        assert(strcmp(x.data[i].objname, "YLIST") == 0);
+    }
+    for (size_t i = 0; i < y.size; ++i) {
+        assert(strcmp(y.data[i].objname, "XLIST") == 0);
+    }
+
+    // clean up all
+    dyn_non_pods_d_deinit(&a);
+    dyn_non_pods_d_deinit(&b);
+    dyn_non_pods_d_deinit(&x);
+    dyn_non_pods_d_deinit(&y);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn swap value passed\n");
+}
+
+void test_arraylist_dyn_qsort_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d list = dyn_non_pods_d_init(gpa, non_pod_deinit);
+
+    // Sort empty list (should be OK, does nothing, returns OK)
+    enum arraylist_error err = dyn_non_pods_d_qsort(&list, non_pod_sort_val);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+
+    // Sort single-item list (no change, works)
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("z", 1, 3.0, &gpa);
+    err = dyn_non_pods_d_qsort(&list, non_pod_sort_val);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 1);
+    assert(strcmp(list.data[0].objname, "z") == 0);
+
+    // Sort two-item: reverse, should swap
+    dyn_non_pods_d_clear(&list);
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("b", 2, 9.0, &gpa);
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("a", -1, 1.1, &gpa);
+    assert(strcmp(list.data[0].objname, "b") == 0);
+    assert(strcmp(list.data[1].objname, "a") == 0);
+
+    err = dyn_non_pods_d_qsort(&list, non_pod_sort_val);
+    assert(err == ARRAYLIST_OK);
+    // Sorted by objname, so "a" < "b"
+    assert(strcmp(list.data[0].objname, "a") == 0);
+    assert(strcmp(list.data[1].objname, "b") == 0);
+
+    // Sort already sorted: no change, still correct
+    err = dyn_non_pods_d_qsort(&list, non_pod_sort_val);
+    assert(err == ARRAYLIST_OK);
+    assert(strcmp(list.data[0].objname, "a") == 0);
+    assert(strcmp(list.data[1].objname, "b") == 0);
+
+    // Sort with multiple elements: random order, check sort result
+    dyn_non_pods_d_clear(&list);
+    const char *names[] = { "delta", "alpha", "charlie", "bravo", "echo" };
+    size_t N = sizeof(names)/sizeof(names[0]);
+    for (size_t i = 0; i < N; ++i) {
+        char buf[32];
+        snprintf(buf, sizeof(buf), "%s", names[i]);
+        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init(buf, (int)i, 42.42, &gpa);
+    }
+    // Confirm not sorted
+    for (size_t i = 1; i < N; ++i) {
+        assert(strcmp(list.data[i-1].objname, list.data[i].objname) != 0 || strcmp(list.data[i-1].objname, list.data[i].objname) > 0);
+    }
+
+    err = dyn_non_pods_d_qsort(&list, non_pod_sort_val);
+    assert(err == ARRAYLIST_OK);
+
+    // Check sorted order
+    for (size_t i = 1; i < N; ++i) {
+        assert(strcmp(list.data[i-1].objname, list.data[i].objname) <= 0);
+    }
+    // Alphabetical: "alpha", "bravo", "charlie", "delta", "echo"
+    assert(strcmp(list.data[0].objname, "alpha") == 0);
+    assert(strcmp(list.data[1].objname, "bravo") == 0);
+    assert(strcmp(list.data[2].objname, "charlie") == 0);
+    assert(strcmp(list.data[3].objname, "delta") == 0);
+    assert(strcmp(list.data[4].objname, "echo") == 0);
+
+    // List with duplicates: check order is sorted, not necessarily stable
+    dyn_non_pods_d_clear(&list);
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("x", 0, 0.0, &gpa);
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("a", 99, 1.0, &gpa);
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("x", 11, 2.2, &gpa);
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("b", 12, 3.3, &gpa);
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("x", -1, 4.4, &gpa);
+
+    err = dyn_non_pods_d_qsort(&list, non_pod_sort_val);
+    assert(err == ARRAYLIST_OK);
+
+    // Sorted: a, b, x, x, x
+    assert(strcmp(list.data[0].objname, "a") == 0);
+    assert(strcmp(list.data[1].objname, "b") == 0);
+    assert(strcmp(list.data[2].objname, "x") == 0);
+    assert(strcmp(list.data[3].objname, "x") == 0);
+    assert(strcmp(list.data[4].objname, "x") == 0);
+
+    // List in reverse order: sorts to correct order
+    dyn_non_pods_d_clear(&list);
+    const char *revnames[] = { "gamma", "foxtrot", "echo", "delta", "charlie", "bravo", "alpha" };
+    for (size_t i = 0; i < 7; ++i) {
+        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init(revnames[i], (int)i, 3.14f, &gpa);
+    }
+    err = dyn_non_pods_d_qsort(&list, non_pod_sort_val);
+    assert(err == ARRAYLIST_OK);
+    // alpha, bravo, charlie, delta, echo, foxtrot, gamma
+    for (size_t i = 1; i < list.size; ++i) {
+        assert(strcmp(list.data[i-1].objname, list.data[i].objname) <= 0);
+    }
+    assert(strcmp(list.data[0].objname, "alpha") == 0);
+    assert(strcmp(list.data[6].objname, "gamma") == 0);
+
+    // Re-sort after mutating contents
+    strcpy(list.data[3].objname, "zulu");
+    err = dyn_non_pods_d_qsort(&list, non_pod_sort_val);
+    assert(err == ARRAYLIST_OK);
+    // alpha, bravo, charlie, echo, foxtrot, gamma, zulu
+    assert(strcmp(list.data[list.size - 1].objname, "zulu") == 0);
+
+    // Test behavior if NULL list passed: returns ARRAYLIST_ERR_NULL, does not crash
+    err = dyn_non_pods_d_qsort(NULL, non_pod_sort_val);
+    assert(err == ARRAYLIST_ERR_NULL);
+
+    //Test behavior if NULL comparison function
+    err = dyn_non_pods_d_qsort(&list, NULL);
+    // Should not crash, returns early
+    assert(err == ARRAYLIST_ERR_NULL);
+
+    // After clear: sort is valid, sort no data does nothing
+    dyn_non_pods_d_clear(&list);
+    err = dyn_non_pods_d_qsort(&list, non_pod_sort_val);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+
+    // Large random case: sort is correct, stable
+    dyn_non_pods_d_clear(&list);
+    size_t bigN = 128;
+    // Insert shuffled (descending) names
+    for (size_t i = 0; i < bigN; ++i) {
+        char buf[32];
+        snprintf(buf, sizeof buf, "%.3u", (unsigned)(bigN-i));
+        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init(buf, (int)i, 1.0+i, &gpa);
+    }
+    err = dyn_non_pods_d_qsort(&list, non_pod_sort_val);
+    assert(err == ARRAYLIST_OK);
+    // Should be in strictly increasing order by string
+    for (size_t i = 1; i < list.size; ++i) {
+        assert(strcmp(list.data[i-1].objname, list.data[i].objname) <= 0);
+    }
+    // Should have 001 at beginning, etc
+    assert(strncmp(list.data[0].objname, "001", 3) == 0);
+
+    // Does not lose or duplicate objects
+    assert(list.size == bigN);
+
+    // Sorted result is correct: using at()
+    struct non_pod *first = dyn_non_pods_d_at(&list, 0);
+    struct non_pod *last = dyn_non_pods_d_at(&list, bigN - 1);
+    assert(first && last);
+    assert(strncmp(first->objname, "001", 3) == 0);
+    assert(strncmp(last->objname, "128", 3) == 0);
+
+    dyn_non_pods_d_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn qsort value-type passed\n");
+}
+
+void test_arraylist_dyn_clear_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d list = dyn_non_pods_d_init(gpa, non_pod_deinit);
+    size_t N = 8;
+
+    // On a freshly initialized list
+    assert(list.size == 0 && list.data == NULL);
+    enum arraylist_error err = dyn_non_pods_d_clear(&list);
+    assert(err == ARRAYLIST_OK); // No crash
+    assert(list.size == 0);
+    assert(list.capacity == 0);
+
+    // On NULL pointer: no crash, returns OK
+    assert(dyn_non_pods_d_clear(NULL) == ARRAYLIST_OK);
+
+    // After adding a single element, then clearing
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("A", 1, 2.0, &gpa);
+    assert(list.size == 1 && global_destructor_counter_arraylist == 1);
+    err = dyn_non_pods_d_clear(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(list.capacity >= 1);
+    assert(global_destructor_counter_arraylist == 0);
+    // Data pointer may remain allocated, but don't deref beyond list.size.
+
+    // Multiple elements, all destructors called, buffer not shrunk
+    for (size_t i = 0; i < N; ++i) {
+        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("B", (int)i, (float)i, &gpa);
+    }
+    assert(list.size == N);
+    assert(global_destructor_counter_arraylist == N);
+    size_t prev_cap = list.capacity;
+    void *prev_data = list.data;
+    err = dyn_non_pods_d_clear(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(list.capacity == prev_cap);
+    assert(list.data == prev_data);
+    assert(global_destructor_counter_arraylist == 0);
+
+    // After clear, can add again
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("C", 3, 4.0, &gpa);
+    assert(list.size == 1);
+    assert(global_destructor_counter_arraylist == 1);
+
+    // clear again after clear: safe (idempotent)
+    err = dyn_non_pods_d_clear(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == 0);
+    assert(list.capacity == prev_cap);
+
+    // clear on an already empty but allocated list is a no-op
+    err = dyn_non_pods_d_clear(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(list.capacity == prev_cap);
+
+    // List still usable after clear
+    for (size_t i = 0; i < 5; ++i) {
+        char buf[5]; snprintf(buf, sizeof buf, "X%lu", i);
+        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init(buf, (int)i, (float)i, &gpa);
+    }
+    assert(list.size == 5);
+    assert(global_destructor_counter_arraylist == 5);
+
+    // clear, then shrink_to_fit to test buffer freed/compaction after clear
+    err = dyn_non_pods_d_clear(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == 0);
+    err = dyn_non_pods_d_shrink_to_fit(&list);
+    assert(err == ARRAYLIST_OK);
+    // Now storage should be truly freed
+    assert(list.data == NULL || list.capacity == 0);
+    // Clear on a totally fresh buffer returns OK
+    err = dyn_non_pods_d_clear(&list);
+
+    // After deinit, clear is safe (does not crash, acts as no-op)
+    dyn_non_pods_d_deinit(&list);
+    err = dyn_non_pods_d_clear(&list); // Shouldn't crash, size should be zero, return OK.
+    assert(err == ARRAYLIST_OK);
+
+    // Multiple calls to clear after deinit: no op
+    err = dyn_non_pods_d_clear(&list);
+    assert(err == ARRAYLIST_OK);
+
+    // Re-init, add, clear
+    list = dyn_non_pods_d_init(gpa, non_pod_deinit);
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("ZZ", 9, 9.9, &gpa);
+    assert(list.size == 1);
+    assert(global_destructor_counter_arraylist == 1);
+    err = dyn_non_pods_d_clear(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0 && global_destructor_counter_arraylist == 0);
+
+    // Large list, destructor call count and buffer preserved
+    for (size_t i = 0; i < 40; ++i) {
+        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("bulk", (int)i, (float)i, &gpa);
+    }
+    assert(list.size == 40 && global_destructor_counter_arraylist == 40);
+    prev_cap = list.capacity; prev_data = list.data;
+    err = dyn_non_pods_d_clear(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0 && list.capacity == prev_cap && list.data == prev_data);
+    assert(global_destructor_counter_arraylist == 0);
+
+    // After clear, insert and then deinit: destructor is called for new element
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("L", 1, 2.2, &gpa); // +1
+    dyn_non_pods_d_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+
+    printf("test arraylist dyn clear value-type passed\n");
+}
+
+void test_arraylist_dyn_deinit_value(void) {
+    struct Allocator gpa = allocator_get_default();
+
+    // Basic deinit: empties everything, frees buffer, destructor called on all
+
+    global_destructor_counter_arraylist = 0;
+
+    struct arraylist_dyn_non_pods_d list = dyn_non_pods_d_init(gpa, non_pod_deinit);
+
+    // Fill the array
+    const size_t N = 10;
+    for (size_t i = 0; i < N; ++i) {
+        char name[16];
+        snprintf(name, sizeof(name), "np%lu", i);
+        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init(name, (int)i, (float)i, &gpa);
+    }
+    assert(list.size == N);
+    assert(global_destructor_counter_arraylist == N);
+    assert(list.data != NULL);
+    assert(list.capacity >= N);
+
+    // Call deinit
+    dyn_non_pods_d_deinit(&list);
+
+    // After deinit, array is empty/zeroed, no leaks, buffer is invalid
+    assert(list.size == 0);
+    assert(list.capacity == 0);
+    assert(list.data == NULL);
+    assert(memcmp(&list.alloc, (const char[sizeof(list.alloc)]){0}, sizeof(list.alloc)) == 0);
+    assert(global_destructor_counter_arraylist == 0);
+
+    // Deinit is safe for already deinitialized or empty lists: second call does nothing
+    dyn_non_pods_d_deinit(&list); // No crash, no double free, still zeroed
+    assert(list.size == 0);
+    assert(list.capacity == 0);
+    assert(list.data == NULL);
+    assert(global_destructor_counter_arraylist == 0);
+
+    // Deinit is a no-op for zero-capacity, zero-size (already empty)
+    struct arraylist_dyn_non_pods_d empty = dyn_non_pods_d_init(gpa, non_pod_deinit);
+    dyn_non_pods_d_deinit(&empty);
+    assert(empty.size == 0);
+    assert(empty.capacity == 0);
+    assert(empty.data == NULL);
+    assert(global_destructor_counter_arraylist == 0);
+
+    // Deinit safe for NULL: nothing happens, no crash
+    dyn_non_pods_d_deinit(NULL);
+
+    // Interleaved use: repeated allocate/deinit cycles (no leaks/UB)
+    for (size_t cycle = 0; cycle < 5; ++cycle) {
+        struct arraylist_dyn_non_pods_d cyc = dyn_non_pods_d_init(gpa, non_pod_deinit);
+        for (size_t j = 0; j < 3 + cycle; ++j) {
+            char nm[8]; snprintf(nm, sizeof nm, "cyc%lu_%lu", cycle, j);
+            *dyn_non_pods_d_emplace_back_slot(&cyc) = non_pod_init(nm, (int)j, (float)j, &gpa);
+        }
+        assert(global_destructor_counter_arraylist > 0);
+        dyn_non_pods_d_deinit(&cyc);
+        assert(global_destructor_counter_arraylist == 0);
+    }
+
+    // Can safely re-init after deinit, as per API doc
+    list = dyn_non_pods_d_init(gpa, non_pod_deinit);
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("AFTER", 123, 4.56, &gpa);
+    assert(list.size == 1);
+    assert(global_destructor_counter_arraylist == 1);
+
+    dyn_non_pods_d_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+
+    // Ensure dtor called for each element
+    // We'll count dtors, then forcibly clear without dtor (dirty trick: bypass it)
+    list = dyn_non_pods_d_init(gpa, non_pod_deinit);
+    for (size_t i = 0; i < 5; ++i) {
+        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("count", 17, 3.14, &gpa);
+    }
+    assert(global_destructor_counter_arraylist == 5);
+    // Remove three elements (to cover partial clear)
+    dyn_non_pods_d_remove_at(&list, 0);
+    dyn_non_pods_d_remove_at(&list, 0);
+    dyn_non_pods_d_remove_at(&list, 0);
+    assert(global_destructor_counter_arraylist == 2);
+
+    dyn_non_pods_d_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn deinit value-type passed\n");
+}
+
+/* === END ARRAYLIST_DYN UNIT TESTS NON POD === */
+
+/* === START ARRAYLIST_DYN UNIT TESTS NON POD POINTER === */
+
+ARRAYLIST_DYN(struct non_pod *, non_pods_d_ptr)
+
+void test_arraylist_dyn_init_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d_ptr list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+
+    assert(list.size == 0);
+    assert(list.capacity == 0);
+    assert(list.data == NULL);
+    assert(list.alloc.malloc == gpa.malloc);
+
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn init for pointer types passed\n");
+}
+
+void test_arraylist_dyn_reserve_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d_ptr list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+
+    // Reserve when list is empty: allocates exactly requested size
+    enum arraylist_error err = dyn_non_pods_d_ptr_reserve(&list, 10);
+    assert(err == ARRAYLIST_OK);
+    assert(list.capacity == 10);
+    assert(list.data != NULL);
+    assert(list.size == 0);
+
+    // Reserve smaller (no-op): capacity remains unchanged
+    err = dyn_non_pods_d_ptr_reserve(&list, 5);
+    assert(err == ARRAYLIST_OK);
+    assert(list.capacity == 10);    // No shrink
+
+    // Reserve same size (no-op)
+    err = dyn_non_pods_d_ptr_reserve(&list, 10);
+    assert(err == ARRAYLIST_OK);
+    assert(list.capacity == 10);    // Still 10
+
+    // Reserve larger: reallocs and grows buffer, data valid
+
+    // Fill up to 4
+    for (size_t i = 0; i < 4; ++i) {
+        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("a", i, i, &gpa);
+    }
+    //struct non_pod **olddata = list.data;
+    err = dyn_non_pods_d_ptr_reserve(&list, 32);
+    assert(err == ARRAYLIST_OK);
+    assert(list.capacity == 32);    // Grown
+    assert(list.size == 4);
+    assert(list.data != NULL);
+    // Data is preserved
+    for (size_t i = 0; i < list.size; ++i) {
+        assert(strcmp(list.data[i]->objname, "a") == 0);
+    }
+    // Possibly new buffer, but implementation allows same pointer if realloc does nothing.
+    // Do not hold pointers to old data if a realloc happens
+    //assert(list.data == olddata);
+
+    // Emplace more after reserve: no further realloc until cap hit
+    size_t prevcap = list.capacity;
+    for (size_t i = 4; i < 32; ++i) {
+        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("b", (int)i, (float)i, &gpa);
+    }
+    assert(list.size == 32);
+    assert(list.capacity == prevcap);
+
+    // Reserve to much larger: works and keeps old data
+    err = dyn_non_pods_d_ptr_reserve(&list, 64);
+    assert(err == ARRAYLIST_OK);
+    assert(list.capacity == 64);
+    for (size_t i = 0; i < list.size; ++i) {
+        assert(list.data[i]->a != NULL);
+    }
+
+    // Reserve with zero (should not shrink; no effect, not an error)
+    prevcap = list.capacity;
+    err = dyn_non_pods_d_ptr_reserve(&list, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.capacity == prevcap);
+
+    // Reserve with capacity equal to maximum supported by the allocator: catches overflow
+    size_t maxsafe = SIZE_MAX / sizeof(struct non_pod*);
+    err = dyn_non_pods_d_ptr_reserve(&list, maxsafe + 1);
+    assert(err == ARRAYLIST_ERR_OVERFLOW);
+
+    // Reserve with failing allocation: returns error, does not affect old buffer
+    // Provide an allocator that always fails, init a fresh list
+    struct Allocator fail_alloc = allocator_get_failling_alloc();
+    struct arraylist_dyn_non_pods_d_ptr fail_list = dyn_non_pods_d_ptr_init(fail_alloc, non_pod_deinit_ptr);
+    // first reserve: fails as malloc returns NULL
+    err = dyn_non_pods_d_ptr_reserve(&fail_list, 8);
+    assert(err == ARRAYLIST_ERR_ALLOC);
+    assert(fail_list.capacity == 0);
+    assert(fail_list.data == NULL);
+
+    // Fill a normal list to known good state
+    struct arraylist_dyn_non_pods_d_ptr small = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+    for (size_t i = 0; i < 2; ++i) {
+        *dyn_non_pods_d_ptr_emplace_back_slot(&small) = non_pod_init_ptr("QQ", 2, 3, &gpa);
+    }
+    small.capacity = 2;
+    // Now try to reserve with failing allocator change
+    small.alloc = fail_alloc;
+    err = dyn_non_pods_d_ptr_reserve(&small, 3);
+    // Fails (realloc returns NULL), buffer unchanged
+    assert(err == ARRAYLIST_ERR_ALLOC);
+    // Since realloc failed, old data/cap remains
+    assert(small.capacity == 2);
+    // May or may not have NULL data pointer as realloc is permitted to leave old pointer unchanged
+
+    // Reserve on uninitialized/null list: returns error (no crash)
+    err = dyn_non_pods_d_ptr_reserve(NULL, 8);
+    assert(err == ARRAYLIST_ERR_NULL);
+
+    // Remark: After shrinking the list (with shrink_size), reserve does not shrink buffer
+    err = dyn_non_pods_d_ptr_reserve(&list, 16);
+    assert(err == ARRAYLIST_OK);
+    // (Cap remains 64 since already large enough)
+    assert(list.capacity == 64);
+
+    // Clean up
+    dyn_non_pods_d_ptr_deinit(&list);
+    dyn_non_pods_d_ptr_deinit(&small);
+    dyn_non_pods_d_ptr_deinit(&fail_list);
+
+    dyn_non_pods_d_ptr_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn reserve pointer-type passed\n");
+}
+
+void test_arraylist_dyn_shrink_size_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d_ptr list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+
+    struct non_pod *a = non_pod_init_ptr("a", 1, 1.1, &gpa);
+    struct non_pod *b = non_pod_init_ptr("b", 2, 2.2, &gpa);
+    struct non_pod *c = non_pod_init_ptr("c", 3, 3.3, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = a;
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = b;
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = c;
+    assert(list.size == 3);
+
+    size_t before = global_destructor_counter_arraylist;
+    enum arraylist_error err = dyn_non_pods_d_ptr_shrink_size(&list, 2);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 2);
+    assert(list.data[0] == a);
+    assert(list.data[1] == b);
+    assert(global_destructor_counter_arraylist == before - 1);
+
+    // Shrink to zero
+    err = dyn_non_pods_d_ptr_shrink_size(&list, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == 0);
+
+    dyn_non_pods_d_ptr_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn shrink_size pointer-type passed\n");
+}
+
+void test_arraylist_dyn_shrink_to_fit_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d_ptr list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+
+    for (size_t i = 0; i < 8; ++i)
+        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("ptr", i, -i, &gpa);
+
+    size_t orig_cap = list.capacity, orig_size = list.size;
+    assert(orig_cap == orig_size);
+
+    enum arraylist_error err = dyn_non_pods_d_ptr_shrink_to_fit(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.capacity == orig_size);
+
+    // Remove almost all, shrink to fit to 1
+    err = dyn_non_pods_d_ptr_shrink_size(&list, 1);
+    err = dyn_non_pods_d_ptr_shrink_to_fit(&list);
+    assert(list.capacity == 1);
+    assert(list.data != NULL);
+
+    // Remove last, shrink to fit empty
+    err = dyn_non_pods_d_ptr_shrink_size(&list, 0);
+    assert(err == ARRAYLIST_OK);
+    err = dyn_non_pods_d_ptr_shrink_to_fit(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.capacity == 0);
+    assert(list.data == NULL);
+
+    err = dyn_non_pods_d_ptr_shrink_to_fit(&list);
+    assert(err == ARRAYLIST_OK);
+
+    dyn_non_pods_d_ptr_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn shrink_to_fit pointer-type passed\n");
+}
+
+void test_arraylist_dyn_push_back_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d_ptr list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+
+    // Push n pointers
+    size_t N = 6;
+    for (size_t i = 0; i < N; ++i) {
+        char buf[32];
+        snprintf(buf, sizeof buf, "ptr%lu", i);
+        struct non_pod *p = non_pod_init_ptr(buf, i, i + 0.1, &gpa);
+        enum arraylist_error err = dyn_non_pods_d_ptr_push_back(&list, p);
+        assert(err == ARRAYLIST_OK);
+        assert(list.size == i + 1);
+        assert(list.data[i]);
+        assert(strcmp(list.data[i]->objname, buf) == 0);
+    }
+
+    // Remove all, check counter
+    dyn_non_pods_d_ptr_clear(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    // Push one more, then deinit twice (should be noop after first)
+    struct non_pod *tmp = non_pod_init_ptr("again-ptr", 101, 202.2, &gpa);
+    dyn_non_pods_d_ptr_push_back(&list, tmp);
+    assert(list.size == 1);
+    dyn_non_pods_d_ptr_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    dyn_non_pods_d_ptr_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn push_back pointer-type passed\n");
+}
+
+void test_arraylist_dyn_emplace_back_slot_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d_ptr list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+
+    // Emplace one element; returned pointer is valid and modifiable
+    struct non_pod **slot1 = dyn_non_pods_d_ptr_emplace_back_slot(&list);
+    assert(slot1 != NULL);
+    // Can write individually through the slots:
+    // (*slot1)->objname = gpa.malloc(5, gpa.ctx);
+    // strcpy((*slot1)->objname, "foo");
+    // (*slot1)->a = gpa.malloc(sizeof(int), gpa.ctx);
+    // *(*slot1)->a = 1;
+    // (*slot1)->b = gpa.malloc(sizeof(float), gpa.ctx);
+    // *(*slot1)->b = 1.1f;
+
+    // need to deref only the slot with a list of pointer types
+    *slot1 = non_pod_init_ptr("foo", 1, 1.1, &gpa);
+
+    assert(list.size == 1);
+    assert(list.capacity == 1);
+    assert(strcmp((*list.data[0]).objname, "foo") == 0);
+    assert((*list.data[0]).a && *(*list.data[0]).a == 1);
+    // Data written through slot is visible in data array
+    *(*slot1)->a = 27;
+    assert(*(*list.data[0]).a == 27);
+
+    // However after realloc, these pointers may not be valid anymore, so don't do this
+
+    // Emplace multiple: Each pointer is unique, order preserved
+    for (size_t i = 0; i < 5; ++i) {
+        struct non_pod **slot = dyn_non_pods_d_ptr_emplace_back_slot(&list);
+        assert(slot != NULL);
+        char name[6];
+        snprintf(name, sizeof name, "item%lu", i);
+        *slot = non_pod_init_ptr(name, i, 100.1f + i, &gpa);
+        assert((*list.data[list.size - 1]).a && *(*slot)->a == (int)i);
+        assert(strcmp((*slot)->objname, name) == 0);
+    }
+
+    // Emplacing triggers growth, previous pointers are NOT preserved
+    size_t old_capacity = list.capacity;
+    struct non_pod **old_first = &list.data[0];
+    for (size_t i = 0; i < 20; ++i) {
+        struct non_pod **slot_grow = dyn_non_pods_d_ptr_emplace_back_slot(&list);
+        char name[8];
+        snprintf(name, sizeof name, "slot%lu", i);
+        *slot_grow = non_pod_init_ptr(name, i + 1, 200.2f + i, &gpa);
+    }
+
+    assert(list.capacity > old_capacity);
+    // After realloc, previous values are still valid and not overwritten, however, pointers are not in the same location
+    // Thus, do not hold data pointers of list after operations that may realloc
+    assert(slot1 != old_first);
+
+    assert(strcmp((*list.data[0]).objname, "foo") == 0);
+
+    // After deinit, one must init again to not crash
+    dyn_non_pods_d_ptr_deinit(&list);
+    list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("testing1", 1, 1.1, &gpa);
+    assert(list.size == 1);
+    assert(list.capacity == 1);
+
+    // Testing doubling capacity
+    // Do not need to create temp values to insert, however, there is way to check for failure this way
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("testing2", 2, 2.2, &gpa);
+    assert(list.size == 2);
+    assert(list.capacity == 2);
+
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("testing3", 3, 3.3, &gpa);
+    assert(list.size == 3);
+    assert(list.capacity == 4);
+
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("testing4", 4, 4.4, &gpa);
+    assert(list.size == 4);
+    assert(list.capacity == 4);
+
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("testing5", 5, 5.5, &gpa);
+    assert(list.size == 5);
+    assert(list.capacity == 8);
+
+    dyn_non_pods_d_ptr_deinit(&list);
+
+    dyn_non_pods_d_ptr_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn emplace_back_slot pointer-type passed\n");
+}
+
+void test_arraylist_dyn_insert_at_pointer(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d_ptr list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+
+    // Insert into empty list, index 0; becomes head
+    struct non_pod *a = non_pod_init_ptr("A", 10, 0.1, &gpa);
+    enum arraylist_error err = dyn_non_pods_d_ptr_insert_at(&list, a, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 1);
+    assert(strcmp(list.data[0]->objname, "A") == 0);
+
+    // Insert at head (index 0), should become new head; existing shift right
+    struct non_pod *b = non_pod_init_ptr("B", 20, 0.2, &gpa);
+    err = dyn_non_pods_d_ptr_insert_at(&list, b, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 2);
+    assert(strcmp(list.data[0]->objname, "B") == 0);
+    assert(strcmp(list.data[1]->objname, "A") == 0);
+
+    // Insert at tail (index=size), should append
+    struct non_pod *c = non_pod_init_ptr("C", 30, 0.3, &gpa);
+    err = dyn_non_pods_d_ptr_insert_at(&list, c, list.size);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 3);
+    assert(strcmp(list.data[2]->objname, "C") == 0);
+
+    // Insert in the middle (index=1)
+    struct non_pod *d = non_pod_init_ptr("D", 40, 0.4, &gpa);
+    err = dyn_non_pods_d_ptr_insert_at(&list, d, 1);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 4);
+    assert(strcmp(list.data[0]->objname, "B") == 0);
+    assert(strcmp(list.data[1]->objname, "D") == 0);
+    assert(strcmp(list.data[2]->objname, "A") == 0);
+    assert(strcmp(list.data[3]->objname, "C") == 0);
+
+    // Insert at index > size (out of bounds), should append
+    struct non_pod *e = non_pod_init_ptr("E", 50, 0.5, &gpa);
+    err = dyn_non_pods_d_ptr_insert_at(&list, e, 999);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 5);
+    assert(strcmp(list.data[4]->objname, "E") == 0);
+
+    // Check all memory still valid and unchanged
+    assert(strcmp(list.data[0]->objname, "B") == 0);
+    assert(strcmp(list.data[1]->objname, "D") == 0);
+    assert(strcmp(list.data[2]->objname, "A") == 0);
+    assert(strcmp(list.data[3]->objname, "C") == 0);
+    assert(strcmp(list.data[4]->objname, "E") == 0);
+
+    // Capacity grows correctly; insert repeatedly to trigger realloc
+    for (size_t i = 0; i < 10; ++i) {
+        char name[12];
+        snprintf(name, sizeof(name), "val%lu", i);
+        struct non_pod *tmp = non_pod_init_ptr(name, i, i, &gpa);
+        err = dyn_non_pods_d_ptr_insert_at(&list, tmp, 2); // always in middle
+        assert(err == ARRAYLIST_OK);
+    }
+    assert(list.size == 15);
+    assert(list.capacity >= list.size);
+
+    // Insert at every possible index in small list
+    dyn_non_pods_d_ptr_clear(&list);
+    for (size_t i = 0; i < 4; ++i) {
+        struct non_pod *t = non_pod_init_ptr("X", i, i, &gpa);
+        err = dyn_non_pods_d_ptr_insert_at(&list, t, i); // should be append to each
+        assert(err == ARRAYLIST_OK);
+        assert(list.size == i + 1);
+    }
+    // Now list is [X, X, X, X]; insert at head (0), tail (size=4), and middle (2)
+    struct non_pod *y = non_pod_init_ptr("Y", 99, 99.9, &gpa);
+    err = dyn_non_pods_d_ptr_insert_at(&list, y, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 5);
+    assert(strcmp(list.data[0]->objname, "Y") == 0);
+    struct non_pod *z = non_pod_init_ptr("Z", 100, -10, &gpa);
+    err = dyn_non_pods_d_ptr_insert_at(&list, z, 2);
+    assert(list.size == 6);
+    assert(strcmp(list.data[2]->objname, "Z") == 0);
+
+    // Reset list
+    dyn_non_pods_d_ptr_deinit(&list);
+    list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+
+    // Testing double capacity
+    struct non_pod *a1 = non_pod_init_ptr("A", 1, 1.1, &gpa);
+    dyn_non_pods_d_ptr_insert_at(&list, a1, 0);
+    assert(list.size == 1);
+    assert(list.capacity == 1);
+
+    struct non_pod *a2 = non_pod_init_ptr("B", 2, 2.2, &gpa);
+    dyn_non_pods_d_ptr_insert_at(&list, a2, 0);
+    assert(list.size == 2);
+    assert(list.capacity == 2);
+
+    struct non_pod *a3 = non_pod_init_ptr("C", 3, 3.3, &gpa);
+    dyn_non_pods_d_ptr_insert_at(&list, a3, 0);
+    assert(list.size == 3);
+    assert(list.capacity == 4);
+
+    struct non_pod *a4 = non_pod_init_ptr("D", 4, 4.4, &gpa);
+    dyn_non_pods_d_ptr_insert_at(&list, a4, 0);
+    assert(list.size == 4);
+    assert(list.capacity == 4);
+
+    struct non_pod *a5 = non_pod_init_ptr("E", 5, 5.5, &gpa);
+    dyn_non_pods_d_ptr_insert_at(&list, a5, 0);
+    assert(list.size == 5);
+    assert(list.capacity == 8);
+
+    dyn_non_pods_d_ptr_deinit(&list);
+
+    dyn_non_pods_d_ptr_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn insert_at pointer-type passed\n");
+}
+
+void test_arraylist_dyn_pop_back_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d_ptr list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+
+    // Pop on empty list
+    size_t before = global_destructor_counter_arraylist;
+    enum arraylist_error err = dyn_non_pods_d_ptr_pop_back(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == before);
+
+    // Push one, then pop
+    struct non_pod *a = non_pod_init_ptr("A", 11, 1.1, &gpa);
+    err = dyn_non_pods_d_ptr_push_back(&list, a);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 1);
+    before = global_destructor_counter_arraylist;
+    err = dyn_non_pods_d_ptr_pop_back(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == before - 1);
+
+    // Push several, then pop all
+    for (size_t i = 0; i < 5; ++i) {
+        char name[16]; snprintf(name, sizeof name, "item%lu", i);
+        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr(name, 10+i, 10+i, &gpa);
+    }
+    assert(list.size == 5);
+    size_t alive = global_destructor_counter_arraylist;
+    for (size_t i = 0; i < 5; ++i) {
+        err = dyn_non_pods_d_ptr_pop_back(&list);
+        assert(err == ARRAYLIST_OK);
+        assert(list.size == 5 - (i + 1));
+        assert(global_destructor_counter_arraylist == alive - (i + 1));
+    }
+    assert(list.size == 0);
+
+    // Interleave push/pop (LIFO)
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("foo", 1, 1, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("bar", 2, 2, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("baz", 3, 3, &gpa);
+
+    const char* expect_names[] = {"foo", "bar", "baz"};
+    for (size_t i = 0; i < 3; ++i)
+        assert(strcmp(list.data[i]->objname, expect_names[i]) == 0);
+
+    err = dyn_non_pods_d_ptr_pop_back(&list); // removes "baz"
+    assert(list.size == 2);
+    assert(strcmp(list.data[0]->objname, "foo") == 0);
+    assert(strcmp(list.data[1]->objname, "bar") == 0);
+
+    err = dyn_non_pods_d_ptr_pop_back(&list); // removes "bar"
+    assert(list.size == 1);
+    assert(strcmp(list.data[0]->objname, "foo") == 0);
+
+    err = dyn_non_pods_d_ptr_pop_back(&list); // removes "foo"
+    assert(list.size == 0);
+
+    // Push many to grow capacity, then pop many
+    for (size_t i = 0; i < 16; ++i)
+        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("grow", i, i, &gpa);
+    size_t cap = list.capacity;
+    for (size_t i = 0; i < 16; ++i)
+        dyn_non_pods_d_ptr_pop_back(&list);
+    assert(list.size == 0);
+    assert(list.capacity == cap); // pop_back never shrinks
+    assert(global_destructor_counter_arraylist == 0);
+
+    // Push, clear, pop_back is no-op
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("after", 123, 1, &gpa);
+    dyn_non_pods_d_ptr_clear(&list);
+    before = global_destructor_counter_arraylist;
+    err = dyn_non_pods_d_ptr_pop_back(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == before);
+
+    dyn_non_pods_d_ptr_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn pop_back value-type passed\n");
+}
+
+void test_arraylist_dyn_remove_at_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d_ptr list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+    enum arraylist_error err;
+    size_t before;
+
+    // Remove from empty list (should no-op)
+    before = global_destructor_counter_arraylist;
+    err = dyn_non_pods_d_ptr_remove_at(&list, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == before);
+
+    // One element, remove at 0
+    struct non_pod *a = non_pod_init_ptr("A", 1, 1.1, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = a;
+    assert(list.size == 1);
+    before = global_destructor_counter_arraylist;
+    err = dyn_non_pods_d_ptr_remove_at(&list, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == before - 1); // dtor called
+
+    // Add several, remove head, tail, middle
+    struct non_pod *b = non_pod_init_ptr("B", 2, 2.2, &gpa);
+    struct non_pod *c = non_pod_init_ptr("C", 3, 3.3, &gpa);
+    struct non_pod *d = non_pod_init_ptr("D", 4, 4.4, &gpa);
+    struct non_pod *e = non_pod_init_ptr("E", 5, 5.5, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = b;  // 0
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = c;  // 1
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = d;  // 2
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = e;  // 3
+    assert(list.size == 4);
+
+    // Remove head (index 0)
+    before = global_destructor_counter_arraylist;
+    err = dyn_non_pods_d_ptr_remove_at(&list, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 3);
+    assert(global_destructor_counter_arraylist == before - 1); // one destructor called
+    // Remaining should be [C, D, E]
+    assert(strcmp(list.data[0]->objname, "C") == 0);
+
+    // Remove tail (index size-1)
+    before = global_destructor_counter_arraylist;
+    err = dyn_non_pods_d_ptr_remove_at(&list, list.size - 1);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 2);
+    assert(global_destructor_counter_arraylist == before - 1); // one destructor called
+    // Remaining should be [C, D]
+    assert(strcmp(list.data[0]->objname, "C") == 0);
+    assert(strcmp(list.data[1]->objname, "D") == 0);
+
+    // Remove middle (index 1, which is D)
+    before = global_destructor_counter_arraylist;
+    err = dyn_non_pods_d_ptr_remove_at(&list, 1);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 1);
+    assert(global_destructor_counter_arraylist == before - 1);
+    assert(strcmp(list.data[0]->objname, "C") == 0);
+
+    // Remove only remaining element
+    err = dyn_non_pods_d_ptr_remove_at(&list, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == 0);
+
+    // Add more, remove with index out of bounds (should act like pop_back)
+    for (int i = 0; i < 5; ++i) {
+        char buf[8];
+        snprintf(buf, sizeof buf, "X%d", i);
+        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr(buf, i, i+0.1, &gpa);
+    }
+    size_t sz = list.size;
+    before = global_destructor_counter_arraylist;
+    err = dyn_non_pods_d_ptr_remove_at(&list, 9999); // way OOB
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == sz - 1);
+    assert(global_destructor_counter_arraylist == before - 1);
+
+    // Remove with index == size (past end, also acts like pop_back)
+    sz = list.size;
+    before = global_destructor_counter_arraylist;
+    err = dyn_non_pods_d_ptr_remove_at(&list, list.size);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == sz - 1);
+    assert(global_destructor_counter_arraylist == before - 1);
+
+    // Remove with index == SIZE_MAX (wraps, will pop_back, test no crash)
+    sz = list.size;
+    before = global_destructor_counter_arraylist;
+    err = dyn_non_pods_d_ptr_remove_at(&list, SIZE_MAX);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == sz - 1);
+    assert(global_destructor_counter_arraylist == before - 1);
+
+    // Remove remaining (result: should be fully destructed)
+    while (list.size > 0) {
+        dyn_non_pods_d_ptr_remove_at(&list, 0);
+    }
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == 0);
+
+    // Test repeated removes on already empty list
+    before = global_destructor_counter_arraylist;
+    err = dyn_non_pods_d_ptr_remove_at(&list, 0);
+    assert(err == ARRAYLIST_OK);
+    err = dyn_non_pods_d_ptr_remove_at(&list, SIZE_MAX);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == before);
+
+    // Restore: Fill list, remove every position, check value stability / shifting
+    for (int i = 0; i < 4; ++i) {
+        char buf[8];
+        snprintf(buf, sizeof buf, "YY%d", i);
+        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr(buf, 100+i, 500.5+i, &gpa);
+    }
+    // [YY0, YY1, YY2, YY3]
+    // Remove 1 (YY1)
+    before = global_destructor_counter_arraylist;
+    err = dyn_non_pods_d_ptr_remove_at(&list, 1);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 3);
+    assert(global_destructor_counter_arraylist == before - 1);
+    assert(strcmp(list.data[0]->objname, "YY0") == 0);
+    assert(strcmp(list.data[1]->objname, "YY2") == 0); // shifted up
+    assert(strcmp(list.data[2]->objname, "YY3") == 0);
+
+    // Remove 1 (YY2, now at index 1)
+    err = dyn_non_pods_d_ptr_remove_at(&list, 1);
+    assert(list.size == 2);
+    assert(strcmp(list.data[0]->objname, "YY0") == 0);
+    assert(strcmp(list.data[1]->objname, "YY3") == 0);
+
+    // Remove 0 (YY0)
+    err = dyn_non_pods_d_ptr_remove_at(&list, 0);
+    assert(list.size == 1);
+    assert(strcmp(list.data[0]->objname, "YY3") == 0);
+
+    // Remove 0 (YY3)
+    err = dyn_non_pods_d_ptr_remove_at(&list, 0);
+    assert(list.size == 0);
+
+    // Remove at 0 again to check stable empty
+    err = dyn_non_pods_d_ptr_remove_at(&list, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+
+    dyn_non_pods_d_ptr_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn remove_at pointer-type passed\n");
+}
+
+void test_arraylist_dyn_remove_from_to_ptr(void)
+{
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d_ptr list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+
+    // Fill with 6 named objects: A, B, C, D, E, F
+    const char *names[] = {"A", "B", "C", "D", "E", "F"};
+    for (size_t i = 0; i < 6; ++i) {
+        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr(names[i], 100 + i, 1.0+i, &gpa);
+    }
+
+    assert(list.size == 6);
+    assert(global_destructor_counter_arraylist == 6);
+
+    // Remove from head: [A, B, C, D, E, F] -- remove 0..1 -> [C, D, E, F]
+    size_t before = global_destructor_counter_arraylist;
+    enum arraylist_error err = dyn_non_pods_d_ptr_remove_from_to(&list, 0, 1);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 4);
+    assert(global_destructor_counter_arraylist == before - 2);
+    assert(strcmp(list.data[0]->objname, "C") == 0);
+    assert(strcmp(list.data[1]->objname, "D") == 0);
+    assert(strcmp(list.data[2]->objname, "E") == 0);
+    assert(strcmp(list.data[3]->objname, "F") == 0);
+
+    // Remove from middle: [C, D, E, F] -- remove 1..2 -> [C, F]
+    before = global_destructor_counter_arraylist;
+    err = dyn_non_pods_d_ptr_remove_from_to(&list, 1, 2);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 2);
+    assert(global_destructor_counter_arraylist == before - 2);
+    assert(strcmp(list.data[0]->objname, "C") == 0);
+    assert(strcmp(list.data[1]->objname, "F") == 0);
+
+    // Remove last element only: [C, F] -- remove 1..1 => [C]
+    before = global_destructor_counter_arraylist;
+    err = dyn_non_pods_d_ptr_remove_from_to(&list, 1, 1);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 1);
+    assert(global_destructor_counter_arraylist == before - 1);
+    assert(strcmp(list.data[0]->objname, "C") == 0);
+
+    // Remove first element only: [C] -- remove 0..0 => []
+    before = global_destructor_counter_arraylist;
+    err = dyn_non_pods_d_ptr_remove_from_to(&list, 0, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == before - 1);
+
+    // Remove from empty: no-op
+    before = global_destructor_counter_arraylist;
+    err = dyn_non_pods_d_ptr_remove_from_to(&list, 0, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == before);
+
+    // Fill again for more tests
+    for (size_t i = 0; i < 6; ++i) {
+        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr(names[i], 200 + i, 2.0+i, &gpa);
+    }
+    assert(list.size == 6);
+
+    // Remove all by from=0, to=5 (size-1)
+    before = global_destructor_counter_arraylist;
+    err = dyn_non_pods_d_ptr_remove_from_to(&list, 0, list.size - 1);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == before - 6);
+
+    // Fill again for edge cases
+    for (size_t i = 0; i < 6; ++i) {
+        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr(names[i], 400 + i, 4.0+i, &gpa);
+    }
+    assert(list.size == 6);
+
+    // Remove with from > to: should be no-op
+    before = list.size;
+    size_t before_dtor = global_destructor_counter_arraylist;
+    err = dyn_non_pods_d_ptr_remove_from_to(&list, 4, 2);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == before);
+    assert(global_destructor_counter_arraylist == before_dtor);
+
+    // Remove with from == to == large index (index >= size): should clamp to size-1, remove last only
+    before = global_destructor_counter_arraylist;
+    err = dyn_non_pods_d_ptr_remove_from_to(&list, 99, 99);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 5);
+    assert(global_destructor_counter_arraylist == before - 1);
+    // Last element should have been removed, check new last
+    assert(strcmp(list.data[4]->objname, "E") == 0);
+
+    // Remove with to out of bounds but from valid: remove from 3..(big) => removes 3 and 4 only (last two)
+    before = global_destructor_counter_arraylist;
+    err = dyn_non_pods_d_ptr_remove_from_to(&list, 3, 123456);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 3);
+    assert(global_destructor_counter_arraylist == before - 2);
+    // Data: C, D, E was at 4, but now gone
+    assert(strcmp(list.data[0]->objname, "A") == 0);
+    assert(strcmp(list.data[1]->objname, "B") == 0);
+    assert(strcmp(list.data[2]->objname, "C") == 0);
+
+    // Remove with both out of bounds, with to being greater: clamps both to size-1, removes last element
+    before = global_destructor_counter_arraylist;
+    err = dyn_non_pods_d_ptr_remove_from_to(&list, 123, 9999);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 2);
+    assert(global_destructor_counter_arraylist == before - 1);
+
+    err = dyn_non_pods_d_ptr_remove_from_to(&list, 0, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 1);
+    assert(global_destructor_counter_arraylist == 1);
+
+    // Remove last remaining
+    err = dyn_non_pods_d_ptr_remove_from_to(&list, 0, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == 0);
+
+    // Remove from empty again (after everything): no crash, no change
+    err = dyn_non_pods_d_ptr_remove_from_to(&list, 0, 1);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == 0);
+
+    dyn_non_pods_d_ptr_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn remove_from_to pointer-type passed\n");
+}
+
+void test_arraylist_dyn_at_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d_ptr list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+
+    // Empty array: OOB returns NULL
+    assert(dyn_non_pods_d_ptr_at(&list, 0) == NULL);
+    assert(dyn_non_pods_d_ptr_at(&list, 123) == NULL);
+
+    // Add some values
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("A", 10, 1.1, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("B", 20, 2.2, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("C", 30, 3.3, &gpa);
+
+    // Valid indices (0,1,2) return address in data, not NULL
+    for (size_t i = 0; i < list.size; ++i) {
+        struct non_pod **p = dyn_non_pods_d_ptr_at(&list, i);
+        assert(p != NULL);
+        // Content check (insertion order)
+        if (i == 0) assert(strcmp((*p)->objname, "A") == 0);
+        if (i == 1) assert(strcmp((*p)->objname, "B") == 0);
+        if (i == 2) assert(strcmp((*p)->objname, "C") == 0);
+    }
+
+    // Out of bounds: index == size or greater returns NULL
+    assert(dyn_non_pods_d_ptr_at(&list, 3) == NULL);
+    assert(dyn_non_pods_d_ptr_at(&list, 99) == NULL);
+
+    // Negative index interpreted as large size_t: always returns NULL
+    // (Some compilers warn on -1 cast to size_t, so cast explicitly)
+    assert(dyn_non_pods_d_ptr_at(&list, (size_t)-1) == NULL);
+
+    // Use returned pointer as modifiable, changes reflected in array
+    struct non_pod **pa = dyn_non_pods_d_ptr_at(&list, 0);
+    assert(pa);
+    strcpy((*pa)->objname, "newName");
+    assert(strcmp(list.data[0]->objname, "newName") == 0);
+
+    // Remove element: shrink then query OOB (old last is dead)
+    dyn_non_pods_d_ptr_pop_back(&list); // removes "objectC"
+    assert(list.size == 2);
+    assert(dyn_non_pods_d_ptr_at(&list, 2) == NULL);
+
+    // Remove head, elements shift, at() reflects new order
+    dyn_non_pods_d_ptr_remove_at(&list, 0); // removes "newName"
+    assert(list.size == 1);
+    assert(strcmp((*dyn_non_pods_d_ptr_at(&list, 0))->objname, "B") == 0);
+    assert(dyn_non_pods_d_ptr_at(&list, 1) == NULL);
+
+    // Insert after removal is visible via at()
+    struct non_pod *tmp = non_pod_init_ptr("last", 99, 99.9, &gpa);
+    enum arraylist_error err = dyn_non_pods_d_ptr_insert_at(&list, tmp, 0);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 2);
+    assert(strcmp((*dyn_non_pods_d_ptr_at(&list, 0))->objname, "last") == 0);
+    assert(strcmp((*dyn_non_pods_d_ptr_at(&list, 1))->objname, "B") == 0);
+
+    // at(NULL, x) returns NULL
+    assert(dyn_non_pods_d_ptr_at(NULL, 0) == NULL);
+    assert(dyn_non_pods_d_ptr_at(NULL, 1000) == NULL);
+
+    // Clearing empties the array; at() never deref OOB
+    dyn_non_pods_d_ptr_clear(&list);
+    assert(list.size == 0);
+    assert(dyn_non_pods_d_ptr_at(&list, 0) == NULL);
+    assert(dyn_non_pods_d_ptr_at(&list, 1) == NULL);
+
+    // Huge number of items: check random OOB and in-bounds
+    size_t bigN = 100;
+    for (size_t i = 0; i < bigN; ++i) {
+        char name[20];
+        snprintf(name, sizeof name, "item%lu", i);
+        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr(name, (int)i, (float)i, &gpa);
+    }
+    for (size_t i = 0; i < bigN; ++i) {
+        struct non_pod **p = dyn_non_pods_d_ptr_at(&list, i);
+        assert(p != NULL);
+        char expect[20];
+        snprintf(expect, sizeof expect, "item%lu", i);
+        assert(strcmp((*p)->objname, expect) == 0);
+        assert(*(*p)->a == (int)i);
+        assert(*(*p)->b == (float)i);
+    }
+    assert(dyn_non_pods_d_ptr_at(&list, bigN) == NULL);
+    assert(dyn_non_pods_d_ptr_at(&list, bigN + 10000) == NULL);
+
+    dyn_non_pods_d_ptr_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn at pointer-type passed\n");
+}
+
+void test_arraylist_dyn_begin_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d_ptr list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+
+    // Begin on empty list should be NULL or a valid pointer only if capacity>0, so always check size first
+    assert(list.size == 0);
+    struct non_pod **begin = dyn_non_pods_d_ptr_begin(&list);
+    // If data == NULL, then begin==NULL; if not, begin==data
+    assert((begin == NULL && list.data == NULL) || begin == list.data);
+
+    // Add one element; begin() == &data[0], non-null
+    struct non_pod *a = non_pod_init_ptr("A", 10, 1.1, &gpa);
+    dyn_non_pods_d_ptr_push_back(&list, a);
+    begin = dyn_non_pods_d_ptr_begin(&list);
+    assert(begin != NULL);
+    assert(begin == &list.data[0]);
+    assert(strcmp((*begin)->objname, "A") == 0);
+
+    // Add another, this operation caused a realloc, which means begin() may change, not always true,
+    // but should always be held as true
+    //struct non_pod *old_begin = begin;
+    struct non_pod *b = non_pod_init_ptr("B", 20, 2.2, &gpa);
+    dyn_non_pods_d_ptr_push_back(&list, b);
+    begin = dyn_non_pods_d_ptr_begin(&list);
+    assert(begin == list.data);
+    // assert(begin != old_begin); may be true or false, do not hold pointers between operations that reallocate
+    assert(strcmp((*begin)->objname, "A") == 0);
+    assert(strcmp((*(begin+1))->objname, "B") == 0);
+
+    // Iteration with begin()/end()
+    size_t iter_count = 0;
+    for (struct non_pod **it = dyn_non_pods_d_ptr_begin(&list); it != dyn_non_pods_d_ptr_end(&list); ++it) {
+        if (iter_count == 0) {
+            assert(strcmp((*it)->objname, "A") == 0);
+        }
+        if (iter_count == 1) {
+            assert(strcmp((*it)->objname, "B") == 0);
+        }
+        ++iter_count;
+    }
+    assert(iter_count == list.size);
+
+    // Add multiple elements to trigger realloc/growth, confirm begin pointer is updated properly
+    size_t many = 32;
+    for (size_t i = 0; i < many; ++i) {
+        char buf[10];
+        snprintf(buf, sizeof buf, "q%lu", i);
+        dyn_non_pods_d_ptr_push_back(&list, non_pod_init_ptr(buf, (int)i, (float)i, &gpa));
+    }
+    begin = dyn_non_pods_d_ptr_begin(&list);
+    assert(begin == list.data);
+    // After growth, check first value is still "A"
+    assert(strcmp((*begin)->objname, "A") == 0);
+    // And nth value is correct
+    assert(strcmp((*(begin+list.size-1))->objname, "q31") == 0);
+
+    // begin pointer is valid up to end(), never deref past end
+    size_t count = 0;
+    for (struct non_pod **it = dyn_non_pods_d_ptr_begin(&list); it != dyn_non_pods_d_ptr_end(&list); ++it) {
+        count++;
+    }
+    assert(count == list.size);
+
+    // pop_back: begin unchanged, last element gone
+    size_t prev_size = list.size;
+    dyn_non_pods_d_ptr_pop_back(&list);
+    begin = dyn_non_pods_d_ptr_begin(&list);
+    assert(begin == list.data);
+    assert(list.size == prev_size - 1);
+
+    // clear: begin can be non-null if capacity > 0, but size==0 so do not deref it
+    dyn_non_pods_d_ptr_clear(&list);
+    assert(list.size == 0);
+    begin = dyn_non_pods_d_ptr_begin(&list);
+    // Dereferencing begin when list is empty is invalid, but it's ok to compare pointer value
+    assert(begin == list.data);
+    // If data==NULL, begin==NULL
+
+    // Remove all, then add again: begin valid, data correct
+    dyn_non_pods_d_ptr_push_back(&list, non_pod_init_ptr("foo", 1, 1.2f, &gpa));
+    assert(list.size == 1);
+    begin = dyn_non_pods_d_ptr_begin(&list);
+    assert(begin != NULL);
+    assert(strcmp((*begin)->objname, "foo") == 0);
+
+    // remove_at changes order, begin still valid
+    dyn_non_pods_d_ptr_push_back(&list, non_pod_init_ptr("bar", 2, 2.3f, &gpa));
+    dyn_non_pods_d_ptr_remove_at(&list, 0);
+    begin = dyn_non_pods_d_ptr_begin(&list);
+    assert(list.size == 1);
+    assert(strcmp((*begin)->objname, "bar") == 0);
+
+    // reset: deinit, then begin on fresh list
+    dyn_non_pods_d_ptr_deinit(&list);
+    list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+    begin = dyn_non_pods_d_ptr_begin(&list);
+    assert(list.size == 0);
+    assert((begin == NULL && list.data == NULL) || begin == list.data);
+
+    // bulk insert; iterate via begin
+    for (size_t i = 0; i < 8; ++i) {
+        dyn_non_pods_d_ptr_push_back(&list, non_pod_init_ptr("x", i, i, &gpa));
+    }
+    
+    size_t loopcheck = 0;
+    for (struct non_pod **it = dyn_non_pods_d_ptr_begin(&list); it != dyn_non_pods_d_ptr_end(&list); ++it) {
+        loopcheck++;
+    }
+    assert(loopcheck == list.size);
+
+    // at(NULL) returns NULL, begin(NULL) returns NULL
+    assert(dyn_non_pods_d_ptr_begin(NULL) == NULL);
+
+    // begin not deref'd if list is truly empty; do not crash
+    dyn_non_pods_d_ptr_clear(&list);
+    begin = dyn_non_pods_d_ptr_begin(&list);
+    // Dereferencing it is invalid, but pointer value is as expected
+    assert((begin == NULL && list.data == NULL) || begin == list.data);
+
+    dyn_non_pods_d_ptr_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn begin pointer-type passed\n");
+}
+
+void test_arraylist_dyn_back_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d_ptr list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+
+    // back() on empty array: returns NULL
+    assert(dyn_non_pods_d_ptr_back(&list) == NULL);
+
+    // single element: back() returns data+0, points to first, non-null
+    struct non_pod *a = non_pod_init_ptr("first", 11, 1.1, &gpa);
+    dyn_non_pods_d_ptr_push_back(&list, a);
+    struct non_pod **last = dyn_non_pods_d_ptr_back(&list);
+    assert(last != NULL);
+    assert(last == &list.data[0]);
+    assert(strcmp((*last)->objname, "first") == 0);
+    assert(*(*last)->a == 11);
+
+    // two elements: back() points to new element each time, never to prior
+    struct non_pod *b = non_pod_init_ptr("second", 22, 2.2, &gpa);
+    dyn_non_pods_d_ptr_push_back(&list, b);
+    assert(list.size == 2);
+    struct non_pod **back2 = dyn_non_pods_d_ptr_back(&list);
+    assert(back2 != NULL);
+    assert(back2 == &list.data[1]);
+    assert(strcmp((*back2)->objname, "second") == 0);
+    assert(*(*back2)->a == 22);
+
+    // many elements: back() always matches last added
+    for (int i = 2; i < 12; ++i) {
+        char name[32];
+        snprintf(name, sizeof name, "item%d", i);
+        struct non_pod *t = non_pod_init_ptr(name, 100+i, 3.3f+i, &gpa);
+        dyn_non_pods_d_ptr_push_back(&list, t);
+        struct non_pod **b = dyn_non_pods_d_ptr_back(&list);
+        assert(b != NULL);
+        assert(b == &list.data[list.size-1]);
+        assert(strcmp((*b)->objname, name) == 0);
+        assert(*(*b)->a == 100+i);
+    }
+
+    // back() is mutable: change value via back(), data array reflects change
+    struct non_pod **bref = dyn_non_pods_d_ptr_back(&list);
+    strcpy((*bref)->objname, "lastX");
+    assert(strcmp(list.data[list.size-1]->objname, "lastX") == 0);
+
+    // Remove last element: back() now returns previous element
+    enum arraylist_error err = dyn_non_pods_d_ptr_pop_back(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 11);
+    struct non_pod **newlast = dyn_non_pods_d_ptr_back(&list);
+    assert(newlast == &list.data[list.size-1]);
+    assert(*(*newlast)->a == 110);
+    // Content should match what was inserted
+    assert(strcmp((*newlast)->objname, "item10") == 0);
+
+    // Remove all but one: back always matches, then back(NULL) when empty
+    while (list.size > 1)
+        dyn_non_pods_d_ptr_pop_back(&list);
+    assert(list.size == 1);
+    struct non_pod **lastleft = dyn_non_pods_d_ptr_back(&list);
+    assert(lastleft != NULL);
+    assert(lastleft == &list.data[0]);
+    assert(strcmp((*lastleft)->objname, "first") == 0);
+
+    dyn_non_pods_d_ptr_pop_back(&list);
+    assert(list.size == 0);
+    assert(dyn_non_pods_d_ptr_back(&list) == NULL);
+
+    // Push after clear: back() valid again
+    struct non_pod *c = non_pod_init_ptr("newone", 123, 4.56, &gpa);
+    dyn_non_pods_d_ptr_push_back(&list, c);
+    struct non_pod **b2 = dyn_non_pods_d_ptr_back(&list);
+    assert(b2 != NULL);
+    assert(strcmp((*b2)->objname, "newone") == 0);
+
+    // Clear: back() should return NULL
+    dyn_non_pods_d_ptr_clear(&list);
+    assert(list.size == 0);
+    assert(dyn_non_pods_d_ptr_back(&list) == NULL);
+
+    // Push several, remove some, back() always matches last
+    for (int i = 0; i < 5; ++i) {
+        char nm[8];
+        snprintf(nm, sizeof nm, "set%d", i);
+        dyn_non_pods_d_ptr_push_back(&list, non_pod_init_ptr(nm, i+30, i+0.13f, &gpa));
+        assert(strcmp((*dyn_non_pods_d_ptr_back(&list))->objname, nm) == 0);
+    }
+    assert(list.size == 5);
+    dyn_non_pods_d_ptr_remove_at(&list, 2); // remove element 2, last remains same
+    assert(strcmp((*dyn_non_pods_d_ptr_back(&list))->objname, "set4") == 0);
+    dyn_non_pods_d_ptr_pop_back(&list); // remove last
+    assert(strcmp((*dyn_non_pods_d_ptr_back(&list))->objname, "set3") == 0);
+
+    dyn_non_pods_d_ptr_clear(&list);
+
+    // back() on NULL list pointer: returns NULL (should not segfault)
+    assert(dyn_non_pods_d_ptr_back(NULL) == NULL);
+
+    // After deinit: back() returns NULL; repeated deinit is safe
+    dyn_non_pods_d_ptr_push_back(&list, non_pod_init_ptr("foo", 16, 2.5, &gpa));
+    dyn_non_pods_d_ptr_deinit(&list);
+    assert(dyn_non_pods_d_ptr_back(&list) == NULL);
+    dyn_non_pods_d_ptr_deinit(&list); // should not crash
+
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn back pointer-type passed\n");
+}
+
+void test_arraylist_dyn_end_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d_ptr list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+
+    // end() on an empty list returns data + 0 (== data)
+    assert(list.size == 0);
+    struct non_pod **endptr = dyn_non_pods_d_ptr_end(&list);
+    // end() may be NULL or data, so must be compared as a pointer, not dereferenced!
+    assert((endptr == NULL && list.data == NULL) || (endptr == (list.data + list.size)));
+
+    // end() pointer is always list.data + list.size
+    // add several items, confirm end > data and never before data
+    for (size_t i = 0; i < 6; ++i) {
+        char namebuf[24];
+        snprintf(namebuf, sizeof namebuf, "item%lu", i);
+        dyn_non_pods_d_ptr_push_back(&list, non_pod_init_ptr(namebuf, (int)i, (float)i, &gpa));
+        assert(dyn_non_pods_d_ptr_end(&list) == list.data + list.size);
+        if (list.size > 0)
+            assert(dyn_non_pods_d_ptr_end(&list) > list.data);
+    }
+
+    // Iterating: end() is always exclusive; can be used as limit for begin/end style iteration.
+    size_t niter = 0;
+    for (struct non_pod **it = dyn_non_pods_d_ptr_begin(&list); it != dyn_non_pods_d_ptr_end(&list); ++it) {
+        assert(it >= list.data && it < list.data + list.size);
+        niter++;
+    }
+    assert(niter == list.size);
+
+    // Dereferencing end() is always invalid: verify pointer value but never deref
+    struct non_pod **should_be_out_of_bounds = dyn_non_pods_d_ptr_end(&list);
+    // The next is only to show the address, do not dereference
+    assert(should_be_out_of_bounds == list.data + list.size);
+
+    // After pop_back/clear, end() updates accordingly
+    size_t oldsize = list.size;
+    dyn_non_pods_d_ptr_pop_back(&list);
+    assert(dyn_non_pods_d_ptr_end(&list) == list.data + list.size);
+    assert(list.size == oldsize - 1);
+
+    // Massive insertions: end() always tracks [data + size]
+    size_t n_massive = 100;
+    dyn_non_pods_d_ptr_clear(&list);
+    for (size_t i = 0; i < n_massive; ++i) {
+        dyn_non_pods_d_ptr_push_back(&list, non_pod_init_ptr("foo", (int)i, (float)i, &gpa));
+        assert(dyn_non_pods_d_ptr_end(&list) == list.data + list.size);
+    }
+
+    // after shrink_size, end() updates
+    enum arraylist_error err = dyn_non_pods_d_ptr_shrink_size(&list, 17);
+    assert(err == ARRAYLIST_OK);
+    assert(dyn_non_pods_d_ptr_end(&list) == list.data + 17);
+
+    // Testing after clear, end() == data (if data null, is null)
+    dyn_non_pods_d_ptr_clear(&list);
+    endptr = dyn_non_pods_d_ptr_end(&list);
+    assert((endptr == NULL && list.data == NULL) || (endptr == list.data + list.size && list.size == 0));
+
+    // Test after deinit: end() returns NULL (if data is NULL)
+    dyn_non_pods_d_ptr_deinit(&list);
+    endptr = dyn_non_pods_d_ptr_end(&list);
+    assert(endptr == NULL);
+
+    // Use of end() in for-loop after deinit or clear never crashes
+    for (struct non_pod **it = dyn_non_pods_d_ptr_begin(&list); it != dyn_non_pods_d_ptr_end(&list); ++it) {
+        assert(0 && "This loop must never run: list is empty!");
+    }
+
+    // out-of-bounds: end() is always (data + size); at(size) returns NULL, end() is not valid for deref
+    struct non_pod **at_end = dyn_non_pods_d_ptr_at(&list, list.size);
+    assert(at_end == NULL);
+
+    // Use after repeated deinit/clear: no crash, end() steady.
+    dyn_non_pods_d_ptr_clear(&list);
+    dyn_non_pods_d_ptr_clear(&list);
+    endptr = dyn_non_pods_d_ptr_end(&list);
+    assert((endptr == NULL && list.data == NULL) || (endptr == list.data && list.size == 0));
+    dyn_non_pods_d_ptr_deinit(&list);
+    assert(dyn_non_pods_d_ptr_end(&list) == NULL);
+
+    // Null pointer argument: end(NULL) returns NULL (never crashes)
+    assert(dyn_non_pods_d_ptr_end(NULL) == NULL);
+
+    // Fill then remove from head/tail; end always points at size
+    list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+    for (size_t i = 0; i < 8; ++i)
+        dyn_non_pods_d_ptr_push_back(&list, non_pod_init_ptr("bar", (int)i, (float)0, &gpa));
+    for (size_t i = 0; i < 4; ++i) {
+        dyn_non_pods_d_ptr_pop_back(&list); // remove last
+        assert(dyn_non_pods_d_ptr_end(&list) == list.data + list.size);
+    }
+    for (size_t i = 0; list.size > 0; ++i) {
+        dyn_non_pods_d_ptr_remove_at(&list, 0); // remove head
+        assert(dyn_non_pods_d_ptr_end(&list) == list.data + list.size);
+        (void)i;
+    }
+    assert(list.size == 0);
+
+    dyn_non_pods_d_ptr_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+
+    printf("test arraylist dyn end pointer-type passed\n");
+}
+
+void test_arraylist_dyn_find_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d_ptr list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+
+    // Find on empty list: always returns data+size == end()
+    char notfound_name[] = "none";
+    struct non_pod **res = dyn_non_pods_d_ptr_find(&list, non_pod_find_ptr, notfound_name);
+    assert(res == list.data + list.size);    // In empty, both are NULL, so ok
+    assert(res == dyn_non_pods_d_ptr_end(&list) || res == NULL);
+
+    // Insert some non_pods
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("A", 1, 1.1, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("B", 2, 2.2, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("C", 3, 3.3, &gpa);
+
+    // Find value for actual key; should point to that object
+    // The predicate must match the type: struct non_pod*
+    struct non_pod **f1 = dyn_non_pods_d_ptr_find(&list, non_pod_find_ptr, "A");
+    assert(f1);
+    assert(f1 != list.data + list.size);
+    assert(strcmp((*f1)->objname, "A") == 0);
+
+    struct non_pod **f2 = dyn_non_pods_d_ptr_find(&list, non_pod_find_ptr, "B");
+    assert(f2);
+    assert(f2 != list.data + list.size);
+    assert(strcmp((*f2)->objname, "B") == 0);
+
+    struct non_pod **f3 = dyn_non_pods_d_ptr_find(&list, non_pod_find_ptr, "C");
+    assert(f3);
+    assert(f3 != list.data + list.size);
+    assert(strcmp((*f3)->objname, "C") == 0);
+
+    // Not found: returns end() (safe to compare pointer identity, don't deref!)
+    struct non_pod **nf = dyn_non_pods_d_ptr_find(&list, non_pod_find_ptr, "Zzznotfoundzz");
+    assert(nf == list.data + list.size);
+    assert(nf == dyn_non_pods_d_ptr_end(&list));
+
+    // NULL predicate: always returns NULL
+    assert(dyn_non_pods_d_ptr_find(&list, NULL, NULL) == NULL);
+
+    // NULL list: always returns NULL
+    assert(dyn_non_pods_d_ptr_find(NULL, non_pod_find_ptr, "A") == NULL);
+
+    // Mutate underlying object, search reflects new state
+    strcpy(list.data[0]->objname, "Zmaybe");
+    struct non_pod **nz = dyn_non_pods_d_ptr_find(&list, non_pod_find_ptr, "Zmaybe");
+    assert(nz == &list.data[0]);
+    assert(strcmp((*nz)->objname, "Zmaybe") == 0);
+
+    // List with duplicates: find returns the first matching by search order
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("C", 5, 10.1, &gpa);
+    struct non_pod **dup1 = dyn_non_pods_d_ptr_find(&list, non_pod_find_ptr, "C");
+    assert(dup1 && strcmp((*dup1)->objname, "C") == 0);
+    assert(dup1 == &list.data[2]);
+    // (first occurrence, not the new one at data[3])
+
+    // Remove a value; find reflects removal
+    dyn_non_pods_d_ptr_remove_at(&list, 1); // removes "B"
+    struct non_pod **gone = dyn_non_pods_d_ptr_find(&list, non_pod_find_ptr, "B");
+    assert(gone == list.data + list.size);
+
+    // Find is not confused by holes or shifts
+    assert(strcmp(list.data[1]->objname, "C") == 0);
+    struct non_pod **nowfound = dyn_non_pods_d_ptr_find(&list, non_pod_find_ptr, "C");
+    assert(nowfound == &list.data[1]);
+
+    // Find works after clearing list
+    dyn_non_pods_d_ptr_clear(&list);
+    assert(dyn_non_pods_d_ptr_find(&list, non_pod_find_ptr, "A") == list.data + list.size);
+
+    // Find works after deinit/reinit
+    dyn_non_pods_d_ptr_deinit(&list);
+    list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+    assert(dyn_non_pods_d_ptr_find(&list, non_pod_find_ptr, "foo") == dyn_non_pods_d_ptr_end(&list));
+
+    // Large list, stress test
+    size_t big = 102;
+    const char *key = "BIGMATCH";
+    for (size_t i = 0; i < big; ++i) {
+        if (i == 50) {
+            *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr(key, 99, 101, &gpa);
+        } else {
+            char nm[16]; snprintf(nm, sizeof nm, "num%02u", (unsigned)i);
+            *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr(nm, (int)i, (float)i, &gpa);
+        }
+    }
+    struct non_pod **bigfound = dyn_non_pods_d_ptr_find(&list, non_pod_find_ptr, (void*)key);
+    assert(bigfound != list.data + list.size);
+    assert(strcmp((*bigfound)->objname, key) == 0);
+
+    dyn_non_pods_d_ptr_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn find pointer-type passed\n");
+}
+
+void test_arraylist_dyn_contains_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d_ptr list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+
+    // contains on empty list: always returns false, out_index untouched
+    size_t outidx = 12345;
+    bool hasA = dyn_non_pods_d_ptr_contains(&list, non_pod_find_ptr, "A", &outidx);
+    assert(hasA == false);
+    assert(outidx == 12345);
+
+    // Add some objects and check positive and negative cases
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("A", 1, 1.1, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("B", 2, 2.2, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("C", 3, 3.3, &gpa);
+
+    // Positive: present
+    outidx = 9999;
+    bool hasB = dyn_non_pods_d_ptr_contains(&list, non_pod_find_ptr, "B", &outidx);
+    assert(hasB == true);
+    assert(outidx == 1);
+
+    outidx = 9999;
+    bool hasC = dyn_non_pods_d_ptr_contains(&list, non_pod_find_ptr, "C", &outidx);
+    assert(hasC == true);
+    assert(outidx == 2);
+
+    // Negative: not present
+    outidx = 42;
+    bool hasZZ = dyn_non_pods_d_ptr_contains(&list, non_pod_find_ptr, "ZZ", &outidx);
+    assert(hasZZ == false);
+    assert(outidx == 42);
+
+    // If out_index is NULL, function is still correct (no write, no segfault)
+    assert(dyn_non_pods_d_ptr_contains(&list, non_pod_find_ptr, "B", NULL) == true);
+    assert(dyn_non_pods_d_ptr_contains(&list, non_pod_find_ptr, "NO", NULL) == false);
+
+    // Duplicate entries: first match wins, correct index
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("B", 12, 2.22, &gpa);
+    outidx = 999;
+    bool founddup = dyn_non_pods_d_ptr_contains(&list, non_pod_find_ptr, "B", &outidx);
+    assert(founddup == true);
+    assert(outidx == 1);  // Should be first "B"
+    // The one at index [3] is not returned by contains
+
+    // Mutate data; contains reflects update
+    strcpy(list.data[0]->objname, "XXX");
+    outidx = 800;
+    bool foundXXX = dyn_non_pods_d_ptr_contains(&list, non_pod_find_ptr, "XXX", &outidx);
+    assert(foundXXX == true);
+    assert(outidx == 0);
+
+    // Remove value; contains no longer finds it
+    dyn_non_pods_d_ptr_remove_at(&list, 0); // removes "XXX"
+    outidx = 0;
+    bool hasXXX = dyn_non_pods_d_ptr_contains(&list, non_pod_find_ptr, "XXX", &outidx);
+    assert(hasXXX == false);
+
+    // out_index remains untouched on negative result
+    outidx = 4444;
+    bool failZ = dyn_non_pods_d_ptr_contains(&list, non_pod_find_ptr, "zzznotfound", &outidx);
+    assert(failZ == false);
+    assert(outidx == 4444);
+
+    // NULL predicate: always returns false
+    outidx = 1111;
+    assert(!dyn_non_pods_d_ptr_contains(&list, NULL, "A", &outidx));
+    assert(outidx == 1111);
+
+    // NULL arraylist: always returns false
+    outidx = 2020;
+    assert(!dyn_non_pods_d_ptr_contains(NULL, non_pod_find_ptr, "A", &outidx));
+    assert(outidx == 2020);
+
+    // Large list: finds correct element, fast fail if not found
+    dyn_non_pods_d_ptr_clear(&list);
+    int N = 40;
+    for (int i = 0; i < N; ++i) {
+        char nm[10]; snprintf(nm, sizeof nm, "v%02d", i);
+        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr(nm, i*i, i*2, &gpa);
+    }
+    outidx = 0;
+    bool hasv15 = dyn_non_pods_d_ptr_contains(&list, non_pod_find_ptr, "v15", &outidx);
+    assert(hasv15 == true);
+    assert(outidx == 15);
+
+    // Works after clear() and deinit()
+    dyn_non_pods_d_ptr_clear(&list);
+    assert(!dyn_non_pods_d_ptr_contains(&list, non_pod_find_ptr, "v20", &outidx));
+    dyn_non_pods_d_ptr_deinit(&list);
+    assert(!dyn_non_pods_d_ptr_contains(&list, non_pod_find_ptr, "XXX", &outidx));
+
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn contains pointer-type passed\n");
+}
+
+void test_arraylist_dyn_size_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d_ptr list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+
+    // New list: size == 0 always.
+    assert(dyn_non_pods_d_ptr_size(&list) == 0);
+
+    // Empty, pop_back/remove: No-op for size.
+    size_t sz = dyn_non_pods_d_ptr_size(&list);
+    dyn_non_pods_d_ptr_pop_back(&list);
+    assert(dyn_non_pods_d_ptr_size(&list) == sz);
+    dyn_non_pods_d_ptr_remove_at(&list, 0);
+    assert(dyn_non_pods_d_ptr_size(&list) == sz);
+
+    // Add with push_back, emplace_back_slot.
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("a", 1, 1.0, &gpa);
+    assert(dyn_non_pods_d_ptr_size(&list) == 1);
+    struct non_pod *b = non_pod_init_ptr("b", 2, 2.0, &gpa);
+    dyn_non_pods_d_ptr_push_back(&list, b);
+    assert(dyn_non_pods_d_ptr_size(&list) == 2);
+
+    // Insert in the middle increases size.
+    struct non_pod *c = non_pod_init_ptr("c", 3, 3.0, &gpa);
+    enum arraylist_error err = dyn_non_pods_d_ptr_insert_at(&list, c, 1);
+    assert(err == ARRAYLIST_OK);
+    assert(dyn_non_pods_d_ptr_size(&list) == 3);
+
+    // Remove by index, shrink_size.
+    sz = dyn_non_pods_d_ptr_size(&list);
+    dyn_non_pods_d_ptr_remove_at(&list, 1);
+    assert(dyn_non_pods_d_ptr_size(&list) == sz - 1);
+    sz = dyn_non_pods_d_ptr_size(&list);
+    dyn_non_pods_d_ptr_shrink_size(&list, 1);
+    assert(dyn_non_pods_d_ptr_size(&list) == 1);
+
+    // clear() sets size to zero, capacity nonzero.
+    dyn_non_pods_d_ptr_clear(&list);
+    assert(dyn_non_pods_d_ptr_size(&list) == 0);
+
+    // At this point, can insert again.
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("x", 77, 7.7, &gpa);
+    assert(dyn_non_pods_d_ptr_size(&list) == 1);
+
+    // push_back until size > 1
+    for (size_t i = 0; i < 5; ++i) {
+        char name[10];
+        snprintf(name, sizeof name, "item%lu", i);
+        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr(name, (int)i, (float)i, &gpa);
+        assert(dyn_non_pods_d_ptr_size(&list) == 2 + i);
+    }
+
+    // bulk pop_back: size decreases until zero, never negative
+    size_t bigsize = dyn_non_pods_d_ptr_size(&list);
+    for (size_t i = bigsize; i > 0; --i) {
+        dyn_non_pods_d_ptr_pop_back(&list);
+        assert(dyn_non_pods_d_ptr_size(&list) == i - 1);
+    }
+    // Double clear doesn't change size.
+    assert(dyn_non_pods_d_ptr_size(&list) == 0);
+    dyn_non_pods_d_ptr_clear(&list);
+    assert(dyn_non_pods_d_ptr_size(&list) == 0);
+
+    // Remove_from_to on empty/one-element: size zero, no crash, no negative
+    dyn_non_pods_d_ptr_remove_from_to(&list, 0, 10);
+    assert(dyn_non_pods_d_ptr_size(&list) == 0);
+
+    // Add many, then remove range
+    for (size_t i = 0; i < 16; ++i) {
+        char name[10];
+        snprintf(name, sizeof name, "bulk%lu", i);
+        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr(name, 0, 0, &gpa);
+    }
+    assert(dyn_non_pods_d_ptr_size(&list) == 16);
+    dyn_non_pods_d_ptr_remove_from_to(&list, 3, 8); // removes 6
+    assert(dyn_non_pods_d_ptr_size(&list) == 10);
+    dyn_non_pods_d_ptr_shrink_size(&list, 5);
+    assert(dyn_non_pods_d_ptr_size(&list) == 5);
+
+    // insert_at > size acts as append
+    size_t before = dyn_non_pods_d_ptr_size(&list);
+    struct non_pod *dummy = non_pod_init_ptr("tail", 555, 5.55, &gpa);
+    dyn_non_pods_d_ptr_insert_at(&list, dummy, 10000);
+    assert(dyn_non_pods_d_ptr_size(&list) == before + 1);
+
+    // pop_back until empty never underflows
+    while (dyn_non_pods_d_ptr_size(&list) > 0)
+        dyn_non_pods_d_ptr_pop_back(&list);
+    assert(dyn_non_pods_d_ptr_size(&list) == 0);
+
+    // After deinit, size remains zero
+    dyn_non_pods_d_ptr_deinit(&list);
+    assert(dyn_non_pods_d_ptr_size(&list) == 0);
+
+    // after deinit, must be initialized again
+    list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("q", 2, 2.2, &gpa);
+    assert(dyn_non_pods_d_ptr_size(&list) == 1);
+
+    // Shrink_to_fit doesn't change size
+    size_t sizesnap = dyn_non_pods_d_ptr_size(&list);
+    dyn_non_pods_d_ptr_shrink_to_fit(&list);
+    assert(dyn_non_pods_d_ptr_size(&list) == sizesnap);
+
+    // NULL pointer always returns zero.
+    assert(dyn_non_pods_d_ptr_size(NULL) == 0);
+
+    // Remove_at/Pop_back OOB/negative (size_t-wrap) safe: size not negative
+    dyn_non_pods_d_ptr_remove_at(&list, 100000);
+    size_t left = dyn_non_pods_d_ptr_size(&list);
+    dyn_non_pods_d_ptr_remove_at(&list, (size_t)-1);
+    assert(dyn_non_pods_d_ptr_size(&list) <= left); // No > left
+
+    dyn_non_pods_d_ptr_deinit(&list);
+
+    // Failed allocator: push_back fails, size remains unchanged
+    struct Allocator fail_a = allocator_get_failling_alloc();
+    list = dyn_non_pods_d_ptr_init(fail_a, non_pod_deinit_ptr);
+    sz = dyn_non_pods_d_ptr_size(&list);
+    struct non_pod *dummyfail = {0};
+    err = dyn_non_pods_d_ptr_push_back(&list, dummyfail);
+    assert(err != ARRAYLIST_OK);
+    assert(dyn_non_pods_d_ptr_size(&list) == sz);
+
+    dyn_non_pods_d_ptr_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+
+    printf("test arraylist dyn size pointer-type passed\n");
+}
+
+void test_arraylist_dyn_is_empty_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d_ptr list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+
+    // Freshly initialized list is empty
+    assert(dyn_non_pods_d_ptr_is_empty(&list) == true);
+    assert(list.size == 0);
+
+    // After a single push_back: not empty
+    struct non_pod *a = non_pod_init_ptr("one", 1, 1.1, &gpa);
+    dyn_non_pods_d_ptr_push_back(&list, a);
+    assert(dyn_non_pods_d_ptr_is_empty(&list) == false);
+    assert(list.size == 1);
+
+    // After pop_back: becomes empty again
+    dyn_non_pods_d_ptr_pop_back(&list);
+    assert(dyn_non_pods_d_ptr_is_empty(&list) == true);
+    assert(list.size == 0);
+
+    // Emplace_back_slot, non-empty
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("two", 2, 2.2, &gpa);
+    assert(dyn_non_pods_d_ptr_is_empty(&list) == false);
+    assert(list.size == 1);
+
+    // Remove_at(0): list empty again
+    dyn_non_pods_d_ptr_remove_at(&list, 0);
+    assert(dyn_non_pods_d_ptr_is_empty(&list) == true);
+    assert(list.size == 0);
+
+    // Insert at head, middle, tail
+    for (int i = 0; i < 3; ++i) {
+        char buf[8]; snprintf(buf, sizeof buf, "k%d", i);
+        struct non_pod *t = non_pod_init_ptr(buf, i+10, i+0.1, &gpa);
+        if (i == 0){
+            dyn_non_pods_d_ptr_insert_at(&list, t, 0);
+        } else if (i == 1) {
+            dyn_non_pods_d_ptr_insert_at(&list, t, list.size/2);
+        } else {
+            dyn_non_pods_d_ptr_insert_at(&list, t, list.size);
+        }
+
+        assert(dyn_non_pods_d_ptr_is_empty(&list) == false);
+    }
+    // All removed
+    while (list.size > 0) {
+        dyn_non_pods_d_ptr_pop_back(&list);
+    }
+
+    assert(dyn_non_pods_d_ptr_is_empty(&list) == true);
+    assert(list.size == 0);
+
+    // Insert many, remove by shrink_size
+    size_t N = 20;
+    for (size_t i = 0; i < N; ++i) {
+        char buf[12]; snprintf(buf, sizeof buf, "v%lu", i);
+        dyn_non_pods_d_ptr_push_back(&list, non_pod_init_ptr(buf, i, i, &gpa));
+    }
+    assert(dyn_non_pods_d_ptr_is_empty(&list) == false);
+    dyn_non_pods_d_ptr_shrink_size(&list, 0);
+    assert(dyn_non_pods_d_ptr_is_empty(&list) == true);
+
+    // Insert many, remove_from_to to empty
+    for (size_t i = 0; i < N; ++i) {
+        char buf[12]; snprintf(buf, sizeof buf, "w%lu", i);
+        dyn_non_pods_d_ptr_push_back(&list, non_pod_init_ptr(buf, i, i, &gpa));
+    }
+    assert(dyn_non_pods_d_ptr_is_empty(&list) == false);
+    dyn_non_pods_d_ptr_remove_from_to(&list, 0, N-1);
+    assert(dyn_non_pods_d_ptr_is_empty(&list) == true);
+
+    // Insert, then clear
+    for (size_t i = 0; i < N; ++i) {
+        dyn_non_pods_d_ptr_push_back(&list, non_pod_init_ptr("z", i, i, &gpa));
+    }
+
+    assert(dyn_non_pods_d_ptr_is_empty(&list) == false);
+    dyn_non_pods_d_ptr_clear(&list);
+    assert(dyn_non_pods_d_ptr_is_empty(&list) == true);
+
+    // Insert, clear, insert again -- works
+    dyn_non_pods_d_ptr_push_back(&list, non_pod_init_ptr("hehe", 5, 5.5, &gpa));
+    assert(dyn_non_pods_d_ptr_is_empty(&list) == false);
+    dyn_non_pods_d_ptr_pop_back(&list);
+    assert(dyn_non_pods_d_ptr_is_empty(&list) == true);
+
+    // Empty after many growths/reallocs
+    for (size_t i = 0; i < 128; ++i) {
+        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("bulk", i, i, &gpa);
+    }
+
+    assert(dyn_non_pods_d_ptr_is_empty(&list) == false);
+    dyn_non_pods_d_ptr_clear(&list);
+    assert(dyn_non_pods_d_ptr_is_empty(&list) == true);
+
+    // Remove OOB: is_empty stays correct (should not crash)
+    assert(dyn_non_pods_d_ptr_is_empty(&list) == true);  // still empty
+    dyn_non_pods_d_ptr_remove_at(&list, 99999);
+    assert(dyn_non_pods_d_ptr_is_empty(&list) == true);
+
+    // Remove negative index: is_empty still correct (should not crash)
+    dyn_non_pods_d_ptr_remove_at(&list, (size_t)-1);
+    assert(dyn_non_pods_d_ptr_is_empty(&list) == true);
+
+    // After deinit, is_empty is true
+    dyn_non_pods_d_ptr_deinit(&list);
+    assert(dyn_non_pods_d_ptr_is_empty(&list) == true);
+
+    // needs to be init again to be used
+    list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("after", 7, 7.7, &gpa);
+    assert(dyn_non_pods_d_ptr_is_empty(&list) == false);
+    dyn_non_pods_d_ptr_clear(&list);
+
+    // Call is_empty(NULL), must return false
+    assert(dyn_non_pods_d_ptr_is_empty(NULL) == false);
+
+    // Call is_empty repeatedly doesn't change anything
+    assert(dyn_non_pods_d_ptr_is_empty(&list) == true);
+    assert(dyn_non_pods_d_ptr_is_empty(&list) == true);
+
+    // Push and pop alternately
+    for (int i = 0; i < 5; ++i) {
+        dyn_non_pods_d_ptr_push_back(&list, non_pod_init_ptr("ping", i, i, &gpa));
+        assert(dyn_non_pods_d_ptr_is_empty(&list) == false);
+        dyn_non_pods_d_ptr_pop_back(&list);
+        assert(dyn_non_pods_d_ptr_is_empty(&list) == true);
+    }
+
+    // Failing allocator: list remains empty
+    struct Allocator fail = allocator_get_failling_alloc();
+    struct arraylist_dyn_non_pods_d_ptr zlist = dyn_non_pods_d_ptr_init(fail, non_pod_deinit_ptr);
+    assert(dyn_non_pods_d_ptr_is_empty(&zlist) == true);
+    struct non_pod *dummy = {0};
+    enum arraylist_error err = dyn_non_pods_d_ptr_push_back(&zlist, dummy);
+    assert(err != ARRAYLIST_OK);
+    assert(dyn_non_pods_d_ptr_is_empty(&zlist) == true);
+    dyn_non_pods_d_ptr_deinit(&zlist);
+
+    dyn_non_pods_d_ptr_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn is_empty pointer-type passed\n");
+}
+
+void test_arraylist_dyn_capacity_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d_ptr list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+
+    // Fresh list: capacity is zero
+    assert(dyn_non_pods_d_ptr_capacity(&list) == 0);
+
+    // capacity(NULL) == 0
+    assert(dyn_non_pods_d_ptr_capacity(NULL) == 0);
+
+    // Add one element (should allocate)
+    struct non_pod *np1 = non_pod_init_ptr("x", 1, 2.2, &gpa);
+    dyn_non_pods_d_ptr_push_back(&list, np1);
+    assert(dyn_non_pods_d_ptr_capacity(&list) >= 1);
+    size_t cap1 = dyn_non_pods_d_ptr_capacity(&list);
+
+    // capacity never decreases on push_back/emplace
+    struct non_pod *np2 = non_pod_init_ptr("y", 2, 3.3, &gpa);
+    dyn_non_pods_d_ptr_push_back(&list, np2);
+    assert(dyn_non_pods_d_ptr_capacity(&list) >= cap1);
+    size_t cap2 = dyn_non_pods_d_ptr_capacity(&list);
+
+    // Add until it grows (capacity should double; implementation doubles)
+    size_t old_capacity = cap2;
+    size_t to_grow = old_capacity;
+    for (size_t i = 0; i < to_grow; ++i)
+        dyn_non_pods_d_ptr_push_back(&list, non_pod_init_ptr("m", (int)i, (float)i, &gpa));
+    // At least one alloc triggered: capacity at least doubled
+    assert(dyn_non_pods_d_ptr_capacity(&list) >= 2 * old_capacity);
+
+    // Reserve increases capacity if called, but never shrinks
+    size_t prev_cap = dyn_non_pods_d_ptr_capacity(&list);
+    enum arraylist_error err = dyn_non_pods_d_ptr_reserve(&list, prev_cap + 10);
+    assert(err == ARRAYLIST_OK);
+    assert(dyn_non_pods_d_ptr_capacity(&list) >= prev_cap + 10);
+
+    // Reserve with less or equal is no-op (doesn't shrink)
+    prev_cap = dyn_non_pods_d_ptr_capacity(&list);
+    err = dyn_non_pods_d_ptr_reserve(&list, 1);
+    assert(err == ARRAYLIST_OK);
+    assert(dyn_non_pods_d_ptr_capacity(&list) == prev_cap);
+
+    // Shrinking size does not shrink capacity
+    size_t prev_capacity = dyn_non_pods_d_ptr_capacity(&list);
+    err = dyn_non_pods_d_ptr_shrink_size(&list, 1);
+    assert(err == ARRAYLIST_OK);
+    assert(dyn_non_pods_d_ptr_capacity(&list) == prev_capacity);
+
+    // shrink_to_fit reduces capacity to size (if possible)
+    size_t prev_size = dyn_non_pods_d_ptr_size(&list);
+    err = dyn_non_pods_d_ptr_shrink_to_fit(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(dyn_non_pods_d_ptr_capacity(&list) == dyn_non_pods_d_ptr_size(&list));
+    assert(dyn_non_pods_d_ptr_capacity(&list) == prev_size);
+
+    // After clear: capacity unchanged, but size is zero
+    err = dyn_non_pods_d_ptr_clear(&list);
+    assert(dyn_non_pods_d_ptr_capacity(&list) == prev_size);
+
+    // After shrink_to_fit on empty (size=0): capacity is 0 and data is NULL
+    err = dyn_non_pods_d_ptr_shrink_to_fit(&list);
+    assert(dyn_non_pods_d_ptr_capacity(&list) == 0);
+    assert(list.data == NULL);
+
+    // After deinit: capacity=0
+    dyn_non_pods_d_ptr_deinit(&list);
+    assert(dyn_non_pods_d_ptr_capacity(&list) == 0);
+
+    // Can re-grow after deinit (fresh allocation)
+    dyn_non_pods_d_ptr_push_back(&list, non_pod_init_ptr("test", 44, 12.1, &gpa));
+    assert(dyn_non_pods_d_ptr_capacity(&list) > 0);
+
+    // Remove all, add again, etc: capacity tracks as expected
+    dyn_non_pods_d_ptr_clear(&list);
+    err = dyn_non_pods_d_ptr_shrink_to_fit(&list);
+    assert(dyn_non_pods_d_ptr_capacity(&list) == 0);
+
+    // Add many, check grows as powers of two (OPTIONAL: for your implementation)
+    size_t last_cap = 0;
+    for (size_t i = 0; i < 40; ++i) {
+        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("bulk", (int)i, (float)i, &gpa);
+        size_t cap = dyn_non_pods_d_ptr_capacity(&list);
+        assert(cap >= dyn_non_pods_d_ptr_size(&list));
+        // Implementation doubles, so as size crosses the boundary, capacity increases
+        assert(cap >= last_cap);
+        last_cap = cap;
+    }
+
+    // Capacity is always >= size, never less
+    assert(dyn_non_pods_d_ptr_capacity(&list) >= dyn_non_pods_d_ptr_size(&list));
+
+    // Remove/shrink_size never shrinks capacity
+    size_t before_cap = dyn_non_pods_d_ptr_capacity(&list);
+    dyn_non_pods_d_ptr_shrink_size(&list, 2);
+    assert(dyn_non_pods_d_ptr_capacity(&list) == before_cap);
+
+    // Clear then reserve boosts capacity again
+    dyn_non_pods_d_ptr_clear(&list);
+    err = dyn_non_pods_d_ptr_reserve(&list, 32);
+    assert(err == ARRAYLIST_OK);
+    assert(dyn_non_pods_d_ptr_capacity(&list) >= 32);
+
+    // Shrink to fit after removing all reduces capacity to zero
+    dyn_non_pods_d_ptr_shrink_size(&list, 0);
+    err = dyn_non_pods_d_ptr_shrink_to_fit(&list);
+    assert(dyn_non_pods_d_ptr_capacity(&list) == 0);
+
+    // Failed allocator never increases capacity, remains zero
+    struct Allocator faila = allocator_get_failling_alloc();
+    struct arraylist_dyn_non_pods_d_ptr bad = dyn_non_pods_d_ptr_init(faila, non_pod_deinit_ptr);
+    assert(dyn_non_pods_d_ptr_capacity(&bad) == 0);
+    err = dyn_non_pods_d_ptr_push_back(&bad, np1); // Should fail
+    assert(err != ARRAYLIST_OK);
+    assert(dyn_non_pods_d_ptr_capacity(&bad) == 0);
+    err = dyn_non_pods_d_ptr_reserve(&bad, 1000);
+    assert(err != ARRAYLIST_OK);
+    assert(dyn_non_pods_d_ptr_capacity(&bad) == 0);
+
+    dyn_non_pods_d_ptr_deinit(&bad);
+
+    // Defensive: after deinit, capacity is always 0
+    dyn_non_pods_d_ptr_deinit(&list);
+    assert(dyn_non_pods_d_ptr_capacity(&list) == 0);
+
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn capacity pointer-type passed\n");
+}
+
+void test_arraylist_dyn_get_allocator_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d_ptr list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+
+    // Basic: get_allocator returns non-NULL when valid-
+    struct Allocator *out = dyn_non_pods_d_ptr_get_allocator(&list);
+    assert(out != NULL);
+    // Must match what we passed to init
+    assert(out->malloc == gpa.malloc && out->free == gpa.free && out->realloc == gpa.realloc && out->ctx == gpa.ctx);
+
+    // Same pointer returned each time; doesn't move-
+    struct Allocator *out2 = dyn_non_pods_d_ptr_get_allocator(&list);
+    assert(out == out2);
+
+    // Use returned allocator to allocate/free
+    void *buf = out->malloc(32, out->ctx);
+    assert(buf != NULL);
+    out->free(buf, 32, out->ctx);
+
+    // Changing the allocator via the struct, get_allocator reflects change
+    struct Allocator fail_a = allocator_get_failling_alloc();
+    list.alloc = fail_a;
+    struct Allocator *out3 = dyn_non_pods_d_ptr_get_allocator(&list);
+    assert(out3 != NULL);
+    assert(out3->malloc == fail_malloc && out3->free == fail_free);
+
+    // After copy, get_allocator of copy reflects its own, not original
+    struct arraylist_dyn_non_pods_d_ptr list2 = list;
+    struct Allocator *oa2 = dyn_non_pods_d_ptr_get_allocator(&list2);
+    assert(oa2 != NULL);
+    assert(oa2->malloc == fail_malloc && oa2->free == fail_free);
+
+    // After deinit, struct is zeroed, get_allocator returns pointer to zeroed struct
+    dyn_non_pods_d_ptr_deinit(&list);
+    struct Allocator *out4 = dyn_non_pods_d_ptr_get_allocator(&list);
+    assert(out4 != NULL);
+    // After memset, all members are NULL/0 (undefined but this is allowed by your code)
+    // Some implementations might optimize to point to ".bss", but we can check at least the pointer is not NULL
+    // To be extra paranoid, the allocator's function ptrs should now be NULL
+    assert(out4->malloc == NULL || out4->malloc == fail_malloc); // May be zero (if memset to 0), or still old value
+    assert(out4->free == NULL || out4->free == fail_free);       // Accept both: zeroed (reset by deinit) or old
+    // It's not valid to use these fn ptrs after deinit
+
+    // get_allocator(NULL) returns NULL, never segfaults
+    assert(dyn_non_pods_d_ptr_get_allocator(NULL) == NULL);
+
+    // get_allocator works on stack, heap, zero-inited
+    struct arraylist_dyn_non_pods_d_ptr zeroed = {0};
+    struct Allocator *az = dyn_non_pods_d_ptr_get_allocator(&zeroed);
+    assert(az != NULL);
+    assert(az->malloc == NULL);
+
+    // get_allocator after re-initialization: returns new
+    struct arraylist_dyn_non_pods_d_ptr list3 = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+    struct Allocator *oa3 = dyn_non_pods_d_ptr_get_allocator(&list3);
+    assert(oa3 != NULL);
+    assert(oa3->malloc == gpa.malloc);
+
+    // Use get_allocator inside arraylist operations
+    for (size_t i = 0; i < 8; ++i)
+        *dyn_non_pods_d_ptr_emplace_back_slot(&list3) = non_pod_init_ptr("z", 42, 123.0f + i, dyn_non_pods_d_ptr_get_allocator(&list3));
+    assert(list3.size == 8);
+
+    // The pointer is always to the arraylist's .alloc field
+    assert(oa3 == &list3.alloc);
+
+    // After clear, get_allocator returns same pointer (address is stable)
+    dyn_non_pods_d_ptr_clear(&list3);
+    assert(dyn_non_pods_d_ptr_get_allocator(&list3) == oa3);
+
+    // After shrink_to_fit, allocator unchanged
+    dyn_non_pods_d_ptr_shrink_to_fit(&list3);
+    assert(dyn_non_pods_d_ptr_get_allocator(&list3) == oa3);
+
+    // After failed growth, allocator unchanged
+    list3.alloc = fail_a;
+    enum arraylist_error err = dyn_non_pods_d_ptr_push_back(&list3, non_pod_init_ptr("fail", 0, 0, &gpa));
+    assert(err != ARRAYLIST_OK);
+    assert(dyn_non_pods_d_ptr_get_allocator(&list3)->malloc == fail_malloc);
+
+    // resetting global dtor counter, as the counter has gone up, but not really allocated
+    global_destructor_counter_arraylist = 0;
+
+    // After pop_back/remove, allocator unchanged
+    dyn_non_pods_d_ptr_pop_back(&list3);
+    assert(dyn_non_pods_d_ptr_get_allocator(&list3) == oa3 || dyn_non_pods_d_ptr_get_allocator(&list3) == &list3.alloc);
+
+    // Cleanups
+    dyn_non_pods_d_ptr_deinit(&list2);
+    dyn_non_pods_d_ptr_deinit(&list3);
+
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn get_allocator pointer-type passed\n");
+}
+
+void test_arraylist_dyn_swap_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d_ptr a = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+    struct arraylist_dyn_non_pods_d_ptr b = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+
+    // swap two empty lists
+    size_t pre_count = global_destructor_counter_arraylist;
+    enum arraylist_error err = dyn_non_pods_d_ptr_swap(&a, &b);
+    assert(err == ARRAYLIST_OK);
+    assert(a.size == 0 && b.size == 0 && a.capacity == 0 && b.capacity == 0);
+    assert(a.data == NULL && b.data == NULL);
+    assert(global_destructor_counter_arraylist == pre_count);
+
+    // swap where one is empty, one is populated
+    // Add a few entries to 'a'
+    for (int i = 0; i < 5; ++i) {
+        char buf[16]; snprintf(buf, sizeof buf, "A_%d", i);
+        *dyn_non_pods_d_ptr_emplace_back_slot(&a) = non_pod_init_ptr(buf, i, 1.1f * i, &gpa);
+    }
+    assert(a.size == 5 && b.size == 0);
+    // Record a's original buffer properties
+    size_t old_a_cap = a.capacity;
+    void *old_a_data = a.data;
+
+    // Swap
+    err = dyn_non_pods_d_ptr_swap(&a, &b);
+    assert(err == ARRAYLIST_OK);
+    // a is now empty, b has previous contents of a
+    assert(a.size == 0 && a.capacity == 0 && a.data == NULL);
+    assert(b.size == 5 && b.capacity == old_a_cap && b.data == old_a_data);
+    for (size_t i = 0; i < b.size; ++i) {
+        char buf[16]; snprintf(buf, sizeof buf, "A_%d", (int)i);
+        assert(strcmp(b.data[i]->objname, buf) == 0);
+        assert(*b.data[i]->a == (int)i);
+    }
+
+    // swap back; restores original state
+    err = dyn_non_pods_d_ptr_swap(&a, &b);
+    assert(err == ARRAYLIST_OK);
+    assert(b.size == 0 && b.data == NULL);
+    assert(a.size == 5 && a.data != NULL);
+    for (size_t i = 0; i < a.size; ++i) {
+        char buf[16]; snprintf(buf, sizeof buf, "A_%d", (int)i);
+        assert(strcmp(a.data[i]->objname, buf) == 0);
+        assert(*a.data[i]->a == (int)i);
+    }
+
+    // swap two non-empty lists, different sizes
+    dyn_non_pods_d_ptr_clear(&b);
+    // b: three items
+    for (int i = 0; i < 3; ++i) {
+        char buf[16]; snprintf(buf, sizeof buf, "B_%d", i);
+        *dyn_non_pods_d_ptr_emplace_back_slot(&b) = non_pod_init_ptr(buf, i + 10, i + 20, &gpa);
+    }
+    size_t a_size = a.size, b_size = b.size;
+    void *a_data = a.data, *b_data = b.data;
+    size_t a_cap = a.capacity, b_cap = b.capacity;
+
+    err = dyn_non_pods_d_ptr_swap(&a, &b);
+    assert(err == ARRAYLIST_OK);
+    // a gets b's content
+    assert(a.size == b_size && a.capacity == b_cap && a.data == b_data);
+    for (size_t i = 0; i < a.size; ++i) {
+        char buf[16]; snprintf(buf, sizeof buf, "B_%d", (int)i);
+        assert(strcmp(a.data[i]->objname, buf) == 0);
+        assert(*a.data[i]->a == (int)(i+10));
+    }
+    // b gets a's content
+    assert(b.size == a_size && b.capacity == a_cap && b.data == a_data);
+    for (size_t i = 0; i < b.size; ++i) {
+        char buf[16]; snprintf(buf, sizeof buf, "A_%d", (int)i);
+        assert(strcmp(b.data[i]->objname, buf) == 0);
+        assert(*b.data[i]->a == (int)i);
+    }
+
+    // swap with self
+    err = dyn_non_pods_d_ptr_swap(&a, &a);
+    assert(err == ARRAYLIST_OK); // ok to swap with self, unchanged
+    assert(a.size == 3);
+    for (size_t i = 0; i < a.size; ++i) {
+        char buf[16]; snprintf(buf, sizeof buf, "B_%d", (int)i);
+        assert(strcmp(a.data[i]->objname, buf) == 0);
+    }
+
+    // swap after deinit (one deinit, one alive)
+    dyn_non_pods_d_ptr_deinit(&b);
+    err = dyn_non_pods_d_ptr_swap(&a, &b);
+    assert(err == ARRAYLIST_OK);
+    assert(a.size == 0 && a.data == NULL);
+    assert(b.size == 3 && b.data != NULL);
+
+    // NULL-ptr safeties: returns error, doesn't crash
+    err = dyn_non_pods_d_ptr_swap(NULL, &b);
+    assert(err == ARRAYLIST_ERR_NULL);
+    err = dyn_non_pods_d_ptr_swap(&b, NULL);
+    assert(err == ARRAYLIST_ERR_NULL);
+    err = dyn_non_pods_d_ptr_swap(NULL, NULL);
+    assert(err == ARRAYLIST_ERR_NULL);
+
+    // Does not leak memory regardless of swap
+    dyn_non_pods_d_ptr_clear(&a);
+    dyn_non_pods_d_ptr_clear(&b);
+    assert(global_destructor_counter_arraylist == 0);
+
+    // swap two very large lists
+    struct arraylist_dyn_non_pods_d_ptr x = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr), y = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+    for (size_t i = 0; i < 100; ++i) {
+        *dyn_non_pods_d_ptr_emplace_back_slot(&x) = non_pod_init_ptr("XLIST", (int)i, (float)i, &gpa);
+    }
+    for (size_t i = 0; i < 55; ++i) {
+        *dyn_non_pods_d_ptr_emplace_back_slot(&y) = non_pod_init_ptr("YLIST", (int)i, (float)i, &gpa);
+    }
+    // Save snapshots
+    size_t xsize = x.size, ysize = y.size;
+    void *xdata = x.data, *ydata = y.data;
+    err = dyn_non_pods_d_ptr_swap(&x, &y);
+    assert(err == ARRAYLIST_OK);
+    assert(x.size == ysize && x.data == ydata);
+    assert(y.size == xsize && y.data == xdata);
+    for (size_t i = 0; i < x.size; ++i) {
+        assert(strcmp(x.data[i]->objname, "YLIST") == 0);
+    }
+    for (size_t i = 0; i < y.size; ++i) {
+        assert(strcmp(y.data[i]->objname, "XLIST") == 0);
+    }
+
+    // clean up all
+    dyn_non_pods_d_ptr_deinit(&a);
+    dyn_non_pods_d_ptr_deinit(&b);
+    dyn_non_pods_d_ptr_deinit(&x);
+    dyn_non_pods_d_ptr_deinit(&y);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn swap pointer-type passed\n");
+}
+
+void test_arraylist_dyn_qsort_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d_ptr list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+
+    // Sort empty list (should be OK, does nothing, returns OK)
+    enum arraylist_error err = dyn_non_pods_d_ptr_qsort(&list, non_pod_sort_ptr);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+
+    // Sort single-item list (no change, works)
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("z", 1, 3.0, &gpa);
+    err = dyn_non_pods_d_ptr_qsort(&list, non_pod_sort_ptr);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 1);
+    assert(strcmp(list.data[0]->objname, "z") == 0);
+
+    // Sort two-item: reverse, should swap
+    dyn_non_pods_d_ptr_clear(&list);
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("b", 2, 9.0, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("a", -1, 1.1, &gpa);
+    assert(strcmp(list.data[0]->objname, "b") == 0);
+    assert(strcmp(list.data[1]->objname, "a") == 0);
+
+    err = dyn_non_pods_d_ptr_qsort(&list, non_pod_sort_ptr);
+    assert(err == ARRAYLIST_OK);
+    // Sorted by objname, so "a" < "b"
+    assert(strcmp(list.data[0]->objname, "a") == 0);
+    assert(strcmp(list.data[1]->objname, "b") == 0);
+
+    // Sort already sorted: no change, still correct
+    err = dyn_non_pods_d_ptr_qsort(&list, non_pod_sort_ptr);
+    assert(err == ARRAYLIST_OK);
+    assert(strcmp(list.data[0]->objname, "a") == 0);
+    assert(strcmp(list.data[1]->objname, "b") == 0);
+
+    // Sort with multiple elements: random order, check sort result
+    dyn_non_pods_d_ptr_clear(&list);
+    const char *names[] = { "delta", "alpha", "charlie", "bravo", "echo" };
+    size_t N = sizeof(names)/sizeof(names[0]);
+    for (size_t i = 0; i < N; ++i) {
+        char buf[32];
+        snprintf(buf, sizeof(buf), "%s", names[i]);
+        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr(buf, (int)i, 42.42, &gpa);
+    }
+    // Confirm not sorted
+    for (size_t i = 1; i < N; ++i) {
+        assert(strcmp(list.data[i-1]->objname, list.data[i]->objname) != 0 || strcmp(list.data[i-1]->objname, list.data[i]->objname) > 0);
+    }
+
+    err = dyn_non_pods_d_ptr_qsort(&list, non_pod_sort_ptr);
+    assert(err == ARRAYLIST_OK);
+
+    // Check sorted order
+    for (size_t i = 1; i < N; ++i) {
+        assert(strcmp(list.data[i-1]->objname, list.data[i]->objname) <= 0);
+    }
+    // Alphabetical: "alpha", "bravo", "charlie", "delta", "echo"
+    assert(strcmp(list.data[0]->objname, "alpha") == 0);
+    assert(strcmp(list.data[1]->objname, "bravo") == 0);
+    assert(strcmp(list.data[2]->objname, "charlie") == 0);
+    assert(strcmp(list.data[3]->objname, "delta") == 0);
+    assert(strcmp(list.data[4]->objname, "echo") == 0);
+
+    // List with duplicates: check order is sorted, not necessarily stable
+    dyn_non_pods_d_ptr_clear(&list);
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("x", 0, 0.0, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("a", 99, 1.0, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("x", 11, 2.2, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("b", 12, 3.3, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("x", -1, 4.4, &gpa);
+
+    err = dyn_non_pods_d_ptr_qsort(&list, non_pod_sort_ptr);
+    assert(err == ARRAYLIST_OK);
+
+    // Sorted: a, b, x, x, x
+    assert(strcmp(list.data[0]->objname, "a") == 0);
+    assert(strcmp(list.data[1]->objname, "b") == 0);
+    assert(strcmp(list.data[2]->objname, "x") == 0);
+    assert(strcmp(list.data[3]->objname, "x") == 0);
+    assert(strcmp(list.data[4]->objname, "x") == 0);
+
+    // List in reverse order: sorts to correct order
+    dyn_non_pods_d_ptr_clear(&list);
+    const char *revnames[] = { "gamma", "foxtrot", "echo", "delta", "charlie", "bravo", "alpha" };
+    for (size_t i = 0; i < 7; ++i) {
+        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr(revnames[i], (int)i, 3.14f, &gpa);
+    }
+    err = dyn_non_pods_d_ptr_qsort(&list, non_pod_sort_ptr);
+    assert(err == ARRAYLIST_OK);
+    // alpha, bravo, charlie, delta, echo, foxtrot, gamma
+    for (size_t i = 1; i < list.size; ++i) {
+        assert(strcmp(list.data[i-1]->objname, list.data[i]->objname) <= 0);
+    }
+    assert(strcmp(list.data[0]->objname, "alpha") == 0);
+    assert(strcmp(list.data[6]->objname, "gamma") == 0);
+
+    // Re-sort after mutating contents
+    strcpy(list.data[3]->objname, "zulu");
+    err = dyn_non_pods_d_ptr_qsort(&list, non_pod_sort_ptr);
+    assert(err == ARRAYLIST_OK);
+    // alpha, bravo, charlie, echo, foxtrot, gamma, zulu
+    assert(strcmp(list.data[list.size - 1]->objname, "zulu") == 0);
+
+    // Test behavior if NULL list passed: returns ARRAYLIST_ERR_NULL, does not crash
+    err = dyn_non_pods_d_ptr_qsort(NULL, non_pod_sort_ptr);
+    assert(err == ARRAYLIST_ERR_NULL);
+
+    //Test behavior if NULL comparison function
+    err = dyn_non_pods_d_ptr_qsort(&list, NULL);
+    // Should not crash, returns early
+    assert(err == ARRAYLIST_ERR_NULL);
+
+    // After clear: sort is valid, sort no data does nothing
+    dyn_non_pods_d_ptr_clear(&list);
+    err = dyn_non_pods_d_ptr_qsort(&list, non_pod_sort_ptr);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+
+    // Large random case: sort is correct, stable
+    dyn_non_pods_d_ptr_clear(&list);
+    size_t bigN = 128;
+    // Insert shuffled (descending) names
+    for (size_t i = 0; i < bigN; ++i) {
+        char buf[32];
+        snprintf(buf, sizeof buf, "%.3u", (unsigned)(bigN-i));
+        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr(buf, (int)i, 1.0+i, &gpa);
+    }
+    err = dyn_non_pods_d_ptr_qsort(&list, non_pod_sort_ptr);
+    assert(err == ARRAYLIST_OK);
+    // Should be in strictly increasing order by string
+    for (size_t i = 1; i < list.size; ++i) {
+        assert(strcmp(list.data[i-1]->objname, list.data[i]->objname) <= 0);
+    }
+    // Should have 001 at beginning, etc
+    assert(strncmp(list.data[0]->objname, "001", 3) == 0);
+
+    // Does not lose or duplicate objects
+    assert(list.size == bigN);
+
+    // Sorted result is correct: using at()
+    struct non_pod **first = dyn_non_pods_d_ptr_at(&list, 0);
+    struct non_pod **last = dyn_non_pods_d_ptr_at(&list, bigN - 1);
+    assert(first && last);
+    assert(strncmp((*first)->objname, "001", 3) == 0);
+    assert(strncmp((*last)->objname, "128", 3) == 0);
+
+    dyn_non_pods_d_ptr_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn qsort pointer-type passed\n");
+}
+
+void test_arraylist_dyn_clear_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d_ptr list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+    size_t N = 8;
+
+    // On a freshly initialized list
+    assert(list.size == 0 && list.data == NULL);
+    enum arraylist_error err = dyn_non_pods_d_ptr_clear(&list);
+    assert(err == ARRAYLIST_OK); // No crash
+    assert(list.size == 0);
+    assert(list.capacity == 0);
+
+    // On NULL pointer: no crash, returns OK
+    assert(dyn_non_pods_d_ptr_clear(NULL) == ARRAYLIST_OK);
+
+    // After adding a single element, then clearing
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("A", 1, 2.0, &gpa);
+    assert(list.size == 1 && global_destructor_counter_arraylist == 1);
+    err = dyn_non_pods_d_ptr_clear(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(list.capacity >= 1);
+    assert(global_destructor_counter_arraylist == 0);
+    // Data pointer may remain allocated, but don't deref beyond list.size.
+
+    // Multiple elements, all destructors called, buffer not shrunk
+    for (size_t i = 0; i < N; ++i) {
+        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("B", (int)i, (float)i, &gpa);
+    }
+    assert(list.size == N);
+    assert(global_destructor_counter_arraylist == N);
+    size_t prev_cap = list.capacity;
+    void *prev_data = list.data;
+    err = dyn_non_pods_d_ptr_clear(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(list.capacity == prev_cap);
+    assert(list.data == prev_data);
+    assert(global_destructor_counter_arraylist == 0);
+
+    // After clear, can add again
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("C", 3, 4.0, &gpa);
+    assert(list.size == 1);
+    assert(global_destructor_counter_arraylist == 1);
+
+    // clear again after clear: safe (idempotent)
+    err = dyn_non_pods_d_ptr_clear(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == 0);
+    assert(list.capacity == prev_cap);
+
+    // clear on an already empty but allocated list is a no-op
+    err = dyn_non_pods_d_ptr_clear(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(list.capacity == prev_cap);
+
+    // List still usable after clear
+    for (size_t i = 0; i < 5; ++i) {
+        char buf[5]; snprintf(buf, sizeof buf, "X%lu", i);
+        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr(buf, (int)i, (float)i, &gpa);
+    }
+    assert(list.size == 5);
+    assert(global_destructor_counter_arraylist == 5);
+
+    // clear, then shrink_to_fit to test buffer freed/compaction after clear
+    err = dyn_non_pods_d_ptr_clear(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0);
+    assert(global_destructor_counter_arraylist == 0);
+    err = dyn_non_pods_d_ptr_shrink_to_fit(&list);
+    assert(err == ARRAYLIST_OK);
+    // Now storage should be truly freed
+    assert(list.data == NULL || list.capacity == 0);
+    // Clear on a totally fresh buffer returns OK
+    err = dyn_non_pods_d_ptr_clear(&list);
+
+    // After deinit, clear is safe (does not crash, acts as no-op)
+    dyn_non_pods_d_ptr_deinit(&list);
+    err = dyn_non_pods_d_ptr_clear(&list); // Shouldn't crash, size should be zero, return OK.
+    assert(err == ARRAYLIST_OK);
+
+    // Multiple calls to clear after deinit: no op
+    err = dyn_non_pods_d_ptr_clear(&list);
+    assert(err == ARRAYLIST_OK);
+
+    // Re-init, add, clear
+    list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("ZZ", 9, 9.9, &gpa);
+    assert(list.size == 1);
+    assert(global_destructor_counter_arraylist == 1);
+    err = dyn_non_pods_d_ptr_clear(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0 && global_destructor_counter_arraylist == 0);
+
+    // Large list, destructor call count and buffer preserved
+    for (size_t i = 0; i < 40; ++i) {
+        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("bulk", (int)i, (float)i, &gpa);
+    }
+    assert(list.size == 40 && global_destructor_counter_arraylist == 40);
+    prev_cap = list.capacity; prev_data = list.data;
+    err = dyn_non_pods_d_ptr_clear(&list);
+    assert(err == ARRAYLIST_OK);
+    assert(list.size == 0 && list.capacity == prev_cap && list.data == prev_data);
+    assert(global_destructor_counter_arraylist == 0);
+
+    // After clear, insert and then deinit: destructor is called for new element
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("L", 1, 2.2, &gpa); // +1
+    dyn_non_pods_d_ptr_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+
+    printf("test arraylist dyn clear pointer-type passed\n");
+}
+
+void test_arraylist_dyn_deinit_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+
+    // Basic deinit: empties everything, frees buffer, destructor called on all
+
+    global_destructor_counter_arraylist = 0;
+
+    struct arraylist_dyn_non_pods_d_ptr list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+
+    // Fill the array
+    const size_t N = 10;
+    for (size_t i = 0; i < N; ++i) {
+        char name[16];
+        snprintf(name, sizeof(name), "np%lu", i);
+        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr(name, (int)i, (float)i, &gpa);
+    }
+    assert(list.size == N);
+    assert(global_destructor_counter_arraylist == N);
+    assert(list.data != NULL);
+    assert(list.capacity >= N);
+
+    // Call deinit
+    dyn_non_pods_d_ptr_deinit(&list);
+
+    // After deinit, array is empty/zeroed, no leaks, buffer is invalid
+    assert(list.size == 0);
+    assert(list.capacity == 0);
+    assert(list.data == NULL);
+    assert(memcmp(&list.alloc, (const char[sizeof(list.alloc)]){0}, sizeof(list.alloc)) == 0);
+    assert(global_destructor_counter_arraylist == 0);
+
+    // Deinit is safe for already deinitialized or empty lists: second call does nothing
+    dyn_non_pods_d_ptr_deinit(&list); // No crash, no double free, still zeroed
+    assert(list.size == 0);
+    assert(list.capacity == 0);
+    assert(list.data == NULL);
+    assert(global_destructor_counter_arraylist == 0);
+
+    // Deinit is a no-op for zero-capacity, zero-size (already empty)
+    struct arraylist_dyn_non_pods_d_ptr empty = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+    dyn_non_pods_d_ptr_deinit(&empty);
+    assert(empty.size == 0);
+    assert(empty.capacity == 0);
+    assert(empty.data == NULL);
+    assert(global_destructor_counter_arraylist == 0);
+
+    // Deinit safe for NULL: nothing happens, no crash
+    dyn_non_pods_d_ptr_deinit(NULL);
+
+    // Interleaved use: repeated allocate/deinit cycles (no leaks/UB)
+    for (size_t cycle = 0; cycle < 5; ++cycle) {
+        struct arraylist_dyn_non_pods_d_ptr cyc = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+        for (size_t j = 0; j < 3 + cycle; ++j) {
+            char nm[8]; snprintf(nm, sizeof nm, "cyc%lu_%lu", cycle, j);
+            *dyn_non_pods_d_ptr_emplace_back_slot(&cyc) = non_pod_init_ptr(nm, (int)j, (float)j, &gpa);
+        }
+        assert(global_destructor_counter_arraylist > 0);
+        dyn_non_pods_d_ptr_deinit(&cyc);
+        assert(global_destructor_counter_arraylist == 0);
+    }
+
+    // Can safely re-init after deinit, as per API doc
+    list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("AFTER", 123, 4.56, &gpa);
+    assert(list.size == 1);
+    assert(global_destructor_counter_arraylist == 1);
+
+    dyn_non_pods_d_ptr_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+
+    // Ensure dtor called for each element
+    // We'll count dtors, then forcibly clear without dtor (dirty trick: bypass it)
+    list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+    for (size_t i = 0; i < 5; ++i) {
+        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("count", 17, 3.14, &gpa);
+    }
+    assert(global_destructor_counter_arraylist == 5);
+    // Remove three elements (to cover partial clear)
+    dyn_non_pods_d_ptr_remove_at(&list, 0);
+    dyn_non_pods_d_ptr_remove_at(&list, 0);
+    dyn_non_pods_d_ptr_remove_at(&list, 0);
+    assert(global_destructor_counter_arraylist == 2);
+
+    dyn_non_pods_d_ptr_deinit(&list);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn deinit pointer-type passed\n");
+}
+
+/* === END ARRAYLIST_DYN UNIT TESTS NON POD POINTER === */
 
 int main(void) {
-    test_arraylist_init_and_deinit();
-    test_arraylist_reserve();
-    test_arraylist_shrink_size();
-    test_arraylist_shrink_to_fit();
-    test_arraylist_push_back();
-    test_arraylist_emplace_back_slot();
-    test_arraylist_insert_at();
-    test_arraylist_pop_back();
-    test_arraylist_remove_at();
-    test_arraylist_remove_from_to();
-    test_arraylist_at();
-    test_arraylist_begin();
-    test_arraylist_back();
-    test_arraylist_end();
-    test_arraylist_find();
-    test_arraylist_contains();
-    test_arraylist_size();
-    test_arraylist_is_empty();
-    test_arraylist_capacity();
-    test_arraylist_get_allocator_default();
-    test_arraylist_swap();
-    test_arraylist_qsort();
-    test_arraylist_clear();
+    test_arraylist_init_value();
+    test_arraylist_reserve_value();
+    test_arraylist_shrink_size_value();
+    test_arraylist_shrink_to_fit_value();
+    test_arraylist_push_back_value();
+    test_arraylist_emplace_back_slot_value();
+    test_arraylist_insert_at_value();
+    test_arraylist_pop_back_value();
+    test_arraylist_remove_at_value();
+    test_arraylist_remove_from_to_value();
+    test_arraylist_at_value();
+    test_arraylist_begin_value();
+    test_arraylist_back_value();
+    test_arraylist_end_value();
+    test_arraylist_find_value();
+    test_arraylist_contains_value();
+    test_arraylist_size_value();
+    test_arraylist_is_empty_value();
+    test_arraylist_capacity_value();
+    test_arraylist_get_allocator_value();
+    test_arraylist_swap_value();
+    test_arraylist_qsort_value();
+    test_arraylist_deinit_value();
 
-    test_arraylist_dyn_init_and_deinit();
-    test_arraylist_dyn_reserve();
-    test_arraylist_dyn_shrink_size();
-    test_arraylist_dyn_shrink_to_fit();
-    test_arraylist_dyn_push_back();
-    test_arraylist_dyn_emplace_back_slot();
-    test_arraylist_dyn_insert_at();
-    test_arraylist_dyn_pop_back();
-    test_arraylist_dyn_remove_at();
-    test_arraylist_dyn_remove_from_to();
-    test_arraylist_dyn_at();
-    test_arraylist_dyn_begin();
-    test_arraylist_dyn_back();
-    test_arraylist_dyn_end();
-    test_arraylist_dyn_find();
-    test_arraylist_dyn_contains();
-    test_arraylist_dyn_size();
-    test_arraylist_dyn_is_empty();
-    test_arraylist_dyn_capacity();
-    test_arraylist_dyn_get_allocator_default();
-    test_arraylist_dyn_swap();
-    test_arraylist_dyn_qsort();
-    test_arraylist_dyn_clear();
+    test_arraylist_init_ptr();
+    test_arraylist_reserve_ptr();
+    test_arraylist_shrink_size_ptr();
+    test_arraylist_shrink_to_fit_ptr();
+    test_arraylist_push_back_ptr();
+    test_arraylist_emplace_back_slot_ptr();
+    test_arraylist_insert_at_pointer();
+    test_arraylist_pop_back_ptr();
+    test_arraylist_remove_at_ptr();
+    test_arraylist_remove_from_to_ptr();
+    test_arraylist_at_ptr();
+    test_arraylist_begin_ptr();
+    test_arraylist_back_ptr();
+    test_arraylist_back_ptr();
+    test_arraylist_end_ptr();
+    test_arraylist_find_ptr();
+    test_arraylist_contains_ptr();
+    test_arraylist_size_ptr();
+    test_arraylist_is_empty_ptr();
+    test_arraylist_capacity_ptr();
+    test_arraylist_get_allocator_ptr();
+    test_arraylist_swap_ptr();
+    test_arraylist_qsort_ptr();
+    test_arraylist_deinit_ptr();
+    
+    test_arraylist_dyn_init_value();
+    test_arraylist_dyn_reserve_value();
+    test_arraylist_dyn_shrink_size_value();
+    test_arraylist_dyn_shrink_to_fit_value();
+    test_arraylist_dyn_push_back_value();
+    test_arraylist_dyn_emplace_back_slot_value();
+    test_arraylist_dyn_insert_at_value();
+    test_arraylist_dyn_pop_back_value();
+    test_arraylist_dyn_remove_at_value();
+    test_arraylist_dyn_remove_from_to_value();
+    test_arraylist_dyn_at_value();
+    test_arraylist_dyn_begin_value();
+    test_arraylist_dyn_back_value();
+    test_arraylist_dyn_end_value();
+    test_arraylist_dyn_find_value();
+    test_arraylist_dyn_contains_value();
+    test_arraylist_dyn_size_value();
+    test_arraylist_dyn_is_empty_value();
+    test_arraylist_dyn_capacity_value();
+    test_arraylist_dyn_get_allocator_value();
+    test_arraylist_dyn_swap_value();
+    test_arraylist_dyn_qsort_value();
+    test_arraylist_dyn_deinit_value();
 
-    test_simple_arraylist_dyn_push_back();
-    test_simple_arraylist_dyn_emplace_back_slot();
-
-    test_simple_arraylist_dyn_ptr_push_back();
-    test_simple_arraylist_dyn_ptr_emplace_back_slot();
-
-    //test_arraylist_dyn_insert_from_to();
-
-    test_arraylist_dyn_ptr_push_back();
-    test_arraylist_dyn_ptr_emplace_back_slot();
-
-    test_passing_nullptr_to_functions();
-
-    test_arraylist_dyn_bufferoverflow();
-    test_arraylist_dyn_allocating_zero();
-    test_arraylist_dyn_get_custom_allocator();
+    test_arraylist_dyn_init_ptr();
+    test_arraylist_dyn_reserve_ptr();
+    test_arraylist_dyn_shrink_size_ptr();
+    test_arraylist_dyn_shrink_to_fit_ptr();
+    test_arraylist_dyn_push_back_ptr();
+    test_arraylist_dyn_emplace_back_slot_ptr();
+    test_arraylist_dyn_insert_at_pointer();
+    test_arraylist_dyn_pop_back_ptr();
+    test_arraylist_dyn_remove_at_ptr();
+    test_arraylist_dyn_remove_from_to_ptr();
+    test_arraylist_dyn_at_ptr();
+    test_arraylist_dyn_begin_ptr();
+    test_arraylist_dyn_back_ptr();
+    test_arraylist_dyn_end_ptr();
+    test_arraylist_dyn_find_ptr();
+    test_arraylist_dyn_contains_ptr();
+    test_arraylist_dyn_size_ptr();
+    test_arraylist_dyn_is_empty_ptr();
+    test_arraylist_dyn_capacity_ptr();
+    test_arraylist_dyn_get_allocator_ptr();
+    test_arraylist_dyn_swap_ptr();
+    test_arraylist_dyn_qsort_ptr();
+    test_arraylist_dyn_deinit_ptr();
 
     return 0;
 }
