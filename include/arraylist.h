@@ -20,7 +20,7 @@
  * Prefer the ARRAYLIST version if the runtime flexibility of a destructor function pointer is not
  * needed.
  *
- * This arraylist requires a file named "allocator.h", which is a simple allocator interface which
+ * This arraylist requires a file named "allocator.h", which is a simple allocator interface that
  * defines a struct Allocator with 4 fields:
  * - void *(*malloc)(size_t size, void *ctx);
  * - void *(*realloc)(void *ptr, size_t old_size, size_t new_size, void *ctx)
@@ -133,8 +133,8 @@
 #define ARRAYLIST_H
 
 #include <stdbool.h> // For bool, true, false
-#include <stdint.h> // For SIZE_MAX
-#include <string.h> // For memset
+#include <stdint.h>  // For SIZE_MAX
+#include <string.h>  // For memset()
 
 #include "allocator.h" // For a custom Allocator interface
 
@@ -159,13 +159,13 @@
  */
 #define ARRAYLIST_USE_ASSERT 0
 #endif // ARRAYLIST_USE_ASSERT
-#include <assert.h>
+#include <assert.h> // For assert()
 
 #if ARRAYLIST_USE_ASSERT
-    #define ARRAYLIST_ENSURE(cond, errcode)   assert(cond);
-    #define ARRAYLIST_ENSURE_PTR(cond)        assert(cond);
+    #define ARRAYLIST_ENSURE(cond, return_val) assert(cond);
+    #define ARRAYLIST_ENSURE_PTR(cond)         assert(cond);
 #else
-    #define ARRAYLIST_ENSURE(cond, errcode)    if (!(cond)) return (errcode);
+    #define ARRAYLIST_ENSURE(cond, return_val) if (!(cond)) return (return_val);
     #define ARRAYLIST_ENSURE_PTR(cond)         if (!(cond)) return NULL;
 #endif // ARRAYLIST_USE_ASSERT if directive
 
@@ -174,10 +174,10 @@
  * @brief Error codes for the arraylist
  */
 enum arraylist_error {
-    ARRAYLIST_OK = 0,             ///< No error
-    ARRAYLIST_ERR_NULL = -1,      ///< Null pointer
-    ARRAYLIST_ERR_OVERFLOW = -2,  ///< Buffer will overflow
-    ARRAYLIST_ERR_ALLOC = -3,     ///< Allocation failure
+    ARRAYLIST_OK = 0,            ///< No error
+    ARRAYLIST_ERR_NULL = -1,     ///< Null pointer
+    ARRAYLIST_ERR_OVERFLOW = -2, ///< Buffer will overflow
+    ARRAYLIST_ERR_ALLOC = -3,    ///< Allocation failure
 };
 
 /**
@@ -264,14 +264,14 @@ struct arraylist_##name { \
  * - ARRAYLIST_UNUSED static inline T* ARRAYLIST_FN(name, begin)(const struct arraylist_##name *self);
  * - ARRAYLIST_UNUSED static inline T* ARRAYLIST_FN(name, back)(const struct arraylist_##name *self);
  * - ARRAYLIST_UNUSED static inline T* ARRAYLIST_FN(name, end)(const struct arraylist_##name *self);
- * - ARRAYLIST_UNUSED static inline T* ARRAYLIST_FN(name, find)(const struct arraylist_##name *self, bool (*predicate)(T*, void *), void *ctx);
- * - ARRAYLIST_UNUSED static inline bool ARRAYLIST_FN(name, contains)(const struct arraylist_##name *self, bool (*predicate)(T*, void *), void *ctx, size_t *out_index);
+ * - ARRAYLIST_UNUSED static inline T* ARRAYLIST_FN(name, find)(const struct arraylist_##name *self, bool (*predicate)(T *type, void *value), void *ctx);
+ * - ARRAYLIST_UNUSED static inline bool ARRAYLIST_FN(name, contains)(const struct arraylist_##name *self, bool (*predicate)(T *type, void *value), void *ctx, size_t *out_index);
  * - ARRAYLIST_UNUSED static inline size_t ARRAYLIST_FN(name, size)(const struct arraylist_##name *self);
  * - ARRAYLIST_UNUSED static inline bool ARRAYLIST_FN(name, is_empty)(const struct arraylist_##name *self);
  * - ARRAYLIST_UNUSED static inline size_t ARRAYLIST_FN(name, capacity)(const struct arraylist_##name *self);
  * - ARRAYLIST_UNUSED static inline struct Allocator* ARRAYLIST_FN(name, get_allocator)(struct arraylist_##name *self);
  * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, swap)(struct arraylist_##name *self, struct arraylist_##name *other);
- * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, qsort)(struct arraylist_##name *self, bool (*comp)(T*, T*));
+ * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, qsort)(struct arraylist_##name *self, bool (*comp)(T *n1, T *n2));
  * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, clear)(struct arraylist_##name *self);
  * - ARRAYLIST_UNUSED static inline void ARRAYLIST_FN(name, deinit)(struct arraylist_##name *self);
  */
@@ -461,7 +461,7 @@ ARRAYLIST_UNUSED static inline T* ARRAYLIST_FN(name, end)(const struct arraylist
  * @warning Return should be checked for null before usage, dereferencing it leads to \
             UB if value is not found \
  */ \
-ARRAYLIST_UNUSED static inline T* ARRAYLIST_FN(name, find)(const struct arraylist_##name *self, bool (*predicate)(T*, void *), void *ctx); \
+ARRAYLIST_UNUSED static inline T* ARRAYLIST_FN(name, find)(const struct arraylist_##name *self, bool (*predicate)(T *type, void *value), void *ctx); \
 /**
  * @brief contains: Tries to finds the given value and returns it \
  * @param self Pointer to the arraylist \
@@ -474,7 +474,7 @@ ARRAYLIST_UNUSED static inline T* ARRAYLIST_FN(name, find)(const struct arraylis
  * @note Performs a simple linear search, if performance matters, roll your own \
  *       sort and/or find functions \
  */ \
-ARRAYLIST_UNUSED static inline bool ARRAYLIST_FN(name, contains)(const struct arraylist_##name *self, bool (*predicate)(T*, void *), void *ctx, size_t *out_index); \
+ARRAYLIST_UNUSED static inline bool ARRAYLIST_FN(name, contains)(const struct arraylist_##name *self, bool (*predicate)(T *type, void *value), void *ctx, size_t *out_index); \
 /**
  * @brief size: Gets the size of an arraylist \
  * @param self Pointer to the arraylist \
@@ -510,12 +510,13 @@ ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, swap)(str
 /**
  * @brief qsort: Sorts the self based on the given comp function \
  * @param self Pointer to the arraylist \
+ * @param comp Function that knows how to compare two T types \
  * @return ARRAYLIST_ERR_NULL if self == null or if fn comp == null, otherwise ARRAYLIST_OK \
  * \
  * @note Performs a simple quicksort, non-stable, pivot is always the last element, \
  *       if performance matters, roll your own sort functions \
  */ \
-ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, qsort)(struct arraylist_##name *self, bool (*comp)(T*, T*)); \
+ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, qsort)(struct arraylist_##name *self, bool (*comp)(T *n1, T *n2)); \
 /**
  * @brief clear: Clears the arraylist's data \
  * @param self Pointer to the arraylist \
@@ -606,7 +607,7 @@ static inline void ARRAYLIST_FN(name, swap_elems)(T *a, T *b) { \
  * @private \
  * @brief partition_buffer: Helper function to use in the sort algo \
  */ \
-static inline size_t ARRAYLIST_FN(name, partition_buffer)(struct arraylist_##name *self, size_t low, size_t high, bool (*comp)(T*, T*)) { \
+static inline size_t ARRAYLIST_FN(name, partition_buffer)(struct arraylist_##name *self, size_t low, size_t high, bool (*comp)(T *n1, T *n2)) { \
     T *pivot = &self->data[high]; \
     size_t i = low; \
     \
@@ -628,7 +629,7 @@ static inline size_t ARRAYLIST_FN(name, partition_buffer)(struct arraylist_##nam
  * @private \
  * @brief helper_qsort: Helper recursive function for the sort algo \
  */ \
-static inline void ARRAYLIST_FN(name, helper_qsort)(struct arraylist_##name *self, size_t low, size_t high, bool (*comp)(T*, T*)) { \
+static inline void ARRAYLIST_FN(name, helper_qsort)(struct arraylist_##name *self, size_t low, size_t high, bool (*comp)(T *n1, T *n2)) { \
     if (low < high) { \
         /* part_idx is the parition return index of pivot */ \
         size_t part_idx = ARRAYLIST_FN(name, partition_buffer)(self, low, high, comp); \
@@ -814,7 +815,7 @@ static inline T* ARRAYLIST_FN(name, end)(const struct arraylist_##name *self) { 
     return self->data + self->size; \
 } \
 \
-static inline T* ARRAYLIST_FN(name, find)(const struct arraylist_##name *self, bool (*predicate)(T*, void *), void *ctx) { \
+static inline T* ARRAYLIST_FN(name, find)(const struct arraylist_##name *self, bool (*predicate)(T *type, void *value), void *ctx) { \
     ARRAYLIST_ENSURE_PTR(self != NULL) \
     ARRAYLIST_ENSURE_PTR(predicate != NULL) \
     for (size_t i = 0; i < self->size; ++i) { \
@@ -825,7 +826,7 @@ static inline T* ARRAYLIST_FN(name, find)(const struct arraylist_##name *self, b
     return self->data + self->size; \
 } \
 \
-static inline bool ARRAYLIST_FN(name, contains)(const struct arraylist_##name *self, bool (*predicate)(T*, void *), void *ctx, size_t *out_index) { \
+static inline bool ARRAYLIST_FN(name, contains)(const struct arraylist_##name *self, bool (*predicate)(T *type, void *value), void *ctx, size_t *out_index) { \
     ARRAYLIST_ENSURE(self != NULL && predicate != NULL, false) \
     for (size_t i = 0; i < self->size; ++i) { \
         if (predicate(&self->data[i], ctx)) { \
@@ -866,7 +867,7 @@ static inline enum arraylist_error ARRAYLIST_FN(name, swap)(struct arraylist_##n
     *self = temp; \
     return ARRAYLIST_OK; \
 } \
-static inline enum arraylist_error ARRAYLIST_FN(name, qsort)(struct arraylist_##name *self, bool (*comp)(T*, T*)) { \
+static inline enum arraylist_error ARRAYLIST_FN(name, qsort)(struct arraylist_##name *self, bool (*comp)(T *n1, T *n2)) { \
     ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL) \
     ARRAYLIST_ENSURE(comp != NULL, ARRAYLIST_ERR_NULL) \
     if (self->size > 1) { \
@@ -979,7 +980,7 @@ struct arraylist_dyn_##name { \
     size_t size; \
     size_t capacity; \
     struct Allocator alloc; \
-    void (*destructor)(T *, struct Allocator *alloc); \
+    void (*destructor)(T *type, struct Allocator *alloc); \
 };
 
 /**
@@ -990,7 +991,7 @@ struct arraylist_dyn_##name { \
  *
  * @details
  * The following functions are declared:
- * - ARRAYLIST_UNUSED static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, init)(const struct Allocator alloc, void (*destructor)(T *));
+ * - ARRAYLIST_UNUSED static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, init)(const struct Allocator alloc, void (*destructor)(T *type));
  * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, reserve)(struct arraylist_dyn_##name *self, const size_t capacity);
  * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, shrink_size)(struct arraylist_dyn_##name *self, const size_t size);
  * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, shrink_to_fit)(struct arraylist_dyn_##name *self);
@@ -1004,14 +1005,14 @@ struct arraylist_dyn_##name { \
  * - ARRAYLIST_UNUSED static inline T* ARRAYLIST_DYN_FN(name, begin)(const struct arraylist_dyn_##name *self);
  * - ARRAYLIST_UNUSED static inline T* ARRAYLIST_DYN_FN(name, back)(const struct arraylist_dyn_##name *self);
  * - ARRAYLIST_UNUSED static inline T* ARRAYLIST_DYN_FN(name, end)(const struct arraylist_dyn_##name *self);
- * - ARRAYLIST_UNUSED static inline T* ARRAYLIST_DYN_FN(name, find)(const struct arraylist_dyn_##name *self, bool (*predicate)(T*, void *), void *ctx);
- * - ARRAYLIST_UNUSED static inline bool ARRAYLIST_DYN_FN(name, contains)(const struct arraylist_dyn_##name *self, bool (*predicate)(T*, void *), void *ctx, size_t *out_index);
+ * - ARRAYLIST_UNUSED static inline T* ARRAYLIST_DYN_FN(name, find)(const struct arraylist_dyn_##name *self, bool (*predicate)(T *type, void *value), void *ctx);
+ * - ARRAYLIST_UNUSED static inline bool ARRAYLIST_DYN_FN(name, contains)(const struct arraylist_dyn_##name *self, bool (*predicate)(T *type, void *value), void *ctx, size_t *out_index);
  * - ARRAYLIST_UNUSED static inline size_t ARRAYLIST_DYN_FN(name, size)(const struct arraylist_dyn_##name *self);
  * - ARRAYLIST_UNUSED static inline bool ARRAYLIST_DYN_FN(name, is_empty)(const struct arraylist_dyn_##name *self);
  * - ARRAYLIST_UNUSED static inline size_t ARRAYLIST_DYN_FN(name, capacity)(const struct arraylist_dyn_##name *self);
  * - ARRAYLIST_UNUSED static inline struct Allocator* ARRAYLIST_DYN_FN(name, get_allocator)(struct arraylist_dyn_##name *self);
  * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, swap)(struct arraylist_dyn_##name *self, struct arraylist_dyn_##name *other);
- * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, qsort)(struct arraylist_dyn_##name *self, bool (*comp)(T*, T*));
+ * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, qsort)(struct arraylist_dyn_##name *self, bool (*comp)(T *n1, T *n2));
  * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, clear)(struct arraylist_dyn_##name *self);
  * - ARRAYLIST_UNUSED static inline void ARRAYLIST_DYN_FN(name, deinit)(struct arraylist_dyn_##name *self);
  */
@@ -1035,7 +1036,7 @@ struct arraylist_dyn_##name { \
  * \
  * @warning Call arraylist_dyn_##name##deinit() when done. \
  */ \
-ARRAYLIST_UNUSED static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, init)(const struct Allocator alloc, void (*destructor)(T *, struct Allocator *alloc)); \
+ARRAYLIST_UNUSED static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, init)(const struct Allocator alloc, void (*destructor)(T *type, struct Allocator *alloc)); \
 /**
  * @brief reserve: Reserves the capacity of an arraylist \
  * @param self Pointer to the arraylist \
@@ -1203,7 +1204,7 @@ ARRAYLIST_UNUSED static inline T* ARRAYLIST_DYN_FN(name, end)(const struct array
  * @warning Return should be checked for null before usage, dereferencing it leads to \
             UB if value is not found \
  */ \
-ARRAYLIST_UNUSED static inline T* ARRAYLIST_DYN_FN(name, find)(const struct arraylist_dyn_##name *self, bool (*predicate)(T*, void *), void *ctx); \
+ARRAYLIST_UNUSED static inline T* ARRAYLIST_DYN_FN(name, find)(const struct arraylist_dyn_##name *self, bool (*predicate)(T *type, void *value), void *ctx); \
 /**
  * @brief contains: Tries to finds the given value and returns it \
  * @param self Pointer to the arraylist \
@@ -1216,7 +1217,7 @@ ARRAYLIST_UNUSED static inline T* ARRAYLIST_DYN_FN(name, find)(const struct arra
  * @note Performs a simple linear search, if performance matters, roll your own \
  *       sort and/or find functions \
  */ \
-ARRAYLIST_UNUSED static inline bool ARRAYLIST_DYN_FN(name, contains)(const struct arraylist_dyn_##name *self, bool (*predicate)(T*, void *), void *ctx, size_t *out_index); \
+ARRAYLIST_UNUSED static inline bool ARRAYLIST_DYN_FN(name, contains)(const struct arraylist_dyn_##name *self, bool (*predicate)(T *type, void *value), void *ctx, size_t *out_index); \
 /**
  * @brief size: Gets the size of an arraylist \
  * @param self Pointer to the arraylist \
@@ -1252,12 +1253,13 @@ ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, swap)
 /**
  * @brief qsort: Sorts the self based on the given comp function \
  * @param self Pointer to the arraylist \
+ * @param comp Function that knows how to compare two T types \
  * @return ARRAYLIST_ERR_NULL if self == null or if fn comp == null, otherwise ARRAYLIST_OK \
  * \
  * @note Performs a simple quicksort, non-stable, pivot is always the last element, \
  *       if performance matters, roll your own sort functions \
  */ \
-ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, qsort)(struct arraylist_dyn_##name *self, bool (*comp)(T*, T*)); \
+ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, qsort)(struct arraylist_dyn_##name *self, bool (*comp)(T *n1, T *n2)); \
 /**
  * @brief clear: Clears the arraylist's data \
  * @param self Pointer to the arraylist \
@@ -1342,7 +1344,7 @@ static inline void ARRAYLIST_DYN_FN(name, swap_elems)(T *a, T *b) { \
  * @private \
  * @brief partition_buffer: Helper function to use in the sort algo \
  */ \
-static inline size_t ARRAYLIST_DYN_FN(name, partition_buffer)(struct arraylist_dyn_##name *self, size_t low, size_t high, bool (*comp)(T*, T*)) { \
+static inline size_t ARRAYLIST_DYN_FN(name, partition_buffer)(struct arraylist_dyn_##name *self, size_t low, size_t high, bool (*comp)(T *n1, T *n2)) { \
     T *pivot = &self->data[high]; \
     size_t i = low; \
     \
@@ -1364,7 +1366,7 @@ static inline size_t ARRAYLIST_DYN_FN(name, partition_buffer)(struct arraylist_d
  * @private \
  * @brief helper_qsort: Helper recursive function for the sort algo \
  */ \
-static inline void ARRAYLIST_DYN_FN(name, helper_qsort)(struct arraylist_dyn_##name *self, size_t low, size_t high, bool (*comp)(T*, T*)) { \
+static inline void ARRAYLIST_DYN_FN(name, helper_qsort)(struct arraylist_dyn_##name *self, size_t low, size_t high, bool (*comp)(T *n1, T *n2)) { \
     if (low < high) { \
         /* part_idx is the parition return index of pivot */ \
         size_t part_idx = ARRAYLIST_DYN_FN(name, partition_buffer)(self, low, high, comp); \
@@ -1377,8 +1379,9 @@ static inline void ARRAYLIST_DYN_FN(name, helper_qsort)(struct arraylist_dyn_##n
         ARRAYLIST_DYN_FN(name, helper_qsort)(self, part_idx + 1, high, comp); \
     } \
 } \
+\
 /* =========================== PUBLIC FUNCTIONS =========================== */ \
-static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, init)(const struct Allocator alloc, void (*destructor)(T *, struct Allocator *alloc)) { \
+static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, init)(const struct Allocator alloc, void (*destructor)(T *type, struct Allocator *alloc)) { \
     struct arraylist_dyn_##name arraylist = {0}; \
     arraylist.alloc = alloc; \
     arraylist.destructor = destructor; \
@@ -1559,7 +1562,7 @@ static inline T* ARRAYLIST_DYN_FN(name, end)(const struct arraylist_dyn_##name *
     return self->data + self->size; \
 } \
 \
-static inline T* ARRAYLIST_DYN_FN(name, find)(const struct arraylist_dyn_##name *self, bool (*predicate)(T*, void *), void *ctx) { \
+static inline T* ARRAYLIST_DYN_FN(name, find)(const struct arraylist_dyn_##name *self, bool (*predicate)(T *type, void *value), void *ctx) { \
     ARRAYLIST_ENSURE_PTR(self != NULL) \
     ARRAYLIST_ENSURE_PTR(predicate != NULL) \
     for (size_t i = 0; i < self->size; ++i) { \
@@ -1570,7 +1573,7 @@ static inline T* ARRAYLIST_DYN_FN(name, find)(const struct arraylist_dyn_##name 
     return self->data + self->size; \
 } \
 \
-static inline bool ARRAYLIST_DYN_FN(name, contains)(const struct arraylist_dyn_##name *self, bool (*predicate)(T*, void *), void *ctx, size_t *out_index) { \
+static inline bool ARRAYLIST_DYN_FN(name, contains)(const struct arraylist_dyn_##name *self, bool (*predicate)(T *type, void *value), void *ctx, size_t *out_index) { \
     ARRAYLIST_ENSURE(self != NULL && predicate != NULL, false) \
     for (size_t i = 0; i < self->size; ++i) { \
         if (predicate(&self->data[i], ctx)) { \
@@ -1611,7 +1614,8 @@ static inline enum arraylist_error ARRAYLIST_DYN_FN(name, swap)(struct arraylist
     *self = temp; \
     return ARRAYLIST_OK; \
 } \
-static inline enum arraylist_error ARRAYLIST_DYN_FN(name, qsort)(struct arraylist_dyn_##name *self, bool (*comp)(T*, T*)) { \
+\
+static inline enum arraylist_error ARRAYLIST_DYN_FN(name, qsort)(struct arraylist_dyn_##name *self, bool (*comp)(T *n1, T *n2)) { \
     ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL) \
     ARRAYLIST_ENSURE(comp != NULL, ARRAYLIST_ERR_NULL) \
     if (self->size > 1) { \
