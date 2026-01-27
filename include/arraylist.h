@@ -597,11 +597,11 @@ ARRAYLIST_UNUSED static inline void ARRAYLIST_FN(name, deinit)(struct arraylist_
  * @return ARRAYLIST_OK if successful, ARRAYLIST_ERR_OVERFLOW if buffer will overflow, \
  *         or ARRAYLIST_ERR_NULL if allocation failure \
  * \
- * This static function ensures that capacity of the arraylist is atleast min_cap \
+ * This private function ensures that capacity of the arraylist is atleast min_cap \
  * If the self->capacity is 0 (first allocation) will call malloc, otherwise realloc \
  * Then set the self->capacity to min_cap \
  * \
- * @warning Assumes self is not null, as this is a static function, this is not really a problem \
+ * @warning Assumes self is not null, as this is a private function, this is not really a problem \
  */ \
 static inline enum arraylist_error ARRAYLIST_FN(name, double_capacity)(struct arraylist_##name *self) { \
     /* Assumes self is never null */ \
@@ -1392,11 +1392,11 @@ ARRAYLIST_UNUSED static inline void ARRAYLIST_DYN_FN(name, deinit)(struct arrayl
  * @return ARRAYLIST_OK if successful, ARRAYLIST_ERR_OVERFLOW if buffer will overflow, \
  *         or ARRAYLIST_ERR_NULL if allocation failure \
  * \
- * This static function ensures that capacity of the arraylist is atleast min_cap \
+ * This private function ensures that capacity of the arraylist is atleast min_cap \
  * If the self->capacity is 0 (first allocation) will call malloc, otherwise realloc \
  * Then set the self->capacity to min_cap \
  * \
- * @warning Assumes self is not null, as this is a static function, this is not really a problem \
+ * @warning Assumes self is not null, as this is a private function, this is not really a problem \
  */ \
 static inline enum arraylist_error ARRAYLIST_DYN_FN(name, double_capacity)(struct arraylist_dyn_##name *self) { \
     /* Assumes self is never null */ \
