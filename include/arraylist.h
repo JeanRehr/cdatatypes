@@ -518,6 +518,37 @@ ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, swap)(str
  */ \
 ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, qsort)(struct arraylist_##name *self, bool (*comp)(T *n1, T *n2)); \
 /**
+ * @brief deep_clone: Deeply clones an arraylist \
+ * @param self Pointer to the arraylist to copy \
+ * @param deep_clone_fn Function that knows how to clone a single element \
+                        Must have the prototype: \
+                        void deep_clone_fn(T *dst, const T *src, struct Allocator *alloc); \
+ * @return A new arraylist struct that is independent of the self \
+ * \
+ * @note The correctness of this function depends on the provided deep_clone_fn parameter \
+ *       for value types, int or pod structs, deep_clone_fn can simply assign *std = *src; \
+ *       if T contains pointers or heap allocations, then deep_clone_fn must allocate/copy \
+ *       these fields as needed, if using arraylist of pointers to T, deep_clone_fn must allocate \
+ *       a new T and, if it contains member to pointers, allocate/copy as needed \
+ * \
+ * @warning If self is NULL or deep_clone_fn if NULL then it returns a zero-initialized struct, \
+ *          if asserts are enabled then it crashes \
+ */ \
+ARRAYLIST_UNUSED static inline struct arraylist_##name ARRAYLIST_FN(name, deep_clone)(const struct arraylist_##name *self, void (*deep_clone_fn)(T *dst, T *src, struct Allocator *alloc)); \
+/**
+ * @brief shallow_copy: Copies an arraylist bit by bit \
+ * @param self Pointer to the arraylist to copy \
+ * @return A new arraylist struct \
+ * \
+ * @note If T is or contains pointer or heap-allocated data, those pointers are copied as-is, \
+ *       both the original and copy will reference the same memory. Modifying or freeing elements \
+ *       in one list affects the other, this is unsafe if not careful, may cause double frees or incorrect assumptions. \
+ *       Use deep_clone function with a correct function parameter for truly independent copies \
+ * \
+ * @warning If self is NULL then it returns a zero-initialized struct, if asserts are enabled then it crashes \
+ */ \
+ARRAYLIST_UNUSED static inline struct arraylist_##name ARRAYLIST_FN(name, shallow_copy)(const struct arraylist_##name *self); \
+/**
  * @brief clear: Clears the arraylist's data \
  * @param self Pointer to the arraylist \
  * @return ARRAYLIST_ERR_NULL in case of NULL being passed, or ARRAYLIST_OK \
@@ -874,6 +905,31 @@ static inline enum arraylist_error ARRAYLIST_FN(name, qsort)(struct arraylist_##
         ARRAYLIST_FN(name, helper_qsort)(self, 0, self->size - 1, comp); \
     } \
     return ARRAYLIST_OK; \
+} \
+\
+static inline struct arraylist_##name ARRAYLIST_FN(name, deep_clone)(const struct arraylist_##name *self, void (*deep_clone_fn)(T *dst, T *src, struct Allocator *alloc)) { \
+    struct arraylist_##name clone = { 0 }; \
+    ARRAYLIST_ENSURE(self != NULL, clone); \
+    ARRAYLIST_ENSURE(deep_clone_fn != NULL, clone); \
+    clone = ARRAYLIST_FN(name, init)(self->alloc); \
+    ARRAYLIST_FN(name, reserve)(&clone, self->capacity); \
+    clone.size = self->size; \
+    for (size_t i = 0; i < self->size; ++i) { \
+        deep_clone_fn(&clone.data[i], &self->data[i], &clone.alloc); \
+    } \
+    return clone; \
+} \
+\
+static inline struct arraylist_##name ARRAYLIST_FN(name, shallow_copy)(const struct arraylist_##name *self) { \
+    struct arraylist_##name clone = { 0 }; \
+    ARRAYLIST_ENSURE(self != NULL, clone); \
+    clone = ARRAYLIST_FN(name, init)(self->alloc); \
+    ARRAYLIST_FN(name, reserve)(&clone, self->capacity); \
+    clone.size = self->size; \
+    for (size_t i = 0; i < self->size; ++i) { \
+        clone.data[i] = self->data[i]; \
+    } \
+    return clone; \
 } \
 \
 static inline enum arraylist_error ARRAYLIST_FN(name, clear)(struct arraylist_##name *self) { \
@@ -1263,6 +1319,37 @@ ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, swap)
  */ \
 ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, qsort)(struct arraylist_dyn_##name *self, bool (*comp)(T *n1, T *n2)); \
 /**
+ * @brief deep_clone: Deeply clones an arraylist \
+ * @param self Pointer to the arraylist to copy \
+ * @param deep_clone_fn Function that knows how to clone a single element \
+                        Must have the prototype: \
+                        void deep_clone_fn(T *dst, const T *src, struct Allocator *alloc); \
+ * @return A new arraylist struct that is independent of the self \
+ * \
+ * @note The correctness of this function depends on the provided deep_clone_fn parameter \
+ *       for value types, int or pod structs, deep_clone_fn can simply assign *std = *src; \
+ *       if T contains pointers or heap allocations, then deep_clone_fn must allocate/copy \
+ *       these fields as needed, if using arraylist of pointers to T, deep_clone_fn must allocate \
+ *       a new T and, if it contains member to pointers, allocate/copy as needed \
+ * \
+ * @warning If self is NULL or deep_clone_fn if NULL then it returns a zero-initialized struct, \
+ *          if asserts are enabled then it crashes \
+ */ \
+ARRAYLIST_UNUSED static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, deep_clone)(const struct arraylist_dyn_##name *self, void (*deep_clone_fn)(T *dst, T *src, struct Allocator *alloc)); \
+/**
+ * @brief shallow_copy: Copies an arraylist bit by bit \
+ * @param self Pointer to the arraylist to copy \
+ * @return A new arraylist struct \
+ * \
+ * @note If T is or contains pointer or heap-allocated data, those pointers are copied as-is, \
+ *       both the original and copy will reference the same memory. Modifying or freeing elements \
+ *       in one list affects the other, this is unsafe if not careful, may cause double frees or incorrect assumptions. \
+ *       Use deep_clone function with a correct function parameter for truly independent copies \
+ * \
+ * @warning If self is NULL then it returns a zero-initialized struct, if asserts are enabled then it crashes \
+ */ \
+ARRAYLIST_UNUSED static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, shallow_copy)(const struct arraylist_dyn_##name *self); \
+/**
  * @brief clear: Clears the arraylist's data \
  * @param self Pointer to the arraylist \
  * @return ARRAYLIST_ERR_NULL in case of NULL being passed, or ARRAYLIST_OK \
@@ -1624,6 +1711,31 @@ static inline enum arraylist_error ARRAYLIST_DYN_FN(name, qsort)(struct arraylis
         ARRAYLIST_DYN_FN(name, helper_qsort)(self, 0, self->size - 1, comp); \
     } \
     return ARRAYLIST_OK; \
+} \
+\
+static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, deep_clone)(const struct arraylist_dyn_##name *self, void (*deep_clone_fn)(T *dst, T *src, struct Allocator *alloc)) { \
+    struct arraylist_dyn_##name clone = { 0 }; \
+    ARRAYLIST_ENSURE(self != NULL, clone); \
+    ARRAYLIST_ENSURE(deep_clone_fn != NULL, clone); \
+    clone = ARRAYLIST_DYN_FN(name, init)(self->alloc, self->destructor); \
+    ARRAYLIST_DYN_FN(name, reserve)(&clone, self->capacity); \
+    clone.size = self->size; \
+    for (size_t i = 0; i < self->size; ++i) { \
+        deep_clone_fn(&clone.data[i], &self->data[i], &clone.alloc); \
+    } \
+    return clone; \
+} \
+\
+static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, shallow_copy)(const struct arraylist_dyn_##name *self) { \
+    struct arraylist_dyn_##name clone = { 0 }; \
+    ARRAYLIST_ENSURE(self != NULL, clone); \
+    clone = ARRAYLIST_DYN_FN(name, init)(self->alloc, self->destructor); \
+    ARRAYLIST_DYN_FN(name, reserve)(&clone, self->capacity); \
+    clone.size = self->size; \
+    for (size_t i = 0; i < self->size; ++i) { \
+        clone.data[i] = self->data[i]; \
+    } \
+    return clone; \
 } \
 \
 static inline enum arraylist_error ARRAYLIST_DYN_FN(name, clear)(struct arraylist_dyn_##name *self) { \

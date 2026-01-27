@@ -182,6 +182,76 @@ static bool non_pod_sort_val(struct non_pod *np1, struct non_pod *np2) {
     return strcmp(np1->objname, np2->objname) < 0;
 }
 
+// Function for deep_clone for value containers
+static void non_pod_deep_clone_val(struct non_pod *dst, struct non_pod *src, struct Allocator *alloc) {
+    if (!src) {
+        dst = NULL;
+        return;
+    }
+
+    if (src->objname) {
+        size_t len = strlen(src->objname) + 1;
+
+        dst->objname = alloc->malloc(len, alloc->ctx);
+
+        if (dst->objname) {
+            strcpy(dst->objname, src->objname);
+        }
+    } else {
+        dst->objname = NULL;
+    }
+
+    if (src->a) {
+        dst->a = alloc->malloc(sizeof(dst->a), alloc->ctx);
+        *dst->a = *src->a;
+    } else {
+        dst->a = NULL;
+    }
+
+    if (src->b) {
+        dst->b = alloc->malloc(sizeof(dst->b), alloc->ctx);
+        *dst->b = *src->b;
+    } else {
+        dst->b = NULL;
+    }
+}
+
+// Function for deep_clone for pointer containers
+static void non_pod_deep_clone_ptr(struct non_pod **dst, struct non_pod **src, struct Allocator *alloc) {
+    if (!src || !*src) {
+        *dst = NULL;
+        return;
+    }
+
+    *dst = alloc->malloc(sizeof(struct non_pod), alloc->ctx);
+
+    if ((*src)->objname) {
+        size_t len = strlen((*src)->objname) + 1;
+
+        (*dst)->objname = alloc->malloc(len, alloc->ctx);
+
+        if ((*dst)->objname) {
+            strcpy((*dst)->objname, (*src)->objname);
+        }
+    } else {
+        (*dst)->objname = NULL;
+    }
+
+    if ((*src)->a) {
+        (*dst)->a = alloc->malloc(sizeof((*dst)->a), alloc->ctx);
+        *(*dst)->a = *(*src)->a;
+    } else {
+        (*dst)->a = NULL;
+    }
+
+    if ((*src)->b) {
+        (*dst)->b = alloc->malloc(sizeof((*dst)->b), alloc->ctx);
+        *(*dst)->b = *(*src)->b;
+    } else {
+        (*dst)->b = NULL;
+    }
+}
+
 // Function for find and contains for pointer containers
 static bool non_pod_find_ptr(struct non_pod **np, void *find) {
     if (strcmp((*np)->objname, (char *)find) == 0) {
@@ -2630,6 +2700,113 @@ void test_arraylist_qsort_value(void) {
     nonpods_deinit(&list);
     assert(global_destructor_counter_arraylist == 0);
     printf("test arraylist qsort value-type passed\n");
+}
+
+void test_arraylist_deep_clone_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods list = nonpods_init(gpa);
+
+    // Adding some values
+    *nonpods_emplace_back_slot(&list) = non_pod_init("a1", 1, 1.1, &gpa);
+    *nonpods_emplace_back_slot(&list) = non_pod_init("a2", 2, 2.2, &gpa);
+    *nonpods_emplace_back_slot(&list) = non_pod_init("a3", 3, 3.3, &gpa);
+    assert(list.size == 3);
+
+    // Cloning
+    struct arraylist_nonpods cloned = nonpods_deep_clone(&list, non_pod_deep_clone_val);
+    assert(cloned.data != NULL);
+    assert(cloned.size == list.size);
+    assert(cloned.size == 3);
+    assert(cloned.capacity == list.capacity);
+    assert(cloned.capacity == 4);
+
+    assert(strcmp(list.data[0].objname, "a1") == 0);
+    assert(strcmp(cloned.data[0].objname, "a1") == 0);
+
+    assert(*list.data[0].a == 1);
+    assert(*cloned.data[0].a == 1);
+
+    assert(list.alloc.malloc == gpa.malloc);
+    assert(cloned.alloc.malloc == gpa.malloc);
+
+    // Independent copies, changing a value on list doesn't affect cloned
+    *list.data[0].a = 10;
+    assert(*list.data[0].a == 10);
+    assert(*cloned.data[0].a == 1);
+
+    *cloned.data[0].a = 50;
+    assert(*cloned.data[0].a == 50);
+    assert(*list.data[0].a == 10);
+
+    // Passing NULL to either parameter will result in an empty struct, or assert failure
+    struct arraylist_nonpods empty1 = nonpods_deep_clone(NULL, non_pod_deep_clone_val);
+    assert(empty1.data == NULL);
+
+    struct arraylist_nonpods empty2 = nonpods_deep_clone(&list, NULL);
+    assert(empty2.data == NULL);
+
+    nonpods_deinit(&list);
+    nonpods_deinit(&cloned);
+    nonpods_deinit(&empty1);
+    nonpods_deinit(&empty2);
+    // This is needed just because I'm not incrementing on deep_clone function
+    global_destructor_counter_arraylist = 0;
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist deep_clone value-type passed\n");
+}
+
+void test_arraylist_shallow_copy_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods list = nonpods_init(gpa);
+
+    // Adding some values
+    *nonpods_emplace_back_slot(&list) = non_pod_init("a1", 1, 1.1, &gpa);
+    *nonpods_emplace_back_slot(&list) = non_pod_init("a2", 2, 2.2, &gpa);
+    *nonpods_emplace_back_slot(&list) = non_pod_init("a3", 3, 3.3, &gpa);
+    assert(list.size == 3);
+
+    // Shallow copying a non-pod, they are linked through addresses now
+    // This should not be done unless one know what they are doing
+    struct arraylist_nonpods copied = nonpods_shallow_copy(&list);
+    assert(copied.data != NULL);
+    assert(copied.size == list.size);
+    assert(copied.size == 3);
+    assert(copied.capacity == list.capacity);
+    assert(copied.capacity == 4);
+
+    assert(strcmp(list.data[0].objname, "a1") == 0);
+    assert(strcmp(copied.data[0].objname, "a1") == 0);
+
+    assert(*list.data[0].a == 1);
+    assert(*copied.data[0].a == 1);
+
+    assert(list.alloc.malloc == gpa.malloc);
+    assert(copied.alloc.malloc == gpa.malloc);
+
+    // Dependent copies, changing a value on list AFFECTS copied
+    *list.data[0].a = 10;
+    assert(*list.data[0].a == 10);
+    assert(*copied.data[0].a == 10);
+
+    *copied.data[0].a = 50;
+    assert(*copied.data[0].a == 50);
+    assert(*list.data[0].a == 50);
+
+    // Passing NULL will result in an empty struct, or assert failure
+    struct arraylist_nonpods empty1 = nonpods_shallow_copy(NULL);
+    assert(empty1.data == NULL);
+
+    nonpods_deinit(&list);
+    // DO NOT free the shallow copied pointers, DOUBLE FREE HERE
+    // nonpods_deinit(&copied);
+    // To not leak memory here, manually free the data buffer
+    copied.alloc.free(copied.data, copied.capacity * sizeof(struct non_pod), copied.alloc.ctx);
+    // Again, this is not recommended and should not be done unless there is really a need to
+
+    nonpods_deinit(&empty1);
+    global_destructor_counter_arraylist = 0;
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist shallow_copy value-type passed\n");
 }
 
 void test_arraylist_clear_value(void) {
@@ -5253,6 +5430,113 @@ void test_arraylist_qsort_ptr(void) {
     printf("test arraylist qsort pointer-type passed\n");
 }
 
+void test_arraylist_deep_clone_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods_ptr list = nonpods_ptr_init(gpa);
+
+    // Adding some values
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("a1", 1, 1.1, &gpa);
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("a2", 2, 2.2, &gpa);
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("a3", 3, 3.3, &gpa);
+    assert(list.size == 3);
+
+    // Cloning
+    struct arraylist_nonpods_ptr cloned = nonpods_ptr_deep_clone(&list, non_pod_deep_clone_ptr);
+    assert(cloned.data != NULL);
+    assert(cloned.size == list.size);
+    assert(cloned.size == 3);
+    assert(cloned.capacity == list.capacity);
+    assert(cloned.capacity == 4);
+
+    assert(strcmp(list.data[0]->objname, "a1") == 0);
+    assert(strcmp(cloned.data[0]->objname, "a1") == 0);
+
+    assert(*list.data[0]->a == 1);
+    assert(*cloned.data[0]->a == 1);
+
+    assert(list.alloc.malloc == gpa.malloc);
+    assert(cloned.alloc.malloc == gpa.malloc);
+
+    // Independent copies, changing a value on list doesn't affect cloned
+    *list.data[0]->a = 10;
+    assert(*list.data[0]->a == 10);
+    assert(*cloned.data[0]->a == 1);
+
+    *cloned.data[0]->a = 50;
+    assert(*cloned.data[0]->a == 50);
+    assert(*list.data[0]->a == 10);
+
+    // Passing NULL to either parameter will result in an empty struct, or assert failure
+    struct arraylist_nonpods_ptr empty1 = nonpods_ptr_deep_clone(NULL, non_pod_deep_clone_ptr);
+    assert(empty1.data == NULL);
+
+    struct arraylist_nonpods_ptr empty2 = nonpods_ptr_deep_clone(&list, NULL);
+    assert(empty2.data == NULL);
+
+    nonpods_ptr_deinit(&list);
+    nonpods_ptr_deinit(&cloned);
+    nonpods_ptr_deinit(&empty1);
+    nonpods_ptr_deinit(&empty2);
+    // This is needed just because I'm not incrementing on deep_clone function
+    global_destructor_counter_arraylist = 0;
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist deep_clone pointer-type passed\n");
+}
+
+void test_arraylist_shallow_copy_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods_ptr list = nonpods_ptr_init(gpa);
+
+    // Adding some values
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("a1", 1, 1.1, &gpa);
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("a2", 2, 2.2, &gpa);
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("a3", 3, 3.3, &gpa);
+    assert(list.size == 3);
+
+    // Shallow copying a non-pod, they are linked through addresses now
+    // This should not be done unless one know what they are doing
+    struct arraylist_nonpods_ptr copied = nonpods_ptr_shallow_copy(&list);
+    assert(copied.data != NULL);
+    assert(copied.size == list.size);
+    assert(copied.size == 3);
+    assert(copied.capacity == list.capacity);
+    assert(copied.capacity == 4);
+
+    assert(strcmp(list.data[0]->objname, "a1") == 0);
+    assert(strcmp(copied.data[0]->objname, "a1") == 0);
+
+    assert(*list.data[0]->a == 1);
+    assert(*copied.data[0]->a == 1);
+
+    assert(list.alloc.malloc == gpa.malloc);
+    assert(copied.alloc.malloc == gpa.malloc);
+
+    // Dependent copies, changing a value on list AFFECTS copied
+    *list.data[0]->a = 10;
+    assert(*list.data[0]->a == 10);
+    assert(*copied.data[0]->a == 10);
+
+    *copied.data[0]->a = 50;
+    assert(*copied.data[0]->a == 50);
+    assert(*list.data[0]->a == 50);
+
+    // Passing NULL will result in an empty struct, or assert failure
+    struct arraylist_nonpods_ptr empty1 = nonpods_ptr_shallow_copy(NULL);
+    assert(empty1.data == NULL);
+
+    nonpods_ptr_deinit(&list);
+    // DO NOT free the shallow copied pointers, DOUBLE FREE HERE
+    // nonpods_ptr_deinit(&copied);
+    // To not leak memory here, manually free the data buffer
+    copied.alloc.free(copied.data, copied.capacity * sizeof(struct non_pod *), copied.alloc.ctx);
+    // Again, this is not recommended and should not be done unless there is really a need to
+
+    nonpods_ptr_deinit(&empty1);
+    global_destructor_counter_arraylist = 0;
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist shallow_copy pointer-type passed\n");
+}
+
 void test_arraylist_clear_ptr(void) {
     struct Allocator gpa = allocator_get_default();
     struct arraylist_nonpods_ptr list = nonpods_ptr_init(gpa);
@@ -7870,6 +8154,113 @@ void test_arraylist_dyn_qsort_value(void) {
     dyn_non_pods_d_deinit(&list);
     assert(global_destructor_counter_arraylist == 0);
     printf("test arraylist dyn qsort value-type passed\n");
+}
+
+void test_arraylist_dyn_deep_clone_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d list = dyn_non_pods_d_init(gpa, non_pod_deinit);
+
+    // Adding some values
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("a1", 1, 1.1, &gpa);
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("a2", 2, 2.2, &gpa);
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("a3", 3, 3.3, &gpa);
+    assert(list.size == 3);
+
+    // Cloning
+    struct arraylist_dyn_non_pods_d cloned = dyn_non_pods_d_deep_clone(&list, non_pod_deep_clone_val);
+    assert(cloned.data != NULL);
+    assert(cloned.size == list.size);
+    assert(cloned.size == 3);
+    assert(cloned.capacity == list.capacity);
+    assert(cloned.capacity == 4);
+
+    assert(strcmp(list.data[0].objname, "a1") == 0);
+    assert(strcmp(cloned.data[0].objname, "a1") == 0);
+
+    assert(*list.data[0].a == 1);
+    assert(*cloned.data[0].a == 1);
+
+    assert(list.alloc.malloc == gpa.malloc);
+    assert(cloned.alloc.malloc == gpa.malloc);
+
+    // Independent copies, changing a value on list doesn't affect cloned
+    *list.data[0].a = 10;
+    assert(*list.data[0].a == 10);
+    assert(*cloned.data[0].a == 1);
+
+    *cloned.data[0].a = 50;
+    assert(*cloned.data[0].a == 50);
+    assert(*list.data[0].a == 10);
+
+    // Passing NULL to either parameter will result in an empty struct, or assert failure
+    struct arraylist_dyn_non_pods_d empty1 = dyn_non_pods_d_deep_clone(NULL, non_pod_deep_clone_val);
+    assert(empty1.data == NULL);
+
+    struct arraylist_dyn_non_pods_d empty2 = dyn_non_pods_d_deep_clone(&list, NULL);
+    assert(empty2.data == NULL);
+
+    dyn_non_pods_d_deinit(&list);
+    dyn_non_pods_d_deinit(&cloned);
+    dyn_non_pods_d_deinit(&empty1);
+    dyn_non_pods_d_deinit(&empty2);
+    // This is needed just because I'm not incrementing on deep_clone function
+    global_destructor_counter_arraylist = 0;
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn deep_clone value-type passed\n");
+}
+
+void test_arraylist_dyn_shallow_copy_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d list = dyn_non_pods_d_init(gpa, non_pod_deinit);
+
+    // Adding some values
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("a1", 1, 1.1, &gpa);
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("a2", 2, 2.2, &gpa);
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("a3", 3, 3.3, &gpa);
+    assert(list.size == 3);
+
+    // Shallow copying a non-pod, they are linked through addresses now
+    // This should not be done unless one know what they are doing
+    struct arraylist_dyn_non_pods_d copied = dyn_non_pods_d_shallow_copy(&list);
+    assert(copied.data != NULL);
+    assert(copied.size == list.size);
+    assert(copied.size == 3);
+    assert(copied.capacity == list.capacity);
+    assert(copied.capacity == 4);
+
+    assert(strcmp(list.data[0].objname, "a1") == 0);
+    assert(strcmp(copied.data[0].objname, "a1") == 0);
+
+    assert(*list.data[0].a == 1);
+    assert(*copied.data[0].a == 1);
+
+    assert(list.alloc.malloc == gpa.malloc);
+    assert(copied.alloc.malloc == gpa.malloc);
+
+    // Dependent copies, changing a value on list AFFECTS copied
+    *list.data[0].a = 10;
+    assert(*list.data[0].a == 10);
+    assert(*copied.data[0].a == 10);
+
+    *copied.data[0].a = 50;
+    assert(*copied.data[0].a == 50);
+    assert(*list.data[0].a == 50);
+
+    // Passing NULL will result in an empty struct, or assert failure
+    struct arraylist_dyn_non_pods_d empty1 = dyn_non_pods_d_shallow_copy(NULL);
+    assert(empty1.data == NULL);
+
+    dyn_non_pods_d_deinit(&list);
+    // DO NOT free the shallow copied pointers, DOUBLE FREE HERE
+    // dyn_non_pods_d_deinit(&copied);
+    // To not leak memory here, manually free the data buffer
+    copied.alloc.free(copied.data, copied.capacity * sizeof(struct non_pod), copied.alloc.ctx);
+    // Again, this is not recommended and should not be done unless there is really a need to
+
+    dyn_non_pods_d_deinit(&empty1);
+    global_destructor_counter_arraylist = 0;
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn shallow_copy value-type passed\n");
 }
 
 void test_arraylist_dyn_clear_value(void) {
@@ -10494,6 +10885,113 @@ void test_arraylist_dyn_qsort_ptr(void) {
     printf("test arraylist dyn qsort pointer-type passed\n");
 }
 
+void test_arraylist_dyn_deep_clone_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d_ptr list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+
+    // Adding some values
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("a1", 1, 1.1, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("a2", 2, 2.2, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("a3", 3, 3.3, &gpa);
+    assert(list.size == 3);
+
+    // Cloning
+    struct arraylist_dyn_non_pods_d_ptr cloned = dyn_non_pods_d_ptr_deep_clone(&list, non_pod_deep_clone_ptr);
+    assert(cloned.data != NULL);
+    assert(cloned.size == list.size);
+    assert(cloned.size == 3);
+    assert(cloned.capacity == list.capacity);
+    assert(cloned.capacity == 4);
+
+    assert(strcmp(list.data[0]->objname, "a1") == 0);
+    assert(strcmp(cloned.data[0]->objname, "a1") == 0);
+
+    assert(*list.data[0]->a == 1);
+    assert(*cloned.data[0]->a == 1);
+
+    assert(list.alloc.malloc == gpa.malloc);
+    assert(cloned.alloc.malloc == gpa.malloc);
+
+    // Independent copies, changing a value on list doesn't affect cloned
+    *list.data[0]->a = 10;
+    assert(*list.data[0]->a == 10);
+    assert(*cloned.data[0]->a == 1);
+
+    *cloned.data[0]->a = 50;
+    assert(*cloned.data[0]->a == 50);
+    assert(*list.data[0]->a == 10);
+
+    // Passing NULL to either parameter will result in an empty struct, or assert failure
+    struct arraylist_dyn_non_pods_d_ptr empty1 = dyn_non_pods_d_ptr_deep_clone(NULL, non_pod_deep_clone_ptr);
+    assert(empty1.data == NULL);
+
+    struct arraylist_dyn_non_pods_d_ptr empty2 = dyn_non_pods_d_ptr_deep_clone(&list, NULL);
+    assert(empty2.data == NULL);
+
+    dyn_non_pods_d_ptr_deinit(&list);
+    dyn_non_pods_d_ptr_deinit(&cloned);
+    dyn_non_pods_d_ptr_deinit(&empty1);
+    dyn_non_pods_d_ptr_deinit(&empty2);
+    // This is needed just because I'm not incrementing on deep_clone function
+    global_destructor_counter_arraylist = 0;
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn deep_clone pointer-type passed\n");
+}
+
+void test_arraylist_dyn_shallow_copy_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d_ptr list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+
+    // Adding some values
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("a1", 1, 1.1, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("a2", 2, 2.2, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("a3", 3, 3.3, &gpa);
+    assert(list.size == 3);
+
+    // Shallow copying a non-pod, they are linked through addresses now
+    // This should not be done unless one know what they are doing
+    struct arraylist_dyn_non_pods_d_ptr copied = dyn_non_pods_d_ptr_shallow_copy(&list);
+    assert(copied.data != NULL);
+    assert(copied.size == list.size);
+    assert(copied.size == 3);
+    assert(copied.capacity == list.capacity);
+    assert(copied.capacity == 4);
+
+    assert(strcmp(list.data[0]->objname, "a1") == 0);
+    assert(strcmp(copied.data[0]->objname, "a1") == 0);
+
+    assert(*list.data[0]->a == 1);
+    assert(*copied.data[0]->a == 1);
+
+    assert(list.alloc.malloc == gpa.malloc);
+    assert(copied.alloc.malloc == gpa.malloc);
+
+    // Dependent copies, changing a value on list AFFECTS copied
+    *list.data[0]->a = 10;
+    assert(*list.data[0]->a == 10);
+    assert(*copied.data[0]->a == 10);
+
+    *copied.data[0]->a = 50;
+    assert(*copied.data[0]->a == 50);
+    assert(*list.data[0]->a == 50);
+
+    // Passing NULL will result in an empty struct, or assert failure
+    struct arraylist_dyn_non_pods_d_ptr empty1 = dyn_non_pods_d_ptr_shallow_copy(NULL);
+    assert(empty1.data == NULL);
+
+    dyn_non_pods_d_ptr_deinit(&list);
+    // DO NOT free the shallow copied pointers, DOUBLE FREE HERE
+    // dyn_non_pods_d_ptr_deinit(&copied);
+    // To not leak memory here, manually free the data buffer
+    copied.alloc.free(copied.data, copied.capacity * sizeof(struct non_pod *), copied.alloc.ctx);
+    // Again, this is not recommended and should not be done unless there is really a need to
+
+    dyn_non_pods_d_ptr_deinit(&empty1);
+    global_destructor_counter_arraylist = 0;
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn shallow_copy pointer-type passed\n");
+}
+
 void test_arraylist_dyn_clear_ptr(void) {
     struct Allocator gpa = allocator_get_default();
     struct arraylist_dyn_non_pods_d_ptr list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
@@ -10722,6 +11220,8 @@ int main(void) {
     test_arraylist_get_allocator_value();
     test_arraylist_swap_value();
     test_arraylist_qsort_value();
+    test_arraylist_deep_clone_value();
+    test_arraylist_shallow_copy_value();
     test_arraylist_clear_value();
     test_arraylist_deinit_value();
 
@@ -10747,6 +11247,8 @@ int main(void) {
     test_arraylist_get_allocator_ptr();
     test_arraylist_swap_ptr();
     test_arraylist_qsort_ptr();
+    test_arraylist_deep_clone_ptr();
+    test_arraylist_shallow_copy_ptr();
     test_arraylist_clear_ptr();
     test_arraylist_deinit_ptr();
     
@@ -10772,6 +11274,8 @@ int main(void) {
     test_arraylist_dyn_get_allocator_value();
     test_arraylist_dyn_swap_value();
     test_arraylist_dyn_qsort_value();
+    test_arraylist_dyn_deep_clone_value();
+    test_arraylist_dyn_shallow_copy_value();
     test_arraylist_dyn_clear_value();
     test_arraylist_dyn_deinit_value();
 
@@ -10797,6 +11301,8 @@ int main(void) {
     test_arraylist_dyn_get_allocator_ptr();
     test_arraylist_dyn_swap_ptr();
     test_arraylist_dyn_qsort_ptr();
+    test_arraylist_dyn_deep_clone_ptr();
+    test_arraylist_dyn_shallow_copy_ptr();
     test_arraylist_dyn_clear_ptr();
     test_arraylist_dyn_deinit_ptr();
 
