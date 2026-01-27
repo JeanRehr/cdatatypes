@@ -10686,6 +10686,7 @@ int main(void) {
     test_arraylist_get_allocator_value();
     test_arraylist_swap_value();
     test_arraylist_qsort_value();
+    test_arraylist_clear_value();
     test_arraylist_deinit_value();
 
     test_arraylist_init_ptr();
@@ -10701,7 +10702,6 @@ int main(void) {
     test_arraylist_at_ptr();
     test_arraylist_begin_ptr();
     test_arraylist_back_ptr();
-    test_arraylist_back_ptr();
     test_arraylist_end_ptr();
     test_arraylist_find_ptr();
     test_arraylist_contains_ptr();
@@ -10711,6 +10711,7 @@ int main(void) {
     test_arraylist_get_allocator_ptr();
     test_arraylist_swap_ptr();
     test_arraylist_qsort_ptr();
+    test_arraylist_clear_ptr();
     test_arraylist_deinit_ptr();
     
     test_arraylist_dyn_init_value();
@@ -10735,6 +10736,7 @@ int main(void) {
     test_arraylist_dyn_get_allocator_value();
     test_arraylist_dyn_swap_value();
     test_arraylist_dyn_qsort_value();
+    test_arraylist_dyn_clear_value();
     test_arraylist_dyn_deinit_value();
 
     test_arraylist_dyn_init_ptr();
@@ -10759,6 +10761,7 @@ int main(void) {
     test_arraylist_dyn_get_allocator_ptr();
     test_arraylist_dyn_swap_ptr();
     test_arraylist_dyn_qsort_ptr();
+    test_arraylist_dyn_clear_ptr();
     test_arraylist_dyn_deinit_ptr();
 
     return 0;
