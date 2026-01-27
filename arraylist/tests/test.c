@@ -13,12 +13,13 @@
 // If wanted to use arraylist_* prefix to the functions:
 //#define ARRAYLIST_USE_PREFIX
 //#define ARRAYLIST_DYN_USE_PREFIX
+#include "allocator.h"
 #include "arraylist.h"
 
 struct non_pod {
     char *objname;
-    int *a;
-    float *b;
+    int *a; // Just an integer, not an array of integers
+    float *b; // Same thing
 };
 
 size_t global_destructor_counter_arraylist = 0;
@@ -96,7 +97,6 @@ static inline void non_pod_deinit(struct non_pod *np, struct Allocator *alloc) {
         np->b = NULL;
     }
     --global_destructor_counter_arraylist;
-    ;
 }
 
 static inline void non_pod_deinit_ptr(struct non_pod **np_ptr, struct Allocator *alloc) {
@@ -155,11 +155,11 @@ static inline void non_pod_deinit_ptr(struct non_pod **np_ptr, struct Allocator 
                 (*np_ptr)->objname = NULL; \
             } \
             if ((*np_ptr)->a) { \
-                (alloc)->free((*np_ptr)->a, sizeof((*np_ptr)->a), (alloc)->ctx); \
+                (alloc)->free((*np_ptr)->a, sizeof(*(*np_ptr)->a), (alloc)->ctx); \
                 (*np_ptr)->a = NULL; \
             } \
             if ((*np_ptr)->b) { \
-                (alloc)->free((*np_ptr)->b, sizeof((*np_ptr)->b), (alloc)->ctx); \
+                (alloc)->free((*np_ptr)->b, sizeof(*(*np_ptr)->b), (alloc)->ctx); \
                 (*np_ptr)->b = NULL; \
             } \
             (alloc)->free(*(np_ptr), sizeof(struct non_pod), (alloc)->ctx); \
@@ -319,7 +319,7 @@ void test_arraylist_reserve_value(void) {
     for (size_t i = 0; i < 2; ++i) {
         *nonpods_emplace_back_slot(&small) = non_pod_init("QQ", 2, 3, &gpa);
     }
-    small.capacity = 2;
+    nonpods_shrink_to_fit(&small);
     // Now try to reserve with failing allocator change
     small.alloc = fail_alloc;
     err = nonpods_reserve(&small, 3);
@@ -328,6 +328,7 @@ void test_arraylist_reserve_value(void) {
     // Since realloc failed, old data/cap remains
     assert(small.capacity == 2);
     // May or may not have NULL data pointer as realloc is permitted to leave old pointer unchanged
+    small.alloc = gpa;
 
     // Reserve on uninitialized/null list: returns error (no crash)
     err = nonpods_reserve(NULL, 8);
@@ -343,8 +344,6 @@ void test_arraylist_reserve_value(void) {
     nonpods_deinit(&list);
     nonpods_deinit(&small);
     nonpods_deinit(&fail_list);
-
-    nonpods_deinit(&list);
     assert(global_destructor_counter_arraylist == 0);
     printf("test arraylist reserve value-type passed\n");
 }
@@ -2231,13 +2230,13 @@ void test_arraylist_get_allocator_value(void) {
     struct Allocator gpa = allocator_get_default();
     struct arraylist_nonpods list = nonpods_init(gpa);
 
-    // Basic: get_allocator returns non-NULL when valid-
+    // get_allocator returns non-NULL when valid
     struct Allocator *out = nonpods_get_allocator(&list);
     assert(out != NULL);
-    // Must match what we passed to init
-    assert(out->malloc == gpa.malloc && out->free == gpa.free && out->realloc == gpa.realloc && out->ctx == gpa.ctx);
+    assert(out->malloc == gpa.malloc && out->free == gpa.free && 
+           out->realloc == gpa.realloc && out->ctx == gpa.ctx);
 
-    // Same pointer returned each time; doesn't move-
+    // Same pointer returned each time; doesn't move
     struct Allocator *out2 = nonpods_get_allocator(&list);
     assert(out == out2);
 
@@ -2246,54 +2245,60 @@ void test_arraylist_get_allocator_value(void) {
     assert(buf != NULL);
     out->free(buf, 32, out->ctx);
 
-    // Changing the allocator via the struct, get_allocator reflects change
+    // Changing the allocator via the struct - ONLY WHEN EMPTY
+    // First clear the list to ensure no elements allocated with old allocator
+    nonpods_clear(&list);
     struct Allocator fail_a = allocator_get_failling_alloc();
     list.alloc = fail_a;
     struct Allocator *out3 = nonpods_get_allocator(&list);
     assert(out3 != NULL);
     assert(out3->malloc == fail_malloc && out3->free == fail_free);
 
-    // After copy, get_allocator of copy reflects its own, not original
-    struct arraylist_nonpods list2 = list;
+    // Don't create shallow copies of containers with ownership
+    // Instead create a new list
+    struct arraylist_nonpods list2 = nonpods_init(fail_a);
     struct Allocator *oa2 = nonpods_get_allocator(&list2);
     assert(oa2 != NULL);
     assert(oa2->malloc == fail_malloc && oa2->free == fail_free);
 
-    // After deinit, struct is zeroed, get_allocator returns pointer to zeroed struct
+    // After deinit, struct is zeroed
     nonpods_deinit(&list);
     struct Allocator *out4 = nonpods_get_allocator(&list);
     assert(out4 != NULL);
-    // After memset, all members are NULL/0 (undefined but this is allowed by your code)
-    // Some implementations might optimize to point to ".bss", but we can check at least the pointer is not NULL
-    // To be extra paranoid, the allocator's function ptrs should now be NULL
-    assert(out4->malloc == NULL || out4->malloc == fail_malloc); // May be zero (if memset to 0), or still old value
-    assert(out4->free == NULL || out4->free == fail_free);       // Accept both: zeroed (reset by deinit) or old
-    // It's not valid to use these fn ptrs after deinit
+    // Check it's zeroed
+    assert(out4->malloc == NULL);
+    assert(out4->free == NULL);
+    assert(out4->realloc == NULL);
+    assert(out4->ctx == NULL);
 
-    // get_allocator(NULL) returns NULL, never segfaults
+    // get_allocator(NULL) returns NULL
     assert(nonpods_get_allocator(NULL) == NULL);
 
-    // get_allocator works on stack, heap, zero-inited
+    // get_allocator works on zero-initialized
     struct arraylist_nonpods zeroed = {0};
     struct Allocator *az = nonpods_get_allocator(&zeroed);
     assert(az != NULL);
     assert(az->malloc == NULL);
 
-    // get_allocator after re-initialization: returns new
+    // New list with default allocator
     struct arraylist_nonpods list3 = nonpods_init(gpa);
     struct Allocator *oa3 = nonpods_get_allocator(&list3);
     assert(oa3 != NULL);
     assert(oa3->malloc == gpa.malloc);
 
-    // Use get_allocator inside arraylist operations
-    for (size_t i = 0; i < 8; ++i)
-        *nonpods_emplace_back_slot(&list3) = non_pod_init("z", 42, 123.0f + i, nonpods_get_allocator(&list3));
+    // Add elements
+    for (size_t i = 0; i < 8; ++i) {
+        // Store the allocator to use consistently
+        struct Allocator *current_alloc = nonpods_get_allocator(&list3);
+        struct non_pod np = non_pod_init("z", 42, 123.0f + i, current_alloc);
+        *nonpods_emplace_back_slot(&list3) = np;
+    }
     assert(list3.size == 8);
 
     // The pointer is always to the arraylist's .alloc field
     assert(oa3 == &list3.alloc);
 
-    // After clear, get_allocator returns same pointer (address is stable)
+    // After clear, get_allocator returns same pointer
     nonpods_clear(&list3);
     assert(nonpods_get_allocator(&list3) == oa3);
 
@@ -2301,18 +2306,28 @@ void test_arraylist_get_allocator_value(void) {
     nonpods_shrink_to_fit(&list3);
     assert(nonpods_get_allocator(&list3) == oa3);
 
-    // After failed growth, allocator unchanged
-    list3.alloc = fail_a;
-    enum arraylist_error err = nonpods_push_back(&list3, non_pod_init("fail", 0, 0, &gpa));
+    // Test failed allocation PROPERLY
+    struct Allocator saved_alloc = list3.alloc;  // Save current
+    list3.alloc = fail_a;  // Switch to failing allocator
+    
+    // Create temporary object that we'll clean up manually
+    struct non_pod temp = non_pod_init("fail", 0, 0, &gpa);
+    enum arraylist_error err = nonpods_push_back(&list3, temp);
     assert(err != ARRAYLIST_OK);
-    assert(nonpods_get_allocator(&list3)->malloc == fail_malloc);
+    
+    // MANUALLY clean up the temporary since push_back failed
+    non_pod_deinit(&temp, &gpa);
+    
+    // Restore original allocator
+    list3.alloc = saved_alloc;
+    assert(nonpods_get_allocator(&list3)->malloc == gpa.malloc);
 
-    // resetting global dtor counter, as the counter has gone up, but not really allocated
-    global_destructor_counter_arraylist = 0;
-
-    // After pop_back/remove, allocator unchanged
+    // After pop_back, allocator unchanged
+    // Add one element first so we can pop it
+    struct non_pod np = non_pod_init("popme", 1, 1.0f, nonpods_get_allocator(&list3));
+    *nonpods_emplace_back_slot(&list3) = np;
     nonpods_pop_back(&list3);
-    assert(nonpods_get_allocator(&list3) == oa3 || nonpods_get_allocator(&list3) == &list3.alloc);
+    assert(nonpods_get_allocator(&list3) == &list3.alloc);
 
     // Cleanups
     nonpods_deinit(&list2);
@@ -2913,7 +2928,7 @@ void test_arraylist_reserve_ptr(void) {
     for (size_t i = 0; i < 2; ++i) {
         *nonpods_ptr_emplace_back_slot(&small) = non_pod_init_ptr("QQ", 2, 3, &gpa);
     }
-    small.capacity = 2;
+    nonpods_ptr_shrink_to_fit(&small);
     // Now try to reserve with failing allocator change
     small.alloc = fail_alloc;
     err = nonpods_ptr_reserve(&small, 3);
@@ -2922,6 +2937,7 @@ void test_arraylist_reserve_ptr(void) {
     // Since realloc failed, old data/cap remains
     assert(small.capacity == 2);
     // May or may not have NULL data pointer as realloc is permitted to leave old pointer unchanged
+    small.alloc = gpa;
 
     // Reserve on uninitialized/null list: returns error (no crash)
     err = nonpods_ptr_reserve(NULL, 8);
@@ -4761,7 +4777,8 @@ void test_arraylist_capacity_ptr(void) {
     nonpods_ptr_deinit(&list);
     assert(nonpods_ptr_capacity(&list) == 0);
 
-    // Can re-grow after deinit (fresh allocation)
+    // Need to re-initialize list to reuse
+    list = nonpods_ptr_init(gpa);
     nonpods_ptr_push_back(&list, non_pod_init_ptr("test", 44, 12.1, &gpa));
     assert(nonpods_ptr_capacity(&list) > 0);
 
@@ -4825,13 +4842,13 @@ void test_arraylist_get_allocator_ptr(void) {
     struct Allocator gpa = allocator_get_default();
     struct arraylist_nonpods_ptr list = nonpods_ptr_init(gpa);
 
-    // Basic: get_allocator returns non-NULL when valid-
+    // get_allocator returns non-NULL when valid
     struct Allocator *out = nonpods_ptr_get_allocator(&list);
     assert(out != NULL);
-    // Must match what we passed to init
-    assert(out->malloc == gpa.malloc && out->free == gpa.free && out->realloc == gpa.realloc && out->ctx == gpa.ctx);
+    assert(out->malloc == gpa.malloc && out->free == gpa.free && 
+           out->realloc == gpa.realloc && out->ctx == gpa.ctx);
 
-    // Same pointer returned each time; doesn't move-
+    // Same pointer returned each time; doesn't move
     struct Allocator *out2 = nonpods_ptr_get_allocator(&list);
     assert(out == out2);
 
@@ -4840,54 +4857,60 @@ void test_arraylist_get_allocator_ptr(void) {
     assert(buf != NULL);
     out->free(buf, 32, out->ctx);
 
-    // Changing the allocator via the struct, get_allocator reflects change
+    // Changing the allocator via the struct - ONLY WHEN EMPTY
+    // First clear the list to ensure no elements allocated with old allocator
+    nonpods_ptr_clear(&list);
     struct Allocator fail_a = allocator_get_failling_alloc();
     list.alloc = fail_a;
     struct Allocator *out3 = nonpods_ptr_get_allocator(&list);
     assert(out3 != NULL);
     assert(out3->malloc == fail_malloc && out3->free == fail_free);
 
-    // After copy, get_allocator of copy reflects its own, not original
-    struct arraylist_nonpods_ptr list2 = list;
+    // Don't create shallow copies of containers with ownership
+    // Instead create a new list
+    struct arraylist_nonpods_ptr list2 = nonpods_ptr_init(fail_a);
     struct Allocator *oa2 = nonpods_ptr_get_allocator(&list2);
     assert(oa2 != NULL);
     assert(oa2->malloc == fail_malloc && oa2->free == fail_free);
 
-    // After deinit, struct is zeroed, get_allocator returns pointer to zeroed struct
+    // After deinit, struct is zeroed
     nonpods_ptr_deinit(&list);
     struct Allocator *out4 = nonpods_ptr_get_allocator(&list);
     assert(out4 != NULL);
-    // After memset, all members are NULL/0 (undefined but this is allowed by your code)
-    // Some implementations might optimize to point to ".bss", but we can check at least the pointer is not NULL
-    // To be extra paranoid, the allocator's function ptrs should now be NULL
-    assert(out4->malloc == NULL || out4->malloc == fail_malloc); // May be zero (if memset to 0), or still old value
-    assert(out4->free == NULL || out4->free == fail_free);       // Accept both: zeroed (reset by deinit) or old
-    // It's not valid to use these fn ptrs after deinit
+    // Check it's zeroed
+    assert(out4->malloc == NULL);
+    assert(out4->free == NULL);
+    assert(out4->realloc == NULL);
+    assert(out4->ctx == NULL);
 
-    // get_allocator(NULL) returns NULL, never segfaults
+    // get_allocator(NULL) returns NULL
     assert(nonpods_ptr_get_allocator(NULL) == NULL);
 
-    // get_allocator works on stack, heap, zero-inited
+    // get_allocator works on zero-initialized
     struct arraylist_nonpods_ptr zeroed = {0};
     struct Allocator *az = nonpods_ptr_get_allocator(&zeroed);
     assert(az != NULL);
     assert(az->malloc == NULL);
 
-    // get_allocator after re-initialization: returns new
+    // New list with default allocator
     struct arraylist_nonpods_ptr list3 = nonpods_ptr_init(gpa);
     struct Allocator *oa3 = nonpods_ptr_get_allocator(&list3);
     assert(oa3 != NULL);
     assert(oa3->malloc == gpa.malloc);
 
-    // Use get_allocator inside arraylist operations
-    for (size_t i = 0; i < 8; ++i)
-        *nonpods_ptr_emplace_back_slot(&list3) = non_pod_init_ptr("z", 42, 123.0f + i, nonpods_ptr_get_allocator(&list3));
+    // Add elements
+    for (size_t i = 0; i < 8; ++i) {
+        // Store the allocator to use consistently
+        struct Allocator *current_alloc = nonpods_ptr_get_allocator(&list3);
+        struct non_pod *np = non_pod_init_ptr("z", 42, 123.0f + i, current_alloc);
+        *nonpods_ptr_emplace_back_slot(&list3) = np;
+    }
     assert(list3.size == 8);
 
     // The pointer is always to the arraylist's .alloc field
     assert(oa3 == &list3.alloc);
 
-    // After clear, get_allocator returns same pointer (address is stable)
+    // After clear, get_allocator returns same pointer
     nonpods_ptr_clear(&list3);
     assert(nonpods_ptr_get_allocator(&list3) == oa3);
 
@@ -4895,18 +4918,28 @@ void test_arraylist_get_allocator_ptr(void) {
     nonpods_ptr_shrink_to_fit(&list3);
     assert(nonpods_ptr_get_allocator(&list3) == oa3);
 
-    // After failed growth, allocator unchanged
-    list3.alloc = fail_a;
-    enum arraylist_error err = nonpods_ptr_push_back(&list3, non_pod_init_ptr("fail", 0, 0, &gpa));
+    // Test failed allocation PROPERLY
+    struct Allocator saved_alloc = list3.alloc;  // Save current
+    list3.alloc = fail_a;  // Switch to failing allocator
+    
+    // Create temporary object that we'll clean up manually
+    struct non_pod *temp = non_pod_init_ptr("fail", 0, 0, &gpa);
+    enum arraylist_error err = nonpods_ptr_push_back(&list3, temp);
     assert(err != ARRAYLIST_OK);
-    assert(nonpods_ptr_get_allocator(&list3)->malloc == fail_malloc);
+    
+    // MANUALLY clean up the temporary since push_back failed
+    non_pod_deinit_ptr(&temp, &gpa);
+    
+    // Restore original allocator
+    list3.alloc = saved_alloc;
+    assert(nonpods_ptr_get_allocator(&list3)->malloc == gpa.malloc);
 
-    // resetting global dtor counter, as the counter has gone up, but not really allocated
-    global_destructor_counter_arraylist = 0;
-
-    // After pop_back/remove, allocator unchanged
+    // After pop_back, allocator unchanged
+    // Add one element first so we can pop it
+    struct non_pod *np = non_pod_init_ptr("popme", 1, 1.0f, nonpods_ptr_get_allocator(&list3));
+    *nonpods_ptr_emplace_back_slot(&list3) = np;
     nonpods_ptr_pop_back(&list3);
-    assert(nonpods_ptr_get_allocator(&list3) == oa3 || nonpods_ptr_get_allocator(&list3) == &list3.alloc);
+    assert(nonpods_ptr_get_allocator(&list3) == &list3.alloc);
 
     // Cleanups
     nonpods_ptr_deinit(&list2);
@@ -5508,7 +5541,7 @@ void test_arraylist_dyn_reserve_value(void) {
     for (size_t i = 0; i < 2; ++i) {
         *dyn_non_pods_d_emplace_back_slot(&small) = non_pod_init("QQ", 2, 3, &gpa);
     }
-    small.capacity = 2;
+    dyn_non_pods_d_shrink_to_fit(&small);
     // Now try to reserve with failing allocator change
     small.alloc = fail_alloc;
     err = dyn_non_pods_d_reserve(&small, 3);
@@ -5517,6 +5550,7 @@ void test_arraylist_dyn_reserve_value(void) {
     // Since realloc failed, old data/cap remains
     assert(small.capacity == 2);
     // May or may not have NULL data pointer as realloc is permitted to leave old pointer unchanged
+    small.alloc = gpa;
 
     // Reserve on uninitialized/null list: returns error (no crash)
     err = dyn_non_pods_d_reserve(NULL, 8);
@@ -7353,7 +7387,8 @@ void test_arraylist_dyn_capacity_value(void) {
     dyn_non_pods_d_deinit(&list);
     assert(dyn_non_pods_d_capacity(&list) == 0);
 
-    // Can re-grow after deinit (fresh allocation)
+    // Need to re-initialize list to reuse
+    list = dyn_non_pods_d_init(gpa, non_pod_deinit);
     dyn_non_pods_d_push_back(&list, non_pod_init("test", 44, 12.1, &gpa));
     assert(dyn_non_pods_d_capacity(&list) > 0);
 
@@ -7417,13 +7452,13 @@ void test_arraylist_dyn_get_allocator_value(void) {
     struct Allocator gpa = allocator_get_default();
     struct arraylist_dyn_non_pods_d list = dyn_non_pods_d_init(gpa, non_pod_deinit);
 
-    // Basic: get_allocator returns non-NULL when valid-
+    // get_allocator returns non-NULL when valid
     struct Allocator *out = dyn_non_pods_d_get_allocator(&list);
     assert(out != NULL);
-    // Must match what we passed to init
-    assert(out->malloc == gpa.malloc && out->free == gpa.free && out->realloc == gpa.realloc && out->ctx == gpa.ctx);
+    assert(out->malloc == gpa.malloc && out->free == gpa.free && 
+           out->realloc == gpa.realloc && out->ctx == gpa.ctx);
 
-    // Same pointer returned each time; doesn't move-
+    // Same pointer returned each time; doesn't move
     struct Allocator *out2 = dyn_non_pods_d_get_allocator(&list);
     assert(out == out2);
 
@@ -7432,54 +7467,60 @@ void test_arraylist_dyn_get_allocator_value(void) {
     assert(buf != NULL);
     out->free(buf, 32, out->ctx);
 
-    // Changing the allocator via the struct, get_allocator reflects change
+    // Changing the allocator via the struct - ONLY WHEN EMPTY
+    // First clear the list to ensure no elements allocated with old allocator
+    dyn_non_pods_d_clear(&list);
     struct Allocator fail_a = allocator_get_failling_alloc();
     list.alloc = fail_a;
     struct Allocator *out3 = dyn_non_pods_d_get_allocator(&list);
     assert(out3 != NULL);
     assert(out3->malloc == fail_malloc && out3->free == fail_free);
 
-    // After copy, get_allocator of copy reflects its own, not original
-    struct arraylist_dyn_non_pods_d list2 = list;
+    // Don't create shallow copies of containers with ownership
+    // Instead create a new list
+    struct arraylist_dyn_non_pods_d list2 = dyn_non_pods_d_init(fail_a, non_pod_deinit);
     struct Allocator *oa2 = dyn_non_pods_d_get_allocator(&list2);
     assert(oa2 != NULL);
     assert(oa2->malloc == fail_malloc && oa2->free == fail_free);
 
-    // After deinit, struct is zeroed, get_allocator returns pointer to zeroed struct
+    // After deinit, struct is zeroed
     dyn_non_pods_d_deinit(&list);
     struct Allocator *out4 = dyn_non_pods_d_get_allocator(&list);
     assert(out4 != NULL);
-    // After memset, all members are NULL/0 (undefined but this is allowed by your code)
-    // Some implementations might optimize to point to ".bss", but we can check at least the pointer is not NULL
-    // To be extra paranoid, the allocator's function ptrs should now be NULL
-    assert(out4->malloc == NULL || out4->malloc == fail_malloc); // May be zero (if memset to 0), or still old value
-    assert(out4->free == NULL || out4->free == fail_free);       // Accept both: zeroed (reset by deinit) or old
-    // It's not valid to use these fn ptrs after deinit
+    // Check it's zeroed
+    assert(out4->malloc == NULL);
+    assert(out4->free == NULL);
+    assert(out4->realloc == NULL);
+    assert(out4->ctx == NULL);
 
-    // get_allocator(NULL) returns NULL, never segfaults
+    // get_allocator(NULL) returns NULL
     assert(dyn_non_pods_d_get_allocator(NULL) == NULL);
 
-    // get_allocator works on stack, heap, zero-inited
+    // get_allocator works on zero-initialized
     struct arraylist_dyn_non_pods_d zeroed = {0};
     struct Allocator *az = dyn_non_pods_d_get_allocator(&zeroed);
     assert(az != NULL);
     assert(az->malloc == NULL);
 
-    // get_allocator after re-initialization: returns new
+    // New list with default allocator
     struct arraylist_dyn_non_pods_d list3 = dyn_non_pods_d_init(gpa, non_pod_deinit);
     struct Allocator *oa3 = dyn_non_pods_d_get_allocator(&list3);
     assert(oa3 != NULL);
     assert(oa3->malloc == gpa.malloc);
 
-    // Use get_allocator inside arraylist operations
-    for (size_t i = 0; i < 8; ++i)
-        *dyn_non_pods_d_emplace_back_slot(&list3) = non_pod_init("z", 42, 123.0f + i, dyn_non_pods_d_get_allocator(&list3));
+    // Add elements
+    for (size_t i = 0; i < 8; ++i) {
+        // Store the allocator to use consistently
+        struct Allocator *current_alloc = dyn_non_pods_d_get_allocator(&list3);
+        struct non_pod np = non_pod_init("z", 42, 123.0f + i, current_alloc);
+        *dyn_non_pods_d_emplace_back_slot(&list3) = np;
+    }
     assert(list3.size == 8);
 
     // The pointer is always to the arraylist's .alloc field
     assert(oa3 == &list3.alloc);
 
-    // After clear, get_allocator returns same pointer (address is stable)
+    // After clear, get_allocator returns same pointer
     dyn_non_pods_d_clear(&list3);
     assert(dyn_non_pods_d_get_allocator(&list3) == oa3);
 
@@ -7487,18 +7528,28 @@ void test_arraylist_dyn_get_allocator_value(void) {
     dyn_non_pods_d_shrink_to_fit(&list3);
     assert(dyn_non_pods_d_get_allocator(&list3) == oa3);
 
-    // After failed growth, allocator unchanged
-    list3.alloc = fail_a;
-    enum arraylist_error err = dyn_non_pods_d_push_back(&list3, non_pod_init("fail", 0, 0, &gpa));
+    // Test failed allocation PROPERLY
+    struct Allocator saved_alloc = list3.alloc;  // Save current
+    list3.alloc = fail_a;  // Switch to failing allocator
+    
+    // Create temporary object that we'll clean up manually
+    struct non_pod temp = non_pod_init("fail", 0, 0, &gpa);
+    enum arraylist_error err = dyn_non_pods_d_push_back(&list3, temp);
     assert(err != ARRAYLIST_OK);
-    assert(dyn_non_pods_d_get_allocator(&list3)->malloc == fail_malloc);
+    
+    // MANUALLY clean up the temporary since push_back failed
+    non_pod_deinit(&temp, &gpa);
+    
+    // Restore original allocator
+    list3.alloc = saved_alloc;
+    assert(dyn_non_pods_d_get_allocator(&list3)->malloc == gpa.malloc);
 
-    // resetting global dtor counter, as the counter has gone up, but not really allocated
-    global_destructor_counter_arraylist = 0;
-
-    // After pop_back/remove, allocator unchanged
+    // After pop_back, allocator unchanged
+    // Add one element first so we can pop it
+    struct non_pod np = non_pod_init("popme", 1, 1.0f, dyn_non_pods_d_get_allocator(&list3));
+    *dyn_non_pods_d_emplace_back_slot(&list3) = np;
     dyn_non_pods_d_pop_back(&list3);
-    assert(dyn_non_pods_d_get_allocator(&list3) == oa3 || dyn_non_pods_d_get_allocator(&list3) == &list3.alloc);
+    assert(dyn_non_pods_d_get_allocator(&list3) == &list3.alloc);
 
     // Cleanups
     dyn_non_pods_d_deinit(&list2);
@@ -8099,7 +8150,7 @@ void test_arraylist_dyn_reserve_ptr(void) {
     for (size_t i = 0; i < 2; ++i) {
         *dyn_non_pods_d_ptr_emplace_back_slot(&small) = non_pod_init_ptr("QQ", 2, 3, &gpa);
     }
-    small.capacity = 2;
+    dyn_non_pods_d_ptr_shrink_to_fit(&small);
     // Now try to reserve with failing allocator change
     small.alloc = fail_alloc;
     err = dyn_non_pods_d_ptr_reserve(&small, 3);
@@ -8108,6 +8159,7 @@ void test_arraylist_dyn_reserve_ptr(void) {
     // Since realloc failed, old data/cap remains
     assert(small.capacity == 2);
     // May or may not have NULL data pointer as realloc is permitted to leave old pointer unchanged
+    small.alloc = gpa;
 
     // Reserve on uninitialized/null list: returns error (no crash)
     err = dyn_non_pods_d_ptr_reserve(NULL, 8);
@@ -9948,7 +10000,8 @@ void test_arraylist_dyn_capacity_ptr(void) {
     dyn_non_pods_d_ptr_deinit(&list);
     assert(dyn_non_pods_d_ptr_capacity(&list) == 0);
 
-    // Can re-grow after deinit (fresh allocation)
+    // Need to re-initialize list to reuse
+    list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
     dyn_non_pods_d_ptr_push_back(&list, non_pod_init_ptr("test", 44, 12.1, &gpa));
     assert(dyn_non_pods_d_ptr_capacity(&list) > 0);
 
@@ -10012,13 +10065,13 @@ void test_arraylist_dyn_get_allocator_ptr(void) {
     struct Allocator gpa = allocator_get_default();
     struct arraylist_dyn_non_pods_d_ptr list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
 
-    // Basic: get_allocator returns non-NULL when valid-
+    // get_allocator returns non-NULL when valid
     struct Allocator *out = dyn_non_pods_d_ptr_get_allocator(&list);
     assert(out != NULL);
-    // Must match what we passed to init
-    assert(out->malloc == gpa.malloc && out->free == gpa.free && out->realloc == gpa.realloc && out->ctx == gpa.ctx);
+    assert(out->malloc == gpa.malloc && out->free == gpa.free && 
+           out->realloc == gpa.realloc && out->ctx == gpa.ctx);
 
-    // Same pointer returned each time; doesn't move-
+    // Same pointer returned each time; doesn't move
     struct Allocator *out2 = dyn_non_pods_d_ptr_get_allocator(&list);
     assert(out == out2);
 
@@ -10027,54 +10080,60 @@ void test_arraylist_dyn_get_allocator_ptr(void) {
     assert(buf != NULL);
     out->free(buf, 32, out->ctx);
 
-    // Changing the allocator via the struct, get_allocator reflects change
+    // Changing the allocator via the struct - ONLY WHEN EMPTY
+    // First clear the list to ensure no elements allocated with old allocator
+    dyn_non_pods_d_ptr_clear(&list);
     struct Allocator fail_a = allocator_get_failling_alloc();
     list.alloc = fail_a;
     struct Allocator *out3 = dyn_non_pods_d_ptr_get_allocator(&list);
     assert(out3 != NULL);
     assert(out3->malloc == fail_malloc && out3->free == fail_free);
 
-    // After copy, get_allocator of copy reflects its own, not original
-    struct arraylist_dyn_non_pods_d_ptr list2 = list;
+    // Don't create shallow copies of containers with ownership
+    // Instead create a new list
+    struct arraylist_dyn_non_pods_d_ptr list2 = dyn_non_pods_d_ptr_init(fail_a, non_pod_deinit_ptr);
     struct Allocator *oa2 = dyn_non_pods_d_ptr_get_allocator(&list2);
     assert(oa2 != NULL);
     assert(oa2->malloc == fail_malloc && oa2->free == fail_free);
 
-    // After deinit, struct is zeroed, get_allocator returns pointer to zeroed struct
+    // After deinit, struct is zeroed
     dyn_non_pods_d_ptr_deinit(&list);
     struct Allocator *out4 = dyn_non_pods_d_ptr_get_allocator(&list);
     assert(out4 != NULL);
-    // After memset, all members are NULL/0 (undefined but this is allowed by your code)
-    // Some implementations might optimize to point to ".bss", but we can check at least the pointer is not NULL
-    // To be extra paranoid, the allocator's function ptrs should now be NULL
-    assert(out4->malloc == NULL || out4->malloc == fail_malloc); // May be zero (if memset to 0), or still old value
-    assert(out4->free == NULL || out4->free == fail_free);       // Accept both: zeroed (reset by deinit) or old
-    // It's not valid to use these fn ptrs after deinit
+    // Check it's zeroed
+    assert(out4->malloc == NULL);
+    assert(out4->free == NULL);
+    assert(out4->realloc == NULL);
+    assert(out4->ctx == NULL);
 
-    // get_allocator(NULL) returns NULL, never segfaults
+    // get_allocator(NULL) returns NULL
     assert(dyn_non_pods_d_ptr_get_allocator(NULL) == NULL);
 
-    // get_allocator works on stack, heap, zero-inited
+    // get_allocator works on zero-initialized
     struct arraylist_dyn_non_pods_d_ptr zeroed = {0};
     struct Allocator *az = dyn_non_pods_d_ptr_get_allocator(&zeroed);
     assert(az != NULL);
     assert(az->malloc == NULL);
 
-    // get_allocator after re-initialization: returns new
+    // New list with default allocator
     struct arraylist_dyn_non_pods_d_ptr list3 = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
     struct Allocator *oa3 = dyn_non_pods_d_ptr_get_allocator(&list3);
     assert(oa3 != NULL);
     assert(oa3->malloc == gpa.malloc);
 
-    // Use get_allocator inside arraylist operations
-    for (size_t i = 0; i < 8; ++i)
-        *dyn_non_pods_d_ptr_emplace_back_slot(&list3) = non_pod_init_ptr("z", 42, 123.0f + i, dyn_non_pods_d_ptr_get_allocator(&list3));
+    // Add elements
+    for (size_t i = 0; i < 8; ++i) {
+        // Store the allocator to use consistently
+        struct Allocator *current_alloc = dyn_non_pods_d_ptr_get_allocator(&list3);
+        struct non_pod *np = non_pod_init_ptr("z", 42, 123.0f + i, current_alloc);
+        *dyn_non_pods_d_ptr_emplace_back_slot(&list3) = np;
+    }
     assert(list3.size == 8);
 
     // The pointer is always to the arraylist's .alloc field
     assert(oa3 == &list3.alloc);
 
-    // After clear, get_allocator returns same pointer (address is stable)
+    // After clear, get_allocator returns same pointer
     dyn_non_pods_d_ptr_clear(&list3);
     assert(dyn_non_pods_d_ptr_get_allocator(&list3) == oa3);
 
@@ -10082,18 +10141,28 @@ void test_arraylist_dyn_get_allocator_ptr(void) {
     dyn_non_pods_d_ptr_shrink_to_fit(&list3);
     assert(dyn_non_pods_d_ptr_get_allocator(&list3) == oa3);
 
-    // After failed growth, allocator unchanged
-    list3.alloc = fail_a;
-    enum arraylist_error err = dyn_non_pods_d_ptr_push_back(&list3, non_pod_init_ptr("fail", 0, 0, &gpa));
+    // Test failed allocation PROPERLY
+    struct Allocator saved_alloc = list3.alloc;  // Save current
+    list3.alloc = fail_a;  // Switch to failing allocator
+    
+    // Create temporary object that we'll clean up manually
+    struct non_pod *temp = non_pod_init_ptr("fail", 0, 0, &gpa);
+    enum arraylist_error err = dyn_non_pods_d_ptr_push_back(&list3, temp);
     assert(err != ARRAYLIST_OK);
-    assert(dyn_non_pods_d_ptr_get_allocator(&list3)->malloc == fail_malloc);
+    
+    // MANUALLY clean up the temporary since push_back failed
+    non_pod_deinit_ptr(&temp, &gpa);
+    
+    // Restore original allocator
+    list3.alloc = saved_alloc;
+    assert(dyn_non_pods_d_ptr_get_allocator(&list3)->malloc == gpa.malloc);
 
-    // resetting global dtor counter, as the counter has gone up, but not really allocated
-    global_destructor_counter_arraylist = 0;
-
-    // After pop_back/remove, allocator unchanged
+    // After pop_back, allocator unchanged
+    // Add one element first so we can pop it
+    struct non_pod *np = non_pod_init_ptr("popme", 1, 1.0f, dyn_non_pods_d_ptr_get_allocator(&list3));
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list3) = np;
     dyn_non_pods_d_ptr_pop_back(&list3);
-    assert(dyn_non_pods_d_ptr_get_allocator(&list3) == oa3 || dyn_non_pods_d_ptr_get_allocator(&list3) == &list3.alloc);
+    assert(dyn_non_pods_d_ptr_get_allocator(&list3) == &list3.alloc);
 
     // Cleanups
     dyn_non_pods_d_ptr_deinit(&list2);
