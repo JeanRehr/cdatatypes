@@ -888,14 +888,16 @@ static inline enum arraylist_error ARRAYLIST_FN(name, clear)(struct arraylist_##
 } \
 \
 static inline void ARRAYLIST_FN(name, deinit)(struct arraylist_##name *self) { \
-    if (!self || !self->data) { \
+    if (!self) { \
         return; \
     } \
-    for (size_t i = 0; i < self->size; ++i) { \
-        fn_dtor(&self->data[i], &self->alloc); \
+    if (self->data) { \
+        for (size_t i = 0; i < self->size; ++i) { \
+            fn_dtor(&self->data[i], &self->alloc); \
+        } \
+        self->alloc.free(self->data, self->capacity * sizeof(T), self->alloc.ctx); \
+        self->data = NULL; \
     } \
-    self->alloc.free(self->data, self->capacity * sizeof(T), self->alloc.ctx); \
-    self->data = NULL; \
     memset(&self->alloc, 0, sizeof(self->alloc)); \
     self->size = 0; \
     self->capacity = 0; \
@@ -1638,16 +1640,18 @@ static inline enum arraylist_error ARRAYLIST_DYN_FN(name, clear)(struct arraylis
 } \
 \
 static inline void ARRAYLIST_DYN_FN(name, deinit)(struct arraylist_dyn_##name *self) { \
-    if (!self || !self->data) { \
+    if (!self) { \
         return; \
     } \
-    if (self->destructor) { \
-        for (size_t i = 0; i < self->size; ++i) { \
-            self->destructor(&self->data[i], &self->alloc); \
+    if (self->data) { \
+        if (self->destructor) { \
+            for (size_t i = 0; i < self->size; ++i) { \
+                self->destructor(&self->data[i], &self->alloc); \
+            } \
         } \
+        self->alloc.free(self->data, self->capacity * sizeof(T), self->alloc.ctx); \
+        self->data = NULL; \
     } \
-    self->alloc.free(self->data, self->capacity * sizeof(T), self->alloc.ctx); \
-    self->data = NULL; \
     memset(&self->alloc, 0, sizeof(self->alloc)); \
     self->destructor = NULL; \
     self->size = 0; \
