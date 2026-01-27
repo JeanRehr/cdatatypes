@@ -11197,6 +11197,226 @@ void test_arraylist_dyn_deinit_ptr(void) {
 
 /* === END ARRAYLIST_DYN UNIT TESTS NON POD POINTER === */
 
+/* === START TEST SHALLOW COPY/DEEP CLONE ON POD TYPE === */
+
+#define noop_dtor(ptr, alloc) (void)0
+
+// Just to ensure that calling deep_clone with a function that shallow copies behaves just like shallow copy
+static void int_deep_clone(int *dst, int *src, struct Allocator *alloc) {
+    (void)alloc;
+    if (!src) {
+        dst = NULL;
+        return;
+    }
+    *dst = *src;
+}
+
+/* === START ARRAYLIST SHALLOW COPY ON SCALAR TYPE=== */
+
+ARRAYLIST(int, intlist, noop_dtor)
+
+void test_arraylist_shallow_copy_scalar_type(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_intlist list = intlist_init(gpa);
+
+    // Adding some values
+    *intlist_emplace_back_slot(&list) = 10;
+    *intlist_emplace_back_slot(&list) = 20;
+    *intlist_emplace_back_slot(&list) = 30;
+    assert(list.size == 3);
+
+    // Shallow copying a scalar type, they are essentially their own independent copies
+    struct arraylist_intlist copied = intlist_shallow_copy(&list);
+    assert(copied.data != NULL);
+    assert(copied.size == list.size);
+    assert(copied.size == 3);
+    assert(copied.capacity == list.capacity);
+    assert(copied.capacity == 4);
+
+    assert(list.data[0] == copied.data[0]);
+    assert(list.data[0] == 10);
+    assert(copied.data[0] == 10);
+
+    assert(list.alloc.malloc == gpa.malloc);
+    assert(copied.alloc.malloc == gpa.malloc);
+
+    // Independent copies, changing a value on list doesn't copied
+    list.data[0] = 300;
+    assert(list.data[0] == 300);
+    assert(copied.data[0] == 10);
+
+    copied.data[0] = 50;
+    assert(copied.data[0] == 50);
+    assert(list.data[0] == 300);
+
+    // Passing NULL will result in an empty struct, or assert failure
+    struct arraylist_intlist empty1 = intlist_shallow_copy(NULL);
+    assert(empty1.data == NULL);
+
+    intlist_deinit(&list);
+    intlist_deinit(&copied);
+    intlist_deinit(&empty1);
+    global_destructor_counter_arraylist = 0;
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist shallow_copy scalar-type passed\n");
+}
+
+/* === END ARRAYLIST SHALLOW COPY ON SCALAR TYPE === */
+
+/* === START ARRAYLIST DEEP CLONE ON SCALAR TYPE === */
+
+void test_arraylist_deep_clone_scalar_type(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_intlist list = intlist_init(gpa);
+
+    // Adding some values
+    *intlist_emplace_back_slot(&list) = 10;
+    *intlist_emplace_back_slot(&list) = 20;
+    *intlist_emplace_back_slot(&list) = 30;
+    assert(list.size == 3);
+
+    // Shallow copying a scalar type, they are essentially their own independent copies
+    struct arraylist_intlist copied = intlist_deep_clone(&list, int_deep_clone);
+    assert(copied.data != NULL);
+    assert(copied.size == list.size);
+    assert(copied.size == 3);
+    assert(copied.capacity == list.capacity);
+    assert(copied.capacity == 4);
+
+    assert(list.data[0] == copied.data[0]);
+    assert(list.data[0] == 10);
+    assert(copied.data[0] == 10);
+
+    assert(list.alloc.malloc == gpa.malloc);
+    assert(copied.alloc.malloc == gpa.malloc);
+
+    // Independent copies, changing a value on list doesn't copied
+    list.data[0] = 300;
+    assert(list.data[0] == 300);
+    assert(copied.data[0] == 10);
+
+    copied.data[0] = 50;
+    assert(copied.data[0] == 50);
+    assert(list.data[0] == 300);
+
+    // Passing NULL will result in an empty struct, or assert failure
+    struct arraylist_intlist empty1 = intlist_shallow_copy(NULL);
+    assert(empty1.data == NULL);
+
+    intlist_deinit(&list);
+    intlist_deinit(&copied);
+    intlist_deinit(&empty1);
+    global_destructor_counter_arraylist = 0;
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist deep_clone scalar-type passed\n");
+}
+
+/* === END ARRAYLIST DEEP CLONE ON SCALAR TYPE === */
+
+/* === START ARRAYLIST DYN SHALLOW COPY === */
+
+ARRAYLIST_DYN(int, intlist)
+
+void test_arraylist_dyn_shallow_copy_scalar_type(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_intlist list = dyn_intlist_init(gpa, NULL);
+
+    // Adding some values
+    *dyn_intlist_emplace_back_slot(&list) = 10;
+    *dyn_intlist_emplace_back_slot(&list) = 20;
+    *dyn_intlist_emplace_back_slot(&list) = 30;
+    assert(list.size == 3);
+
+    // Shallow copying a scalar type, they are essentially their own independent copies
+    struct arraylist_dyn_intlist copied = dyn_intlist_shallow_copy(&list);
+    assert(copied.data != NULL);
+    assert(copied.size == list.size);
+    assert(copied.size == 3);
+    assert(copied.capacity == list.capacity);
+    assert(copied.capacity == 4);
+
+    assert(list.data[0] == copied.data[0]);
+    assert(list.data[0] == 10);
+    assert(copied.data[0] == 10);
+
+    assert(list.alloc.malloc == gpa.malloc);
+    assert(copied.alloc.malloc == gpa.malloc);
+
+    // Independent copies, changing a value on list doesn't copied
+    list.data[0] = 300;
+    assert(list.data[0] == 300);
+    assert(copied.data[0] == 10);
+
+    copied.data[0] = 50;
+    assert(copied.data[0] == 50);
+    assert(list.data[0] == 300);
+
+    // Passing NULL will result in an empty struct, or assert failure
+    struct arraylist_dyn_intlist empty1 = dyn_intlist_shallow_copy(NULL);
+    assert(empty1.data == NULL);
+
+    dyn_intlist_deinit(&list);
+    dyn_intlist_deinit(&copied);
+    dyn_intlist_deinit(&empty1);
+    global_destructor_counter_arraylist = 0;
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn shallow_copy scalar-type passed\n");
+}
+
+/* === END ARRAYLIST DYN SHALLOW COPY === */
+
+/* === START ARRAYLIST DYN DEEP CLONE ON SCALAR TYPE === */
+
+void test_arraylist_dyn_deep_clone_scalar_type(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_intlist list = dyn_intlist_init(gpa, NULL);
+
+    // Adding some values
+    *dyn_intlist_emplace_back_slot(&list) = 10;
+    *dyn_intlist_emplace_back_slot(&list) = 20;
+    *dyn_intlist_emplace_back_slot(&list) = 30;
+    assert(list.size == 3);
+
+    // Shallow copying a scalar type, they are essentially their own independent copies
+    struct arraylist_dyn_intlist copied = dyn_intlist_deep_clone(&list, int_deep_clone);
+    assert(copied.data != NULL);
+    assert(copied.size == list.size);
+    assert(copied.size == 3);
+    assert(copied.capacity == list.capacity);
+    assert(copied.capacity == 4);
+
+    assert(list.data[0] == copied.data[0]);
+    assert(list.data[0] == 10);
+    assert(copied.data[0] == 10);
+
+    assert(list.alloc.malloc == gpa.malloc);
+    assert(copied.alloc.malloc == gpa.malloc);
+
+    // Independent copies, changing a value on list doesn't copied
+    list.data[0] = 300;
+    assert(list.data[0] == 300);
+    assert(copied.data[0] == 10);
+
+    copied.data[0] = 50;
+    assert(copied.data[0] == 50);
+    assert(list.data[0] == 300);
+
+    // Passing NULL will result in an empty struct, or assert failure
+    struct arraylist_dyn_intlist empty1 = dyn_intlist_shallow_copy(NULL);
+    assert(empty1.data == NULL);
+
+    dyn_intlist_deinit(&list);
+    dyn_intlist_deinit(&copied);
+    dyn_intlist_deinit(&empty1);
+    global_destructor_counter_arraylist = 0;
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn deep_clone scalar-type passed\n");
+}
+
+/* === END ARRAYLIST DYN DEEP CLONE ON SCALAR TYPE === */
+
+/* === END ARRAYLIST SHALLOW COPY ON POD TYPE === */
+
 int main(void) {
     test_arraylist_init_value();
     test_arraylist_reserve_value();
@@ -11305,6 +11525,11 @@ int main(void) {
     test_arraylist_dyn_shallow_copy_ptr();
     test_arraylist_dyn_clear_ptr();
     test_arraylist_dyn_deinit_ptr();
+
+    test_arraylist_shallow_copy_scalar_type();
+    test_arraylist_deep_clone_scalar_type();
+    test_arraylist_dyn_shallow_copy_scalar_type();
+    test_arraylist_dyn_deep_clone_scalar_type();
 
     return 0;
 }
