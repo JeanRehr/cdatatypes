@@ -1248,6 +1248,9 @@ void test_arraylist_at_value(void) {
     // Use returned pointer as modifiable, changes reflected in array
     struct non_pod *pa = nonpods_at(&list, 0);
     assert(pa);
+    // Reallocating the name to a new size as to not occur a Heap Buffer Overflow error
+    // Needs to use the same allocator as on list, pa here is a pointer that's located inside the list 
+    pa->objname = list.alloc.realloc(pa->objname, sizeof(strlen(pa->objname) + 1), strlen("newName") + 1, list.alloc.ctx);
     strcpy(pa->objname, "newName");
     assert(strcmp(list.data[0].objname, "newName") == 0);
 
@@ -1679,6 +1682,9 @@ void test_arraylist_find_value(void) {
     assert(nonpods_find(NULL, non_pod_find_val, "A") == NULL);
 
     // Mutate underlying object, search reflects new state
+    // Reallocating the name to a new size as to not occur a Heap Buffer Overflow error
+    // Needs to use the same allocator as on list
+    list.data[0].objname = list.alloc.realloc(list.data[0].objname, sizeof(strlen(list.data[0].objname) + 1), strlen("Zmaybe") + 1, list.alloc.ctx);
     strcpy(list.data[0].objname, "Zmaybe");
     struct non_pod *nz = nonpods_find(&list, non_pod_find_val, "Zmaybe");
     assert(nz == &list.data[0]);
@@ -1775,6 +1781,9 @@ void test_arraylist_contains_value(void) {
     // The one at index [3] is not returned by contains
 
     // Mutate data; contains reflects update
+    // Reallocating the name to a new size as to not occur a Heap Buffer Overflow error
+    // Needs to use the same allocator as on list
+    list.data[0].objname = list.alloc.realloc(list.data[0].objname, sizeof(strlen(list.data[0].objname) + 1), strlen("XXX") + 1, list.alloc.ctx);
     strcpy(list.data[0].objname, "XXX");
     outidx = 800;
     bool foundXXX = nonpods_contains(&list, non_pod_find_val, "XXX", &outidx);
@@ -3856,6 +3865,9 @@ void test_arraylist_at_ptr(void) {
     // Use returned pointer as modifiable, changes reflected in array
     struct non_pod **pa = nonpods_ptr_at(&list, 0);
     assert(pa);
+    // Reallocating the name to a new size as to not occur a Heap Buffer Overflow error
+    // Needs to use the same allocator as on list
+    (*pa)->objname = list.alloc.realloc((*pa)->objname, sizeof(strlen((*pa)->objname) + 1), strlen("newName") + 1, list.alloc.ctx);
     strcpy((*pa)->objname, "newName");
     assert(strcmp(list.data[0]->objname, "newName") == 0);
 
@@ -4291,6 +4303,9 @@ void test_arraylist_find_ptr(void) {
     assert(nonpods_ptr_find(NULL, non_pod_find_ptr, "A") == NULL);
 
     // Mutate underlying object, search reflects new state
+    // Reallocating the name to a new size as to not occur a Heap Buffer Overflow error
+    // Needs to use the same allocator as on list
+    list.data[0]->objname = list.alloc.realloc(list.data[0]->objname, sizeof(strlen(list.data[0]->objname) + 1), strlen("Zmaybe") + 1, list.alloc.ctx);
     strcpy(list.data[0]->objname, "Zmaybe");
     struct non_pod **nz = nonpods_ptr_find(&list, non_pod_find_ptr, "Zmaybe");
     assert(nz == &list.data[0]);
@@ -4387,6 +4402,9 @@ void test_arraylist_contains_ptr(void) {
     // The one at index [3] is not returned by contains
 
     // Mutate data; contains reflects update
+    // Reallocating the name to a new size as to not occur a Heap Buffer Overflow error
+    // Needs to use the same allocator as on list
+    list.data[0]->objname = list.alloc.realloc(list.data[0]->objname, sizeof(strlen(list.data[0]->objname) + 1), strlen("XXX") + 1, list.alloc.ctx);
     strcpy(list.data[0]->objname, "XXX");
     outidx = 800;
     bool foundXXX = nonpods_ptr_contains(&list, non_pod_find_ptr, "XXX", &outidx);
@@ -6470,6 +6488,9 @@ void test_arraylist_dyn_at_value(void) {
     // Use returned pointer as modifiable, changes reflected in array
     struct non_pod *pa = dyn_non_pods_d_at(&list, 0);
     assert(pa);
+    // Reallocating the name to a new size as to not occur a Heap Buffer Overflow error
+    // Needs to use the same allocator as on list
+    pa->objname = list.alloc.realloc(pa->objname, sizeof(strlen(pa->objname) + 1), strlen("newName") + 1, list.alloc.ctx);
     strcpy(pa->objname, "newName");
     assert(strcmp(list.data[0].objname, "newName") == 0);
 
@@ -6901,6 +6922,9 @@ void test_arraylist_dyn_find_value(void) {
     assert(dyn_non_pods_d_find(NULL, non_pod_find_val, "A") == NULL);
 
     // Mutate underlying object, search reflects new state
+    // Reallocating the name to a new size as to not occur a Heap Buffer Overflow error
+    // Needs to use the same allocator as on list
+    list.data[0].objname = list.alloc.realloc(list.data[0].objname, sizeof(strlen(list.data[0].objname) + 1), strlen("Zmaybe") + 1, list.alloc.ctx);
     strcpy(list.data[0].objname, "Zmaybe");
     struct non_pod *nz = dyn_non_pods_d_find(&list, non_pod_find_val, "Zmaybe");
     assert(nz == &list.data[0]);
@@ -6997,6 +7021,9 @@ void test_arraylist_dyn_contains_value(void) {
     // The one at index [3] is not returned by contains
 
     // Mutate data; contains reflects update
+    // Reallocating the name to a new size as to not occur a Heap Buffer Overflow error
+    // Needs to use the same allocator as on list
+    list.data[0].objname = list.alloc.realloc(list.data[0].objname, sizeof(strlen(list.data[0].objname) + 1), strlen("XXX") + 1, list.alloc.ctx);
     strcpy(list.data[0].objname, "XXX");
     outidx = 800;
     bool foundXXX = dyn_non_pods_d_contains(&list, non_pod_find_val, "XXX", &outidx);
@@ -9079,6 +9106,9 @@ void test_arraylist_dyn_at_ptr(void) {
     // Use returned pointer as modifiable, changes reflected in array
     struct non_pod **pa = dyn_non_pods_d_ptr_at(&list, 0);
     assert(pa);
+    // Reallocating the name to a new size as to not occur a Heap Buffer Overflow error
+    // Needs to use the same allocator as on list
+    (*pa)->objname = list.alloc.realloc((*pa)->objname, sizeof(strlen((*pa)->objname) + 1), strlen("newName") + 1, list.alloc.ctx);
     strcpy((*pa)->objname, "newName");
     assert(strcmp(list.data[0]->objname, "newName") == 0);
 
@@ -9514,6 +9544,9 @@ void test_arraylist_dyn_find_ptr(void) {
     assert(dyn_non_pods_d_ptr_find(NULL, non_pod_find_ptr, "A") == NULL);
 
     // Mutate underlying object, search reflects new state
+    // Reallocating the name to a new size as to not occur a Heap Buffer Overflow error
+    // Needs to use the same allocator as on list
+    list.data[0]->objname = list.alloc.realloc(list.data[0]->objname, sizeof(strlen(list.data[0]->objname) + 1), strlen("Zmaybe") + 1, list.alloc.ctx);
     strcpy(list.data[0]->objname, "Zmaybe");
     struct non_pod **nz = dyn_non_pods_d_ptr_find(&list, non_pod_find_ptr, "Zmaybe");
     assert(nz == &list.data[0]);
@@ -9610,6 +9643,9 @@ void test_arraylist_dyn_contains_ptr(void) {
     // The one at index [3] is not returned by contains
 
     // Mutate data; contains reflects update
+    // Reallocating the name to a new size as to not occur a Heap Buffer Overflow error
+    // Needs to use the same allocator as on list
+    list.data[0]->objname = list.alloc.realloc(list.data[0]->objname, sizeof(strlen(list.data[0]->objname) + 1), strlen("XXX") + 1, list.alloc.ctx);
     strcpy(list.data[0]->objname, "XXX");
     outidx = 800;
     bool foundXXX = dyn_non_pods_d_ptr_contains(&list, non_pod_find_ptr, "XXX", &outidx);
