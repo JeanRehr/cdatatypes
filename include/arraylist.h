@@ -250,30 +250,32 @@ struct arraylist_##name { \
  *
  * @details
  * The following functions are declared:
- * - ARRAYLIST_UNUSED static inline struct arraylist_##name ARRAYLIST_FN(name, init)(const struct Allocator alloc);
- * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, reserve)(struct arraylist_##name *self, const size_t capacity);
- * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, shrink_size)(struct arraylist_##name *self, const size_t size);
- * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, shrink_to_fit)(struct arraylist_##name *self);
- * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, push_back)(struct arraylist_##name *self, T value);
- * - ARRAYLIST_UNUSED static inline T* ARRAYLIST_FN(name, emplace_back_slot)(struct arraylist_##name *self);
- * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, insert_at)(struct arraylist_##name *self, T value, const size_t index);
- * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, pop_back)(struct arraylist_##name *self);
- * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, remove_at)(struct arraylist_##name *self, const size_t index);
- * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, remove_from_to)(struct arraylist_##name *self, size_t from, size_t to);
- * - ARRAYLIST_UNUSED static inline T* ARRAYLIST_FN(name, at(const struct arraylist_##name *self, const size_t index);
- * - ARRAYLIST_UNUSED static inline T* ARRAYLIST_FN(name, begin)(const struct arraylist_##name *self);
- * - ARRAYLIST_UNUSED static inline T* ARRAYLIST_FN(name, back)(const struct arraylist_##name *self);
- * - ARRAYLIST_UNUSED static inline T* ARRAYLIST_FN(name, end)(const struct arraylist_##name *self);
- * - ARRAYLIST_UNUSED static inline T* ARRAYLIST_FN(name, find)(const struct arraylist_##name *self, bool (*predicate)(T *type, void *value), void *ctx);
- * - ARRAYLIST_UNUSED static inline bool ARRAYLIST_FN(name, contains)(const struct arraylist_##name *self, bool (*predicate)(T *type, void *value), void *ctx, size_t *out_index);
- * - ARRAYLIST_UNUSED static inline size_t ARRAYLIST_FN(name, size)(const struct arraylist_##name *self);
- * - ARRAYLIST_UNUSED static inline bool ARRAYLIST_FN(name, is_empty)(const struct arraylist_##name *self);
- * - ARRAYLIST_UNUSED static inline size_t ARRAYLIST_FN(name, capacity)(const struct arraylist_##name *self);
- * - ARRAYLIST_UNUSED static inline struct Allocator* ARRAYLIST_FN(name, get_allocator)(struct arraylist_##name *self);
- * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, swap)(struct arraylist_##name *self, struct arraylist_##name *other);
- * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, qsort)(struct arraylist_##name *self, bool (*comp)(T *n1, T *n2));
- * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, clear)(struct arraylist_##name *self);
- * - ARRAYLIST_UNUSED static inline void ARRAYLIST_FN(name, deinit)(struct arraylist_##name *self);
+ * - struct arraylist_##name ARRAYLIST_FN(name, init)(const struct Allocator alloc);
+ * - enum arraylist_error ARRAYLIST_FN(name, reserve)(struct arraylist_##name *self, const size_t capacity);
+ * - enum arraylist_error ARRAYLIST_FN(name, shrink_size)(struct arraylist_##name *self, const size_t size);
+ * - enum arraylist_error ARRAYLIST_FN(name, shrink_to_fit)(struct arraylist_##name *self);
+ * - enum arraylist_error ARRAYLIST_FN(name, push_back)(struct arraylist_##name *self, T value);
+ * - T* ARRAYLIST_FN(name, emplace_back_slot)(struct arraylist_##name *self);
+ * - enum arraylist_error ARRAYLIST_FN(name, insert_at)(struct arraylist_##name *self, T value, const size_t index);
+ * - enum arraylist_error ARRAYLIST_FN(name, pop_back)(struct arraylist_##name *self);
+ * - enum arraylist_error ARRAYLIST_FN(name, remove_at)(struct arraylist_##name *self, const size_t index);
+ * - enum arraylist_error ARRAYLIST_FN(name, remove_from_to)(struct arraylist_##name *self, size_t from, size_t to);
+ * - T* ARRAYLIST_FN(name, at(const struct arraylist_##name *self, const size_t index);
+ * - T* ARRAYLIST_FN(name, begin)(const struct arraylist_##name *self);
+ * - T* ARRAYLIST_FN(name, back)(const struct arraylist_##name *self);
+ * - T* ARRAYLIST_FN(name, end)(const struct arraylist_##name *self);
+ * - T* ARRAYLIST_FN(name, find)(const struct arraylist_##name *self, bool (*predicate)(T *elem, void *target), void *ctx);
+ * - bool ARRAYLIST_FN(name, contains)(const struct arraylist_##name *self, bool (*predicate)(T *elem, void *target), void *ctx, size_t *out_index);
+ * - size_t ARRAYLIST_FN(name, size)(const struct arraylist_##name *self);
+ * - bool ARRAYLIST_FN(name, is_empty)(const struct arraylist_##name *self);
+ * - size_t ARRAYLIST_FN(name, capacity)(const struct arraylist_##name *self);
+ * - struct Allocator* ARRAYLIST_FN(name, get_allocator)(struct arraylist_##name *self);
+ * - enum arraylist_error ARRAYLIST_FN(name, swap)(struct arraylist_##name *self, struct arraylist_##name *other);
+ * - enum arraylist_error ARRAYLIST_FN(name, qsort)(struct arraylist_##name *self, bool (*comp)(T *n1, T *n2));
+ * - struct arraylist_##name ARRAYLIST_FN(name, deep_clone)(const struct arraylist_##name *self, void (*deep_clone_fn)(T *dst, T *src, struct Allocator *alloc));
+ * - struct arraylist_##name ARRAYLIST_FN(name, shallow_copy)(const struct arraylist_##name *self); \
+ * - enum arraylist_error ARRAYLIST_FN(name, clear)(struct arraylist_##name *self);
+ * - void ARRAYLIST_FN(name, deinit)(struct arraylist_##name *self);
  */
 #define ARRAYLIST_DECL(T, name) \
 /**
@@ -449,8 +451,9 @@ ARRAYLIST_UNUSED static inline T* ARRAYLIST_FN(name, end)(const struct arraylist
 /**
  * @brief find: Tries to finds the given value and returns it \
  * @param self Pointer to the arraylist \
- * @param predicate Function pointer responsible for comparing a T* value with a void* value, \
- *                  returns a boolean \
+ * @param predicate Function pointer responsible for comparing a T *element with a void *target \
+ *                  Must have the prototype: \
+ *                  bool predicate(T *elem, void *target); \
  * @param ctx A context to be used in the function pointer, usually used for comparing with a \
  *            field of type T or a member of it \
  * @return A pointer to the value if found, a pointer to the end if not found, or null if !self \
@@ -461,12 +464,15 @@ ARRAYLIST_UNUSED static inline T* ARRAYLIST_FN(name, end)(const struct arraylist
  * @warning Return should be checked for null before usage, dereferencing it leads to \
             UB if value is not found \
  */ \
-ARRAYLIST_UNUSED static inline T* ARRAYLIST_FN(name, find)(const struct arraylist_##name *self, bool (*predicate)(T *type, void *value), void *ctx); \
+ARRAYLIST_UNUSED static inline T* ARRAYLIST_FN(name, find)(const struct arraylist_##name *self, bool (*predicate)(T *elem, void *target), void *ctx); \
 /**
- * @brief contains: Tries to finds the given value and returns it \
+ * @brief contains: Tries to finds the given value \
  * @param self Pointer to the arraylist \
- * @param predicate Function pointer responsible for comparing a T value \
- * @param ctx A context to be used in the function pointer \
+ * @param predicate Function pointer responsible for comparing a T *element with a void *target \
+ *                  Must have the prototype: \
+ *                  bool predicate(T *elem, void *target); \
+ * @param ctx A context to be used in the function pointer, usually used for comparing with a \
+ *            field of type T or a member of it \
  * @param out_index The index if wanted \
  * @return True if found and out_index if provided will return the index where it was found, \
            false if not found and out_index is untouched, or self == NULL \
@@ -474,7 +480,7 @@ ARRAYLIST_UNUSED static inline T* ARRAYLIST_FN(name, find)(const struct arraylis
  * @note Performs a simple linear search, if performance matters, roll your own \
  *       sort and/or find functions \
  */ \
-ARRAYLIST_UNUSED static inline bool ARRAYLIST_FN(name, contains)(const struct arraylist_##name *self, bool (*predicate)(T *type, void *value), void *ctx, size_t *out_index); \
+ARRAYLIST_UNUSED static inline bool ARRAYLIST_FN(name, contains)(const struct arraylist_##name *self, bool (*predicate)(T *elem, void *target), void *ctx, size_t *out_index); \
 /**
  * @brief size: Gets the size of an arraylist \
  * @param self Pointer to the arraylist \
@@ -521,8 +527,8 @@ ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, qsort)(st
  * @brief deep_clone: Deeply clones an arraylist \
  * @param self Pointer to the arraylist to copy \
  * @param deep_clone_fn Function that knows how to clone a single element \
-                        Must have the prototype: \
-                        void deep_clone_fn(T *dst, const T *src, struct Allocator *alloc); \
+ *                      Must have the prototype: \
+ *                      void deep_clone_fn(T *dst, const T *src, struct Allocator *alloc); \
  * @return A new arraylist struct that is independent of the self \
  * \
  * @note The correctness of this function depends on the provided deep_clone_fn parameter \
@@ -846,7 +852,7 @@ static inline T* ARRAYLIST_FN(name, end)(const struct arraylist_##name *self) { 
     return self->data + self->size; \
 } \
 \
-static inline T* ARRAYLIST_FN(name, find)(const struct arraylist_##name *self, bool (*predicate)(T *type, void *value), void *ctx) { \
+static inline T* ARRAYLIST_FN(name, find)(const struct arraylist_##name *self, bool (*predicate)(T *elem, void *target), void *ctx) { \
     ARRAYLIST_ENSURE_PTR(self != NULL) \
     ARRAYLIST_ENSURE_PTR(predicate != NULL) \
     for (size_t i = 0; i < self->size; ++i) { \
@@ -857,7 +863,7 @@ static inline T* ARRAYLIST_FN(name, find)(const struct arraylist_##name *self, b
     return self->data + self->size; \
 } \
 \
-static inline bool ARRAYLIST_FN(name, contains)(const struct arraylist_##name *self, bool (*predicate)(T *type, void *value), void *ctx, size_t *out_index) { \
+static inline bool ARRAYLIST_FN(name, contains)(const struct arraylist_##name *self, bool (*predicate)(T *elem, void *target), void *ctx, size_t *out_index) { \
     ARRAYLIST_ENSURE(self != NULL && predicate != NULL, false) \
     for (size_t i = 0; i < self->size; ++i) { \
         if (predicate(&self->data[i], ctx)) { \
@@ -1049,30 +1055,32 @@ struct arraylist_dyn_##name { \
  *
  * @details
  * The following functions are declared:
- * - ARRAYLIST_UNUSED static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, init)(const struct Allocator alloc, void (*destructor)(T *type));
- * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, reserve)(struct arraylist_dyn_##name *self, const size_t capacity);
- * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, shrink_size)(struct arraylist_dyn_##name *self, const size_t size);
- * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, shrink_to_fit)(struct arraylist_dyn_##name *self);
- * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, push_back)(struct arraylist_dyn_##name *self, T value);
- * - ARRAYLIST_UNUSED static inline T* ARRAYLIST_DYN_FN(name, emplace_back_slot)(struct arraylist_dyn_##name *self);
- * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, insert_at)(struct arraylist_dyn_##name *self, T value, const size_t index);
- * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, pop_back)(struct arraylist_dyn_##name *self);
- * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, remove_at)(struct arraylist_dyn_##name *self, const size_t index);
- * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, remove_from_to)(struct arraylist_dyn_##name *self, size_t from, size_t to);
- * - ARRAYLIST_UNUSED static inline T* ARRAYLIST_DYN_FN(name, at)(const struct arraylist_dyn_##name *self, const size_t index);
- * - ARRAYLIST_UNUSED static inline T* ARRAYLIST_DYN_FN(name, begin)(const struct arraylist_dyn_##name *self);
- * - ARRAYLIST_UNUSED static inline T* ARRAYLIST_DYN_FN(name, back)(const struct arraylist_dyn_##name *self);
- * - ARRAYLIST_UNUSED static inline T* ARRAYLIST_DYN_FN(name, end)(const struct arraylist_dyn_##name *self);
- * - ARRAYLIST_UNUSED static inline T* ARRAYLIST_DYN_FN(name, find)(const struct arraylist_dyn_##name *self, bool (*predicate)(T *type, void *value), void *ctx);
- * - ARRAYLIST_UNUSED static inline bool ARRAYLIST_DYN_FN(name, contains)(const struct arraylist_dyn_##name *self, bool (*predicate)(T *type, void *value), void *ctx, size_t *out_index);
- * - ARRAYLIST_UNUSED static inline size_t ARRAYLIST_DYN_FN(name, size)(const struct arraylist_dyn_##name *self);
- * - ARRAYLIST_UNUSED static inline bool ARRAYLIST_DYN_FN(name, is_empty)(const struct arraylist_dyn_##name *self);
- * - ARRAYLIST_UNUSED static inline size_t ARRAYLIST_DYN_FN(name, capacity)(const struct arraylist_dyn_##name *self);
- * - ARRAYLIST_UNUSED static inline struct Allocator* ARRAYLIST_DYN_FN(name, get_allocator)(struct arraylist_dyn_##name *self);
- * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, swap)(struct arraylist_dyn_##name *self, struct arraylist_dyn_##name *other);
- * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, qsort)(struct arraylist_dyn_##name *self, bool (*comp)(T *n1, T *n2));
- * - ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, clear)(struct arraylist_dyn_##name *self);
- * - ARRAYLIST_UNUSED static inline void ARRAYLIST_DYN_FN(name, deinit)(struct arraylist_dyn_##name *self);
+ * - struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, init)(const struct Allocator alloc, void (*destructor)(T *type));
+ * - enum arraylist_error ARRAYLIST_DYN_FN(name, reserve)(struct arraylist_dyn_##name *self, const size_t capacity);
+ * - enum arraylist_error ARRAYLIST_DYN_FN(name, shrink_size)(struct arraylist_dyn_##name *self, const size_t size);
+ * - enum arraylist_error ARRAYLIST_DYN_FN(name, shrink_to_fit)(struct arraylist_dyn_##name *self);
+ * - enum arraylist_error ARRAYLIST_DYN_FN(name, push_back)(struct arraylist_dyn_##name *self, T value);
+ * - T* ARRAYLIST_DYN_FN(name, emplace_back_slot)(struct arraylist_dyn_##name *self);
+ * - enum arraylist_error ARRAYLIST_DYN_FN(name, insert_at)(struct arraylist_dyn_##name *self, T value, const size_t index);
+ * - enum arraylist_error ARRAYLIST_DYN_FN(name, pop_back)(struct arraylist_dyn_##name *self);
+ * - enum arraylist_error ARRAYLIST_DYN_FN(name, remove_at)(struct arraylist_dyn_##name *self, const size_t index);
+ * - enum arraylist_error ARRAYLIST_DYN_FN(name, remove_from_to)(struct arraylist_dyn_##name *self, size_t from, size_t to);
+ * - T* ARRAYLIST_DYN_FN(name, at)(const struct arraylist_dyn_##name *self, const size_t index);
+ * - T* ARRAYLIST_DYN_FN(name, begin)(const struct arraylist_dyn_##name *self);
+ * - T* ARRAYLIST_DYN_FN(name, back)(const struct arraylist_dyn_##name *self);
+ * - T* ARRAYLIST_DYN_FN(name, end)(const struct arraylist_dyn_##name *self);
+ * - T* ARRAYLIST_DYN_FN(name, find)(const struct arraylist_dyn_##name *self, bool (*predicate)(T *elem, void *target), void *ctx);
+ * - bool ARRAYLIST_DYN_FN(name, contains)(const struct arraylist_dyn_##name *self, bool (*predicate)(T *elem, void *target), void *ctx, size_t *out_index);
+ * - size_t ARRAYLIST_DYN_FN(name, size)(const struct arraylist_dyn_##name *self);
+ * - bool ARRAYLIST_DYN_FN(name, is_empty)(const struct arraylist_dyn_##name *self);
+ * - size_t ARRAYLIST_DYN_FN(name, capacity)(const struct arraylist_dyn_##name *self);
+ * - struct Allocator* ARRAYLIST_DYN_FN(name, get_allocator)(struct arraylist_dyn_##name *self);
+ * - enum arraylist_error ARRAYLIST_DYN_FN(name, swap)(struct arraylist_dyn_##name *self, struct arraylist_dyn_##name *other);
+ * - enum arraylist_error ARRAYLIST_DYN_FN(name, qsort)(struct arraylist_dyn_##name *self, bool (*comp)(T *n1, T *n2));
+ * - struct arraylist_##name ARRAYLIST_FN(name, deep_clone)(const struct arraylist_##name *self, void (*deep_clone_fn)(T *dst, T *src, struct Allocator *alloc));
+ * - struct arraylist_##name ARRAYLIST_FN(name, shallow_copy)(const struct arraylist_##name *self); \
+ * - enum arraylist_error ARRAYLIST_DYN_FN(name, clear)(struct arraylist_dyn_##name *self);
+ * - void ARRAYLIST_DYN_FN(name, deinit)(struct arraylist_dyn_##name *self);
  */
 #define ARRAYLIST_DECL_DYN(T, name) \
 /**
@@ -1250,8 +1258,9 @@ ARRAYLIST_UNUSED static inline T* ARRAYLIST_DYN_FN(name, end)(const struct array
 /**
  * @brief find: Tries to finds the given value and returns it \
  * @param self Pointer to the arraylist \
- * @param predicate Function pointer responsible for comparing a T* value with a void* value, \
- *                  returns a boolean \
+ * @param predicate Function pointer responsible for comparing a T *element with a void *target \
+ *                  Must have the prototype: \
+ *                  bool predicate(T *elem, void *target); \
  * @param ctx A context to be used in the function pointer, usually used for comparing with a \
  *            field of type T or a member of it \
  * @return A pointer to the value if found, a pointer to the end if not found, or null if !self \
@@ -1262,12 +1271,15 @@ ARRAYLIST_UNUSED static inline T* ARRAYLIST_DYN_FN(name, end)(const struct array
  * @warning Return should be checked for null before usage, dereferencing it leads to \
             UB if value is not found \
  */ \
-ARRAYLIST_UNUSED static inline T* ARRAYLIST_DYN_FN(name, find)(const struct arraylist_dyn_##name *self, bool (*predicate)(T *type, void *value), void *ctx); \
+ARRAYLIST_UNUSED static inline T* ARRAYLIST_DYN_FN(name, find)(const struct arraylist_dyn_##name *self, bool (*predicate)(T *elem, void *target), void *ctx); \
 /**
- * @brief contains: Tries to finds the given value and returns it \
+ * @brief contains: Tries to finds the given value \
  * @param self Pointer to the arraylist \
- * @param predicate Function pointer responsible for comparing a T value \
- * @param ctx A context to be used in the function pointer \
+ * @param predicate Function pointer responsible for comparing a T *element with a void *target \
+ *                  Must have the prototype: \
+ *                  bool predicate(T *elem, void *target); \
+ * @param ctx A context to be used in the function pointer, usually used for comparing with a \
+ *            field of type T or a member of it \
  * @param out_index The index if wanted \
  * @return True if found and out_index if provided will return the index where it was found, \
            false if not found and out_index is untouched, or self == NULL \
@@ -1275,7 +1287,7 @@ ARRAYLIST_UNUSED static inline T* ARRAYLIST_DYN_FN(name, find)(const struct arra
  * @note Performs a simple linear search, if performance matters, roll your own \
  *       sort and/or find functions \
  */ \
-ARRAYLIST_UNUSED static inline bool ARRAYLIST_DYN_FN(name, contains)(const struct arraylist_dyn_##name *self, bool (*predicate)(T *type, void *value), void *ctx, size_t *out_index); \
+ARRAYLIST_UNUSED static inline bool ARRAYLIST_DYN_FN(name, contains)(const struct arraylist_dyn_##name *self, bool (*predicate)(T *elem, void *target), void *ctx, size_t *out_index); \
 /**
  * @brief size: Gets the size of an arraylist \
  * @param self Pointer to the arraylist \
@@ -1322,8 +1334,8 @@ ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, qsort
  * @brief deep_clone: Deeply clones an arraylist \
  * @param self Pointer to the arraylist to copy \
  * @param deep_clone_fn Function that knows how to clone a single element \
-                        Must have the prototype: \
-                        void deep_clone_fn(T *dst, const T *src, struct Allocator *alloc); \
+ *                      Must have the prototype: \
+ *                      void deep_clone_fn(T *dst, const T *src, struct Allocator *alloc); \
  * @return A new arraylist struct that is independent of the self \
  * \
  * @note The correctness of this function depends on the provided deep_clone_fn parameter \
@@ -1651,7 +1663,7 @@ static inline T* ARRAYLIST_DYN_FN(name, end)(const struct arraylist_dyn_##name *
     return self->data + self->size; \
 } \
 \
-static inline T* ARRAYLIST_DYN_FN(name, find)(const struct arraylist_dyn_##name *self, bool (*predicate)(T *type, void *value), void *ctx) { \
+static inline T* ARRAYLIST_DYN_FN(name, find)(const struct arraylist_dyn_##name *self, bool (*predicate)(T *elem, void *target), void *ctx) { \
     ARRAYLIST_ENSURE_PTR(self != NULL) \
     ARRAYLIST_ENSURE_PTR(predicate != NULL) \
     for (size_t i = 0; i < self->size; ++i) { \
@@ -1662,7 +1674,7 @@ static inline T* ARRAYLIST_DYN_FN(name, find)(const struct arraylist_dyn_##name 
     return self->data + self->size; \
 } \
 \
-static inline bool ARRAYLIST_DYN_FN(name, contains)(const struct arraylist_dyn_##name *self, bool (*predicate)(T *type, void *value), void *ctx, size_t *out_index) { \
+static inline bool ARRAYLIST_DYN_FN(name, contains)(const struct arraylist_dyn_##name *self, bool (*predicate)(T *elem, void *target), void *ctx, size_t *out_index) { \
     ARRAYLIST_ENSURE(self != NULL && predicate != NULL, false) \
     for (size_t i = 0; i < self->size; ++i) { \
         if (predicate(&self->data[i], ctx)) { \
