@@ -2809,6 +2809,50 @@ void test_arraylist_shallow_copy_value(void) {
     printf("test arraylist shallow_copy value-type passed\n");
 }
 
+void test_arraylist_steal_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods list = nonpods_init(gpa);
+
+    // Adding some values
+    *nonpods_emplace_back_slot(&list) = non_pod_init("a1", 1, 1.1, &gpa);
+    *nonpods_emplace_back_slot(&list) = non_pod_init("a2", 2, 2.2, &gpa);
+    *nonpods_emplace_back_slot(&list) = non_pod_init("a3", 3, 3.3, &gpa);
+    assert(list.data != NULL);
+    assert(list.size == 3);
+    assert(list.capacity == 4);
+
+    // Moving
+    struct arraylist_nonpods new_arraylist = nonpods_steal(&list);
+    assert(new_arraylist.data != NULL);
+    assert(new_arraylist.size == 3);
+    assert(new_arraylist.capacity == 4);
+
+    // List is not valid anymore, it has been moved to new_arraylist
+    assert(list.data == NULL);
+    assert(list.size == 0);
+    assert(list.capacity == 0);
+    assert(list.alloc.malloc == NULL);
+
+    // Trying to insert new values on a moved list will result in a segfault crash
+    // *nonpods_emplace_back_slot(&list) = non_pod_init("a3", 3, 3.3, &gpa);
+
+    assert(strcmp(new_arraylist.data[0].objname, "a1") == 0);
+    assert(*new_arraylist.data[0].a == 1);
+    assert(new_arraylist.alloc.malloc == gpa.malloc);
+
+    // Passing NULL will result in an empty struct, or assert failure
+    struct arraylist_nonpods empty1 = nonpods_steal(NULL);
+    assert(empty1.data == NULL);
+
+    // List does not need to be deinitialized
+    //nonpods_deinit(&list);
+    nonpods_deinit(&new_arraylist);
+    nonpods_deinit(&empty1);
+    global_destructor_counter_arraylist = 0;
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist steal value-type passed\n");
+}
+
 void test_arraylist_clear_value(void) {
     struct Allocator gpa = allocator_get_default();
     struct arraylist_nonpods list = nonpods_init(gpa);
@@ -5537,6 +5581,50 @@ void test_arraylist_shallow_copy_ptr(void) {
     printf("test arraylist shallow_copy pointer-type passed\n");
 }
 
+void test_arraylist_steal_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_nonpods_ptr list = nonpods_ptr_init(gpa);
+
+    // Adding some values
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("a1", 1, 1.1, &gpa);
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("a2", 2, 2.2, &gpa);
+    *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("a3", 3, 3.3, &gpa);
+    assert(list.data != NULL);
+    assert(list.size == 3);
+    assert(list.capacity == 4);
+
+    // Moving
+    struct arraylist_nonpods_ptr new_arraylist = nonpods_ptr_steal(&list);
+    assert(new_arraylist.data != NULL);
+    assert(new_arraylist.size == 3);
+    assert(new_arraylist.capacity == 4);
+
+    // List is not valid anymore, it has been moved to new_arraylist
+    assert(list.data == NULL);
+    assert(list.size == 0);
+    assert(list.capacity == 0);
+    assert(list.alloc.malloc == NULL);
+
+    // Trying to insert new values on a moved list will result in a segfault crash
+    // *nonpods_ptr_emplace_back_slot(&list) = non_pod_init_ptr("a3", 3, 3.3, &gpa);
+
+    assert(strcmp(new_arraylist.data[0]->objname, "a1") == 0);
+    assert(*new_arraylist.data[0]->a == 1);
+    assert(new_arraylist.alloc.malloc == gpa.malloc);
+
+    // Passing NULL will result in an empty struct, or assert failure
+    struct arraylist_nonpods_ptr empty1 = nonpods_ptr_steal(NULL);
+    assert(empty1.data == NULL);
+
+    // List does not need to be deinitialized
+    //nonpods_ptr_deinit(&list);
+    nonpods_ptr_deinit(&new_arraylist);
+    nonpods_ptr_deinit(&empty1);
+    global_destructor_counter_arraylist = 0;
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist steal pointer-type passed\n");
+}
+
 void test_arraylist_clear_ptr(void) {
     struct Allocator gpa = allocator_get_default();
     struct arraylist_nonpods_ptr list = nonpods_ptr_init(gpa);
@@ -8261,6 +8349,50 @@ void test_arraylist_dyn_shallow_copy_value(void) {
     global_destructor_counter_arraylist = 0;
     assert(global_destructor_counter_arraylist == 0);
     printf("test arraylist dyn shallow_copy value-type passed\n");
+}
+
+void test_arraylist_dyn_steal_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d list = dyn_non_pods_d_init(gpa, non_pod_deinit);
+
+    // Adding some values
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("a1", 1, 1.1, &gpa);
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("a2", 2, 2.2, &gpa);
+    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("a3", 3, 3.3, &gpa);
+    assert(list.data != NULL);
+    assert(list.size == 3);
+    assert(list.capacity == 4);
+
+    // Moving
+    struct arraylist_dyn_non_pods_d new_arraylist = dyn_non_pods_d_steal(&list);
+    assert(new_arraylist.data != NULL);
+    assert(new_arraylist.size == 3);
+    assert(new_arraylist.capacity == 4);
+
+    // List is not valid anymore, it has been moved to new_arraylist
+    assert(list.data == NULL);
+    assert(list.size == 0);
+    assert(list.capacity == 0);
+    assert(list.alloc.malloc == NULL);
+
+    // Trying to insert new values on a moved list will result in a segfault crash
+    // *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("a3", 3, 3.3, &gpa);
+
+    assert(strcmp(new_arraylist.data[0].objname, "a1") == 0);
+    assert(*new_arraylist.data[0].a == 1);
+    assert(new_arraylist.alloc.malloc == gpa.malloc);
+
+    // Passing NULL will result in an empty struct, or assert failure
+    struct arraylist_dyn_non_pods_d empty1 = dyn_non_pods_d_steal(NULL);
+    assert(empty1.data == NULL);
+
+    // List does not need to be deinitialized
+    //dyn_non_pods_d_deinit(&list);
+    dyn_non_pods_d_deinit(&new_arraylist);
+    dyn_non_pods_d_deinit(&empty1);
+    global_destructor_counter_arraylist = 0;
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn steal value-type passed\n");
 }
 
 void test_arraylist_dyn_clear_value(void) {
@@ -10992,6 +11124,50 @@ void test_arraylist_dyn_shallow_copy_ptr(void) {
     printf("test arraylist dyn shallow_copy pointer-type passed\n");
 }
 
+void test_arraylist_dyn_steal_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d_ptr list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+
+    // Adding some values
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("a1", 1, 1.1, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("a2", 2, 2.2, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("a3", 3, 3.3, &gpa);
+    assert(list.data != NULL);
+    assert(list.size == 3);
+    assert(list.capacity == 4);
+
+    // Moving
+    struct arraylist_dyn_non_pods_d_ptr new_arraylist = dyn_non_pods_d_ptr_steal(&list);
+    assert(new_arraylist.data != NULL);
+    assert(new_arraylist.size == 3);
+    assert(new_arraylist.capacity == 4);
+
+    // List is not valid anymore, it has been moved to new_arraylist
+    assert(list.data == NULL);
+    assert(list.size == 0);
+    assert(list.capacity == 0);
+    assert(list.alloc.malloc == NULL);
+
+    // Trying to insert new values on a moved list will result in a segfault crash
+    // *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("a3", 3, 3.3, &gpa);
+
+    assert(strcmp(new_arraylist.data[0]->objname, "a1") == 0);
+    assert(*new_arraylist.data[0]->a == 1);
+    assert(new_arraylist.alloc.malloc == gpa.malloc);
+
+    // Passing NULL will result in an empty struct, or assert failure
+    struct arraylist_dyn_non_pods_d_ptr empty1 = dyn_non_pods_d_ptr_steal(NULL);
+    assert(empty1.data == NULL);
+
+    // List does not need to be deinitialized
+    //dyn_non_pods_d_ptr_deinit(&list);
+    dyn_non_pods_d_ptr_deinit(&new_arraylist);
+    dyn_non_pods_d_ptr_deinit(&empty1);
+    global_destructor_counter_arraylist = 0;
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn steal pointer-type passed\n");
+}
+
 void test_arraylist_dyn_clear_ptr(void) {
     struct Allocator gpa = allocator_get_default();
     struct arraylist_dyn_non_pods_d_ptr list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
@@ -11442,6 +11618,7 @@ int main(void) {
     test_arraylist_qsort_value();
     test_arraylist_deep_clone_value();
     test_arraylist_shallow_copy_value();
+    test_arraylist_steal_value();
     test_arraylist_clear_value();
     test_arraylist_deinit_value();
 
@@ -11469,6 +11646,7 @@ int main(void) {
     test_arraylist_qsort_ptr();
     test_arraylist_deep_clone_ptr();
     test_arraylist_shallow_copy_ptr();
+    test_arraylist_steal_ptr();
     test_arraylist_clear_ptr();
     test_arraylist_deinit_ptr();
     
@@ -11496,6 +11674,7 @@ int main(void) {
     test_arraylist_dyn_qsort_value();
     test_arraylist_dyn_deep_clone_value();
     test_arraylist_dyn_shallow_copy_value();
+    test_arraylist_dyn_steal_value();
     test_arraylist_dyn_clear_value();
     test_arraylist_dyn_deinit_value();
 
@@ -11523,6 +11702,7 @@ int main(void) {
     test_arraylist_dyn_qsort_ptr();
     test_arraylist_dyn_deep_clone_ptr();
     test_arraylist_dyn_shallow_copy_ptr();
+    test_arraylist_dyn_steal_ptr();
     test_arraylist_dyn_clear_ptr();
     test_arraylist_dyn_deinit_ptr();
 

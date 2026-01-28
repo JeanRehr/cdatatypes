@@ -57,10 +57,11 @@
  *   free internal resources, the obj itself, and set the pointer (in the list) to null
  *
  * Copy/Move Semantics:
- * Unlike cpp standard lib vec, it has no move semantics, and performs shallow copies bit by bit always
+ * Unlike cpp standard lib vec, it has no builtin move semantics, and performs shallow copies bit by bit always
  * when adding an element or on reallocating memory, deep copy and move semantics are not automatic. 
  * For structs containing heap-allocated memory, this means that the internal pointers may be
  * duplicated or invalidated after an internal realloc.
+ * A steal and deep_clone functions are provided for move and clone semantics. 
  *
  * It's recommended to always use emplace_back_slot() when possible to prevent shallow copies and
  * construct the object in-place, or do a deep-copy (moving the src to dst and invalidating src)
@@ -123,7 +124,12 @@
  *
  * @warning Always assume that pointers are invalid after adding them to pointer containers and
  *          don't hold pointers to elements across operations that may reallocate.
+ *
  * @warning Call deinit() when done, if reusing after deinit(), initialize it again with init().
+ *
+ * @warning After deinit() or steal() the arraylist will be left in an invalid and zeroed out state,
+ *          to reuse it again, init() it first, if using without init() a segfault crash will most
+ *          likely (hopefully) happen
  *
  * @todo 
  * insert_from_to() or assign() - Inserts a number of elements at given index
@@ -555,6 +561,18 @@ ARRAYLIST_UNUSED static inline struct arraylist_##name ARRAYLIST_FN(name, deep_c
  */ \
 ARRAYLIST_UNUSED static inline struct arraylist_##name ARRAYLIST_FN(name, shallow_copy)(const struct arraylist_##name *self); \
 /**
+ * @brief move: Moves the arraylist in the parameter to the lhs, leaving self as NULL \
+ * @param self Pointer to the arraylist to move \
+ * @return A new arraylist struct \
+ * \
+ * @note The self parameter will be left in a used, but NULL/uninitialized state and should not be used \
+ *       to reuse it, one must call init again and reinitialize it \
+ * \
+ * @note The self parameter will be left in an unusable, NULL/uninitialized state and should not be used \
+ *       to reuse it, one must call init again and reinitialize it \
+ */ \
+ARRAYLIST_UNUSED static inline struct arraylist_##name ARRAYLIST_FN(name, steal)(struct arraylist_##name *self); \
+/**
  * @brief clear: Clears the arraylist's data \
  * @param self Pointer to the arraylist \
  * @return ARRAYLIST_ERR_NULL in case of NULL being passed, or ARRAYLIST_OK \
@@ -574,7 +592,8 @@ ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, clear)(st
  * Safe to call on NULL or already deinitialized arraylists, returns early \
  * \
  * @note Will call the destructor on data items if provided \
- * @warning If reusing self after deinit, call init again to reinitialize it \
+ * @note The self parameter will be left in an unusable, NULL/uninitialized state and should not be used \
+ *       to reuse it, one must call init again and reinitialize it \
  */ \
 ARRAYLIST_UNUSED static inline void ARRAYLIST_FN(name, deinit)(struct arraylist_##name *self);
 
@@ -938,6 +957,20 @@ static inline struct arraylist_##name ARRAYLIST_FN(name, shallow_copy)(const str
     return clone; \
 } \
 \
+static inline struct arraylist_##name ARRAYLIST_FN(name, steal)(struct arraylist_##name *self) { \
+    struct arraylist_##name steal = { 0 }; \
+    ARRAYLIST_ENSURE(self != NULL, steal); \
+    steal.data = self->data; \
+    steal.size = self->size; \
+    steal.capacity = self->capacity; \
+    steal.alloc = self->alloc; \
+    self->data = NULL; \
+    self->size = 0; \
+    self->capacity = 0; \
+    memset(&self->alloc, 0, sizeof(self->alloc)); \
+    return steal; \
+} \
+\
 static inline enum arraylist_error ARRAYLIST_FN(name, clear)(struct arraylist_##name *self) { \
     if (!self || self->size == 0) { \
         return ARRAYLIST_OK; \
@@ -960,9 +993,9 @@ static inline void ARRAYLIST_FN(name, deinit)(struct arraylist_##name *self) { \
         self->alloc.free(self->data, self->capacity * sizeof(T), self->alloc.ctx); \
         self->data = NULL; \
     } \
-    memset(&self->alloc, 0, sizeof(self->alloc)); \
     self->size = 0; \
     self->capacity = 0; \
+    memset(&self->alloc, 0, sizeof(self->alloc)); \
     return; \
 }
 
@@ -1077,8 +1110,8 @@ struct arraylist_dyn_##name { \
  * - struct Allocator* ARRAYLIST_DYN_FN(name, get_allocator)(struct arraylist_dyn_##name *self);
  * - enum arraylist_error ARRAYLIST_DYN_FN(name, swap)(struct arraylist_dyn_##name *self, struct arraylist_dyn_##name *other);
  * - enum arraylist_error ARRAYLIST_DYN_FN(name, qsort)(struct arraylist_dyn_##name *self, bool (*comp)(T *n1, T *n2));
- * - struct arraylist_##name ARRAYLIST_FN(name, deep_clone)(const struct arraylist_##name *self, void (*deep_clone_fn)(T *dst, T *src, struct Allocator *alloc));
- * - struct arraylist_##name ARRAYLIST_FN(name, shallow_copy)(const struct arraylist_##name *self); \
+ * - struct arraylist_##name ARRAYLIST_DYN_FN(name, deep_clone)(const struct arraylist_dyn_##name *self, void (*deep_clone_fn)(T *dst, T *src, struct Allocator *alloc));
+ * - struct arraylist_##name ARRAYLIST_DYN_FN(name, shallow_copy)(const struct arraylist_dyn_##name *self); \
  * - enum arraylist_error ARRAYLIST_DYN_FN(name, clear)(struct arraylist_dyn_##name *self);
  * - void ARRAYLIST_DYN_FN(name, deinit)(struct arraylist_dyn_##name *self);
  */
@@ -1362,6 +1395,18 @@ ARRAYLIST_UNUSED static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name
  */ \
 ARRAYLIST_UNUSED static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, shallow_copy)(const struct arraylist_dyn_##name *self); \
 /**
+ * @brief move: Moves the arraylist in the parameter to the lhs, leaving self as NULL \
+ * @param self Pointer to the arraylist to move \
+ * @return A new arraylist struct \
+ * \
+ * @note The self parameter will be left in a used, but NULL/uninitialized state and should not be used \
+ *       to reuse it, one must call init again and reinitialize it \
+ * \
+ * @note The self parameter will be left in an unusable, NULL/uninitialized state and should not be used \
+ *       to reuse it, one must call init again and reinitialize it \
+ */ \
+ARRAYLIST_UNUSED static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, steal)(struct arraylist_dyn_##name *self); \
+/**
  * @brief clear: Clears the arraylist's data \
  * @param self Pointer to the arraylist \
  * @return ARRAYLIST_ERR_NULL in case of NULL being passed, or ARRAYLIST_OK \
@@ -1381,7 +1426,8 @@ ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, clear
  * Safe to call on NULL or already deinitialized arraylists, returns early \
  * \
  * @note Will call the destructor on data items if provided \
- * @warning If reusing self after deinit, call init again to reinitialize it \
+ * @note The self parameter will be left in an unusable, NULL/uninitialized state and should not be used \
+ *       to reuse it, one must call init again and reinitialize it \
  */ \
 ARRAYLIST_UNUSED static inline void ARRAYLIST_DYN_FN(name, deinit)(struct arraylist_dyn_##name *self);
 
@@ -1750,6 +1796,21 @@ static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, shallow_copy)(c
     return clone; \
 } \
 \
+static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, steal)(struct arraylist_dyn_##name *self) { \
+    struct arraylist_dyn_##name steal = { 0 }; \
+    ARRAYLIST_ENSURE(self != NULL, steal); \
+    steal.data = self->data; \
+    steal.size = self->size; \
+    steal.capacity = self->capacity; \
+    steal.alloc = self->alloc; \
+    steal.destructor = self->destructor; \
+    self->data = NULL; \
+    self->size = 0; \
+    self->capacity = 0; \
+    memset(&self->alloc, 0, sizeof(self->alloc)); \
+    return steal; \
+} \
+\
 static inline enum arraylist_error ARRAYLIST_DYN_FN(name, clear)(struct arraylist_dyn_##name *self) { \
     if (!self || self->size == 0) { \
         return ARRAYLIST_OK; \
@@ -1776,10 +1837,10 @@ static inline void ARRAYLIST_DYN_FN(name, deinit)(struct arraylist_dyn_##name *s
         self->alloc.free(self->data, self->capacity * sizeof(T), self->alloc.ctx); \
         self->data = NULL; \
     } \
-    memset(&self->alloc, 0, sizeof(self->alloc)); \
-    self->destructor = NULL; \
     self->size = 0; \
     self->capacity = 0; \
+    memset(&self->alloc, 0, sizeof(self->alloc)); \
+    self->destructor = NULL; \
     return; \
 }
 
