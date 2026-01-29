@@ -8,7 +8,7 @@ The container itself is memory-safe (at least that I know of) with clear destruc
 
 # Requirements
 
-- C Compiler (compiled with C99)
+- C Compiler (at least C99)
 - CMake (3.20+)
 
 ## Build & Run
@@ -39,15 +39,21 @@ The build system will search for `clang-cl`, then fallback to MSVC. To force MSV
 ### To define an arraylist for a type:
 
 ```c
+// myfile.h:
 #include "arraylist.h"
 
 struct mytype { int x; float y; };
-ARRAYLIST(struct mytype, mytype, mytype_macro_dtor)
-```
-### Initialize:
+// -- mytype functions --
 
-```c
-struct arraylist_mytype arr = mytype_init(NULL);
+ARRAYLIST_TYPE(struct mytype, mytype)
+ARRAYLIST_DECL(struct mytype, mytype)
+/* ============= */
+// myfile.c:
+#include "myfile.h"
+ARRAYLIST_IMPL(struct mytype, mytype, mytype_macro_dtor)
+
+struct Allocator alloc = get_default_allocator();
+struct arraylist_mytype arr = mytype_init(alloc);
 // use arr
 mytype_deinit(&arr);
 ```
@@ -56,7 +62,7 @@ Destructor functions are critical for correct memory handling of heap allocated 
 
 You are also free to not use a destructor at all and manage all the memory.
 
-All arraylist functions are safe to call on NULL or deinitialized arraylist, unless assert is decided to be used.
+Once an arraylist is deinitialized (e.g. on deinit or steal call), they are not safe to be used again, and must be initialized again.
 
 Unit tests on [arraylist/src/test.c](arraylist/tests/test.c).
 
@@ -72,7 +78,7 @@ For more details and benchmarking code, see [arraylist/src/PERFORMANCE.md](array
 # Custom Allocators
 
 Allocator is a pluggable interface via the Allocator struct, by default malloc/realloc/free are used.
-To use a custom allocator, you have to implement the three function pointers as described in allocator.h, then create and pass an Allocator instance to init function
+To use a custom allocator, you have to implement the three function pointers as described in allocator.h, then create and pass an Allocator instance to init function.
 
 # Documentation
 
