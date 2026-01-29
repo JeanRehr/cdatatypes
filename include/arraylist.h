@@ -233,7 +233,7 @@ enum arraylist_error {
  * // In a header that will include arraylist.h and will define some arraylist types:
  * #define ARRAYLIST_USE_PREFIX
  * #include "arraylist.h"
- * ARRAYLIST_DEF(int, int_list) // Creates a struct: struct arraylist_int_list;
+ * ARRAYLIST_TYPE(int, int_list) // Creates a struct: struct arraylist_int_list;
  * ARRAYLIST_DECL(int, int_list) // Declares functions named arraylist_int_list_init(...)
  * // In a .c file:
  * ARRAYLIST_IMPL(int, int_list)
@@ -248,7 +248,7 @@ enum arraylist_error {
 /* ====== ARRAYLIST Macro destructor version START ====== */
 
 /**
- * @def ARRAYLIST_DEF(T, name)
+ * @def ARRAYLIST_TYPE(T, name)
  * @brief Defines an arraylist structure for a specific type T
  * @param T The type arraylist will hold
  * @param name The name suffix for the arraylist type
@@ -261,11 +261,11 @@ enum arraylist_error {
  *
  * @code
  * // Example: Define an arraylist for integers
- * ARRAYLIST_DEF(int, ints)
+ * ARRAYLIST_TYPE(int, ints)
  * // Creates a struct named struct arraylist_ints
  * @endcode
  */
-#define ARRAYLIST_DEF(T, name) \
+#define ARRAYLIST_TYPE(T, name) \
 struct arraylist_##name { \
     T *data; \
     size_t size; \
@@ -1035,7 +1035,7 @@ static inline void ARRAYLIST_FN(name, deinit)(struct arraylist_##name *self) { \
  * @param name The name suffix for the arraylist type
  */
 #define ARRAYLIST(T, name, fn_dtor) \
-ARRAYLIST_DEF(T, name) \
+ARRAYLIST_TYPE(T, name) \
 ARRAYLIST_DECL(T, name) \
 ARRAYLIST_IMPL(T, name, fn_dtor)
 
@@ -1062,7 +1062,7 @@ ARRAYLIST_IMPL(T, name, fn_dtor)
  * // In a header that will include arraylist.h and will define some arraylist types:
  * #define ARRAYLIST_USE_PREFIX
  * #include "arraylist.h"
- * ARRAYLIST_DEF(int, int_list) // Creates a struct: struct arraylist_dyn_int_list;
+ * ARRAYLIST_TYPE(int, int_list) // Creates a struct: struct arraylist_dyn_int_list;
  * ARRAYLIST_DECL(int, int_list) // Declares functions named arraylist_dyn_int_list_init(...)
  * // In a .c file:
  * ARRAYLIST_IMPL(int, int_list)
@@ -1075,7 +1075,7 @@ ARRAYLIST_IMPL(T, name, fn_dtor)
 #endif
 
 /**
- * @def ARRAYLIST_DEF_DYN(T, name)
+ * @def ARRAYLIST_TYPE_DYN(T, name)
  * @brief Defines an arraylist structure for a specific type T
  * @param T The type arraylist will hold
  * @param name The name suffix for the arraylist type
@@ -1096,11 +1096,11 @@ ARRAYLIST_IMPL(T, name, fn_dtor)
  *
  * @code
  * // Example: Define an arraylist for integers
- * ARRAYLIST_DEF_DYN(int, ints)
+ * ARRAYLIST_TYPE_DYN(int, ints)
  * // Creates a struct named struct arraylist_dyn_ints
  * @endcode
  */
-#define ARRAYLIST_DEF_DYN(T, name) \
+#define ARRAYLIST_TYPE_DYN(T, name) \
 struct arraylist_dyn_##name { \
     T *data; \
     size_t size; \
@@ -1884,7 +1884,7 @@ static inline void ARRAYLIST_DYN_FN(name, deinit)(struct arraylist_dyn_##name *s
  * @param name The name suffix for the arraylist type
  */
 #define ARRAYLIST_DYN(T, name) \
-ARRAYLIST_DEF_DYN(T, name) \
+ARRAYLIST_TYPE_DYN(T, name) \
 ARRAYLIST_DECL_DYN(T, name) \
 ARRAYLIST_IMPL_DYN(T, name)
 

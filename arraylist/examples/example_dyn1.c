@@ -10,11 +10,11 @@
 // #define ARRAYLIST_USE_ASSERT 1
 #include "arraylist.h"
 
-// The following ARRAYLIST_DEF and ARRAYLIST_DECL may be declared on the header
-ARRAYLIST_DEF_DYN(int, ints)
+// The following ARRAYLIST_TYPE and ARRAYLIST_DECL may be declared on the header
+ARRAYLIST_TYPE_DYN(int, ints)
 ARRAYLIST_DECL_DYN(int, ints)
 
-// ARRAYLIST_DEF just defined a struct that hold the type int with "ints" appended on the name
+// ARRAYLIST_TYPE just defined a struct that hold the type int with "ints" appended on the name
 // struct dyn_ints
 
 // This must always be on a .c file

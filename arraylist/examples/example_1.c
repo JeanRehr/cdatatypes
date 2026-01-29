@@ -12,11 +12,11 @@
 // #define ARRAYLIST_USE_PREFIX
 #include "arraylist.h"
 
-// The following ARRAYLIST_DEF and ARRAYLIST_DECL may be declared on the header
-ARRAYLIST_DEF(int, ints)
+// The following ARRAYLIST_TYPE and ARRAYLIST_DECL may be declared on the header
+ARRAYLIST_TYPE(int, ints)
 ARRAYLIST_DECL(int, ints)
 
-// ARRAYLIST_DEF just defined a struct that hold the type int with "ints" appended on the name
+// ARRAYLIST_TYPE just defined a struct that hold the type int with "ints" appended on the name
 // struct arraylist_ints
 
 // For simple and/or non pointer types, a destructor is not needed

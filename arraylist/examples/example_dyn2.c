@@ -14,7 +14,7 @@
 #include "arraylist.h"
 
 // Example for an arraylist of strings (char *)
-ARRAYLIST_DEF_DYN(char *, names_arr)
+ARRAYLIST_TYPE_DYN(char *, names_arr)
 ARRAYLIST_DECL_DYN(char *, names_arr)
 ARRAYLIST_IMPL_DYN(char *, names_arr)
 

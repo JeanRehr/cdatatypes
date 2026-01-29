@@ -14,7 +14,7 @@
 #include "arraylist.h"
 
 // Example for an arraylist of strings (char *)
-ARRAYLIST_DEF(char *, names_arr)
+ARRAYLIST_TYPE(char *, names_arr)
 ARRAYLIST_DECL(char *, names_arr)
 
 // Destructors
