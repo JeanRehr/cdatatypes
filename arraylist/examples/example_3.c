@@ -3,6 +3,7 @@
  * @brief Example usage on how to use the arraylist.h
  * @details This example will show the function pointer version usage for a non_pod
  *          type to pointer type (like struct T*)
+ * @note I am not checking return values or nullability thoroughly for brevity
  */
 
 #include <stdio.h>
@@ -93,6 +94,37 @@ bool non_pod_find(struct non_pod **self, void *find) {
         return true;
     }
     return false;
+}
+
+// Example for deep cloning
+void non_pod_clone(struct non_pod **dst, struct non_pod **src, struct Allocator *alloc) {
+    if (!src || !*src) {
+        *dst = NULL;
+        return;
+    }
+
+    *dst = alloc->malloc(sizeof(struct non_pod), alloc->ctx);
+
+    if ((*src)->_number) {
+        (*dst)->_number = alloc->malloc(sizeof((*dst)->_number), alloc->ctx);
+        *(*dst)->_number = *(*src)->_number;
+    } else {
+        (*dst)->_number = NULL;
+    }
+
+    if ((*src)->add) {
+        (*dst)->add = alloc->malloc(sizeof((*dst)->add), alloc->ctx);
+        *(*dst)->add = *(*src)->add;
+    } else {
+        (*dst)->add = NULL;
+    }
+
+    if ((*src)->sub) {
+        (*dst)->sub = alloc->malloc(sizeof((*dst)->sub), alloc->ctx);
+        *(*dst)->sub = *(*src)->sub;
+    } else {
+        (*dst)->sub = NULL;
+    }
 }
 
 int main(void) {
@@ -313,13 +345,31 @@ int main(void) {
         printf("index %lu value %d\n", i, *vec_np.data[i]->_number);
     }
 
-    printf("\n");
+    /* == CLONING/COPYING/MOVING/STEALING == */
 
-    for (size_t i = 0; i < vec_np.size; i++) {
-        printf("index %lu value %d\n", i, *vec_np.data[i]->_number);
-    }
+    // non-pod types should not be shallow copied, this will duplicate pointers which will lead to
+    // double frees and may lead to unwanted behavior, it is UB
 
+    // Deeply cloning will create an independent clone
+    struct arraylist_np cloned = np_deep_clone(&vec_np, non_pod_clone);
+
+    /* Use independent copy for whatever and deinitilize when done */
+
+    // Calling shallow_copy on a non pod type will create dependent copies, changing a value on one will change it on the other
+    // Use with causing on types that has nested pointers and ownerships
+
+    // Stealing is similar to deep_clone, but it invalidates the arraylist passed, and it can't be used anymore without initializing again
+    struct arraylist_np stolen = np_steal(&cloned);
+
+    // Cloned now is zeroed out and invalidated, to use it again call init on it
+
+    /* Use stolen arraylist for whatever and deinitialize when done */
+
+    np_deinit(&stolen);
     np_deinit(&vec_np);
 
+    // The following is not needed, as it was already deinitilized when called steal on it:
+    // np_deinit(&cloned);
+    
     return 0;
 }

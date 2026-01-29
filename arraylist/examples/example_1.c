@@ -258,6 +258,24 @@ int main(void) {
         printf("index %lu value %d\n", i, int_vec.data[i]);
     }
 
+    // deep_clone/shallow_copy are the same thing for scalar/pod types
+    struct arraylist_ints copied = ints_shallow_copy(&int_vec);
+    printf("Size of the original list %lu\n", int_vec.size);
+    printf("Size of the copied list %lu\n", copied.size);
+
+    // Copied is an independent copy and may be changed independently
+    *ints_emplace_back_slot(&copied) = 10000;
+    printf("Size of the copied list after inserting 1 element %lu\n", copied.size);
+    printf("Size of the original list again %lu\n", int_vec.size);
+
+    // If using deep_clone on a scalar type, then the deep clone fn should be a simple assignment
+
+    // Steal function will move the rhs to the lhs and leave lhs in an invalid state
+    struct arraylist_ints stolen_list = ints_steal(&copied);
+
     // Must be called when done
     ints_deinit(&int_vec);
+    ints_deinit(&stolen_list);
+    // arraylists that were stealed do not need to be deinitialized
+    //ints_deinit(&copied);
 }
