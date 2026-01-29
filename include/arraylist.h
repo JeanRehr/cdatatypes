@@ -130,10 +130,6 @@
  * @warning After deinit() or steal() the arraylist will be left in an invalid and zeroed out state,
  *          to reuse it again, init() it first, if using without init() a segfault crash will most
  *          likely (hopefully) happen
- *
- * @todo 
- * insert_from_to() or assign() - Inserts a number of elements at given index
- * deep_clone() - Returns a deep copy of the given arraylist
  */
 #ifndef ARRAYLIST_H
 #define ARRAYLIST_H
@@ -143,6 +139,10 @@
 #include <string.h>  // For memset()
 
 #include "allocator.h" // For a custom Allocator interface
+
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus external linkage
 
 #define initial_cap 1
 
@@ -1891,5 +1891,9 @@ static inline void ARRAYLIST_DYN_FN(name, deinit)(struct arraylist_dyn_##name *s
 ARRAYLIST_DEF_DYN(T, name) \
 ARRAYLIST_DECL_DYN(T, name) \
 ARRAYLIST_IMPL_DYN(T, name)
+
+#ifdef __cplusplus
+}
+#endif // __cplusplus external linkage
 
 #endif // ARRAYLIST_H
