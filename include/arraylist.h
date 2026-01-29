@@ -140,10 +140,6 @@
 
 #include "allocator.h" // For a custom Allocator interface
 
-#ifdef __cplusplus
-extern "C" {
-#endif // __cplusplus external linkage
-
 #define initial_cap 1
 
 /**
@@ -1891,9 +1887,5 @@ static inline void ARRAYLIST_DYN_FN(name, deinit)(struct arraylist_dyn_##name *s
 ARRAYLIST_DEF_DYN(T, name) \
 ARRAYLIST_DECL_DYN(T, name) \
 ARRAYLIST_IMPL_DYN(T, name)
-
-#ifdef __cplusplus
-}
-#endif // __cplusplus external linkage
 
 #endif // ARRAYLIST_H
