@@ -631,7 +631,7 @@ ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, qsort)( \
  * @return A new arraylist struct that is independent of the self \
  * \
  * @note The correctness of this function depends on the provided deep_clone_fn parameter \
- *       for value types, int or pod structs, deep_clone_fn can simply assign *std = *src; \
+ *       for value types, int or pod structs, deep_clone_fn can simply assign *dst = *src; \
  *       if T contains pointers or heap allocations, then deep_clone_fn must allocate/copy \
  *       these fields as needed, if using arraylist of pointers to T, deep_clone_fn must allocate \
  *       a new T and, if it contains member to pointers, allocate/copy as needed \
@@ -1592,7 +1592,7 @@ ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, qsort
  * @return A new arraylist struct that is independent of the self \
  * \
  * @note The correctness of this function depends on the provided deep_clone_fn parameter \
- *       for value types, int or pod structs, deep_clone_fn can simply assign *std = *src; \
+ *       for value types, int or pod structs, deep_clone_fn can simply assign *dst = *src; \
  *       if T contains pointers or heap allocations, then deep_clone_fn must allocate/copy \
  *       these fields as needed, if using arraylist of pointers to T, deep_clone_fn must allocate \
  *       a new T and, if it contains member to pointers, allocate/copy as needed \
