@@ -279,7 +279,8 @@ struct arraylist_##name { \
  * - enum arraylist_error ARRAYLIST_FN(name, swap)(struct arraylist_##name *self, struct arraylist_##name *other);
  * - enum arraylist_error ARRAYLIST_FN(name, qsort)(struct arraylist_##name *self, bool (*comp)(T *n1, T *n2));
  * - struct arraylist_##name ARRAYLIST_FN(name, deep_clone)(const struct arraylist_##name *self, void (*deep_clone_fn)(T *dst, T *src, struct Allocator *alloc));
- * - struct arraylist_##name ARRAYLIST_FN(name, shallow_copy)(const struct arraylist_##name *self); \
+ * - struct arraylist_##name ARRAYLIST_FN(name, shallow_copy)(const struct arraylist_##name *self);
+ * - struct arraylist_##name ARRAYLIST_FN(name, steal)(struct arraylist_##name *self);
  * - enum arraylist_error ARRAYLIST_FN(name, clear)(struct arraylist_##name *self);
  * - void ARRAYLIST_FN(name, deinit)(struct arraylist_##name *self);
  */
@@ -545,6 +546,7 @@ ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, qsort)(st
  * \
  * @warning If self is NULL or deep_clone_fn if NULL then it returns a zero-initialized struct, \
  *          if asserts are enabled then it crashes \
+ * @warning The return of this function should not be discarded, if doing so, memory may be leaked \
  */ \
 ARRAYLIST_UNUSED static inline struct arraylist_##name ARRAYLIST_FN(name, deep_clone)(const struct arraylist_##name *self, void (*deep_clone_fn)(T *dst, T *src, struct Allocator *alloc)); \
 /**
@@ -570,6 +572,8 @@ ARRAYLIST_UNUSED static inline struct arraylist_##name ARRAYLIST_FN(name, shallo
  * \
  * @note The self parameter will be left in an unusable, NULL/uninitialized state and should not be used \
  *       to reuse it, one must call init again and reinitialize it \
+ * \
+ * @warning The return of this function should not be discarded, if doing so, memory may be leaked \
  */ \
 ARRAYLIST_UNUSED static inline struct arraylist_##name ARRAYLIST_FN(name, steal)(struct arraylist_##name *self); \
 /**
@@ -1110,8 +1114,9 @@ struct arraylist_dyn_##name { \
  * - struct Allocator* ARRAYLIST_DYN_FN(name, get_allocator)(struct arraylist_dyn_##name *self);
  * - enum arraylist_error ARRAYLIST_DYN_FN(name, swap)(struct arraylist_dyn_##name *self, struct arraylist_dyn_##name *other);
  * - enum arraylist_error ARRAYLIST_DYN_FN(name, qsort)(struct arraylist_dyn_##name *self, bool (*comp)(T *n1, T *n2));
- * - struct arraylist_##name ARRAYLIST_DYN_FN(name, deep_clone)(const struct arraylist_dyn_##name *self, void (*deep_clone_fn)(T *dst, T *src, struct Allocator *alloc));
- * - struct arraylist_##name ARRAYLIST_DYN_FN(name, shallow_copy)(const struct arraylist_dyn_##name *self); \
+ * - struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, deep_clone)(const struct arraylist_dyn_##name *self, void (*deep_clone_fn)(T *dst, T *src, struct Allocator *alloc));
+ * - struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, shallow_copy)(const struct arraylist_dyn_##name *self);
+ * - struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, steal)(struct arraylist_dyn_##name *self);
  * - enum arraylist_error ARRAYLIST_DYN_FN(name, clear)(struct arraylist_dyn_##name *self);
  * - void ARRAYLIST_DYN_FN(name, deinit)(struct arraylist_dyn_##name *self);
  */
@@ -1379,6 +1384,7 @@ ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, qsort
  * \
  * @warning If self is NULL or deep_clone_fn if NULL then it returns a zero-initialized struct, \
  *          if asserts are enabled then it crashes \
+ * @warning The return of this function should not be discarded, if doing so, memory may be leaked \
  */ \
 ARRAYLIST_UNUSED static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, deep_clone)(const struct arraylist_dyn_##name *self, void (*deep_clone_fn)(T *dst, T *src, struct Allocator *alloc)); \
 /**
@@ -1404,6 +1410,8 @@ ARRAYLIST_UNUSED static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name
  * \
  * @note The self parameter will be left in an unusable, NULL/uninitialized state and should not be used \
  *       to reuse it, one must call init again and reinitialize it \
+ * \
+ * @warning The return of this function should not be discarded, if doing so, memory may be leaked \
  */ \
 ARRAYLIST_UNUSED static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, steal)(struct arraylist_dyn_##name *self); \
 /**
