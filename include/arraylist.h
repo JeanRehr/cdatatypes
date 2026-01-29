@@ -150,13 +150,15 @@
  * @def ARRAYLIST_UNUSED
  * @brief Defines a macro to supress the warning for unused function because of static inline
  */
-#if defined(__GNUC__) || defined(__clang__)
+#if defined(__cplusplus) && __cplusplus >= 201703L
+    #define ARRAYLIST_UNUSED [[maybe_unused]]
+#elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L
+    #define ARRAYLIST_UNUSED [[maybe_unused]]
+#elif defined(__GNUC__) || defined(__clang__)
     #define ARRAYLIST_UNUSED __attribute__((unused))
 #else
     #define ARRAYLIST_UNUSED
-#endif
-
-#ifndef ARRAYLIST_USE_ASSERT
+#endif // ARRAYLIST_UNUSED definition
 /**
  * @def ARRAYLIST_USE_ASSERT
  * @brief Defines if the arraylist will use asserts or return error codes
