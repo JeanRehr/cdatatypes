@@ -159,14 +159,41 @@
 #else
     #define ARRAYLIST_UNUSED
 #endif // ARRAYLIST_UNUSED definition
+
+/**
+ * @def ARRAYLIST_NO_DISCARD
+ * @brief Defines a macro to warn of discarded unused results when they matter
+ *        (possible leak of memory is involved)
+ */
+#if defined(__cplusplus) && __cplusplus >= 201703L
+    #define ARRAYLIST_NO_DISCARD [[nodiscard]]
+#elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L
+    #define ARRAYLIST_NO_DISCARD [[nodiscard]]
+#elif defined(__GNUC__) || defined(__clang__)
+    #define ARRAYLIST_NO_DISCARD __attribute__((warn_unused_result))
+#elif defined(_MSC_VER) && _MSC_VER >= 1700
+    #if defined(_SAL_VERSION_SOURCE) && _SAL_VERSION_SOURCE >= 2
+        #ifndef _Check_return_
+            #include <sal.h>
+        #endif // _Check_return_ from sal.h
+        #define ARRAYLIST_NO_DISCARD _Check_return_
+    #else
+        #define ARRAYLIST_NO_DISCARD
+    #endif // _SAL_VERSION_SOURCE && _SAL_VERSION_SOURCE >= 2 
+#else
+    #define ARRAYLIST_NO_DISCARD
+#endif // ARRAYLIST_NO_DISCARD definition
+
 /**
  * @def ARRAYLIST_USE_ASSERT
  * @brief Defines if the arraylist will use asserts or return error codes
  * @details If ARRAYLIST_USE_ASSERT is 1, then the lib will assert and fail early, otherwise,
  *          defensive programming and returning error codes will be used
  */
+#ifndef ARRAYLIST_USE_ASSERT
 #define ARRAYLIST_USE_ASSERT 0
 #endif // ARRAYLIST_USE_ASSERT
+
 #include <assert.h> // For assert()
 
 #if ARRAYLIST_USE_ASSERT
@@ -550,7 +577,7 @@ ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, qsort)(st
  *          if asserts are enabled then it crashes \
  * @warning The return of this function should not be discarded, if doing so, memory may be leaked \
  */ \
-ARRAYLIST_UNUSED static inline struct arraylist_##name ARRAYLIST_FN(name, deep_clone)(const struct arraylist_##name *self, void (*deep_clone_fn)(T *dst, T *src, struct Allocator *alloc)); \
+ARRAYLIST_NO_DISCARD ARRAYLIST_UNUSED static inline struct arraylist_##name ARRAYLIST_FN(name, deep_clone)(const struct arraylist_##name *self, void (*deep_clone_fn)(T *dst, T *src, struct Allocator *alloc)); \
 /**
  * @brief shallow_copy: Copies an arraylist bit by bit \
  * @param self Pointer to the arraylist to copy \
@@ -577,7 +604,7 @@ ARRAYLIST_UNUSED static inline struct arraylist_##name ARRAYLIST_FN(name, shallo
  * \
  * @warning The return of this function should not be discarded, if doing so, memory may be leaked \
  */ \
-ARRAYLIST_UNUSED static inline struct arraylist_##name ARRAYLIST_FN(name, steal)(struct arraylist_##name *self); \
+ARRAYLIST_NO_DISCARD ARRAYLIST_UNUSED static inline struct arraylist_##name ARRAYLIST_FN(name, steal)(struct arraylist_##name *self); \
 /**
  * @brief clear: Clears the arraylist's data \
  * @param self Pointer to the arraylist \
@@ -1388,7 +1415,7 @@ ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, qsort
  *          if asserts are enabled then it crashes \
  * @warning The return of this function should not be discarded, if doing so, memory may be leaked \
  */ \
-ARRAYLIST_UNUSED static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, deep_clone)(const struct arraylist_dyn_##name *self, void (*deep_clone_fn)(T *dst, T *src, struct Allocator *alloc)); \
+ARRAYLIST_NO_DISCARD ARRAYLIST_UNUSED static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, deep_clone)(const struct arraylist_dyn_##name *self, void (*deep_clone_fn)(T *dst, T *src, struct Allocator *alloc)); \
 /**
  * @brief shallow_copy: Copies an arraylist bit by bit \
  * @param self Pointer to the arraylist to copy \
@@ -1415,7 +1442,7 @@ ARRAYLIST_UNUSED static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name
  * \
  * @warning The return of this function should not be discarded, if doing so, memory may be leaked \
  */ \
-ARRAYLIST_UNUSED static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, steal)(struct arraylist_dyn_##name *self); \
+ARRAYLIST_NO_DISCARD ARRAYLIST_UNUSED static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, steal)(struct arraylist_dyn_##name *self); \
 /**
  * @brief clear: Clears the arraylist's data \
  * @param self Pointer to the arraylist \
