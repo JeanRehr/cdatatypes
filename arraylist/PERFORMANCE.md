@@ -103,17 +103,17 @@ ARRAYLIST(struct non_pod*, np, non_pod_deinit_ptr_macro)
 int main(void) {
     struct Allocator gpa = allocator_get_default();
 
-    struct arraylist_np vec_np = arraylist_np_init(&gpa);
-    arraylist_np_reserve(&vec_np, 1000000);
+    struct arraylist_np vec_np = np_init(&gpa);
+    np_reserve(&vec_np, 1000000);
     for (volatile size_t i = 0; i < 1000000; i++) {
-        *arraylist_np_emplace_back_slot(&vec_np) = non_pod_init_alloc(&gpa, i, i * 3, i / 2);
+        *np_emplace_back_slot(&vec_np) = non_pod_init_alloc(&gpa, i, i * 3, i / 2);
     }
 
     for (volatile size_t i = 0; i < 1000000; i++) {
         printf("Calculate returns %d\n", non_pod_calculate(vec_np.data[i]));
     }
 
-    arraylist_np_deinit(&vec_np);
+    np_deinit(&vec_np);
     return 0;
 }
 ```
@@ -190,17 +190,17 @@ ARRAYLIST_DYN(struct non_pod*, np)
 int main(void) {
     struct Allocator gpa = allocator_get_default();
 
-    struct arraylistfp_np vec_np = arraylistfp_np_init(&gpa, non_pod_deinit_ptr);
-    arraylistfp_np_reserve(&vec_np, 1000000);
+    struct arraylistfp_np vec_np = dyn_np_init(&gpa, non_pod_deinit_ptr);
+    dyn_np_reserve(&vec_np, 1000000);
     for (volatile size_t i = 0; i < 1000000; i++) {
-        *arraylistfp_np_emplace_back_slot(&vec_np) = non_pod_init_alloc(&gpa, i, i * 3, i / 2);
+        *dyn_np_emplace_back_slot(&vec_np) = non_pod_init_alloc(&gpa, i, i * 3, i / 2);
     }
 
     for (volatile size_t i = 0; i < 1000000; i++) {
         printf("Calculate returns %d\n", non_pod_calculate(vec_np.data[i]));
     }
 
-    arraylistfp_np_deinit(&vec_np);
+    dyn_np_deinit(&vec_np);
     return 0;
 }
 ```
@@ -457,10 +457,10 @@ ARRAYLIST(struct non_pod*, np, nptrdeinit_ptr_macro)
 int main(void) {
     Allocator jemalloc_allocator = allocator_get_jemalloc();
 
-    struct arraylist_np vec_np = arraylist_np_init(&jemalloc_allocator);
-    arraylist_np_reserve(&vec_np, 1000000);
+    struct arraylist_np vec_np = np_init(&jemalloc_allocator);
+    np_reserve(&vec_np, 1000000);
     for (volatile size_t i = 0; i < 1000000; i++) {
-        *arraylist_np_emplace_back_slot(&vec_np) = non_pod_init_alloc(&jemalloc_allocator, i, i * 3, i / 2);
+        *np_emplace_back_slot(&vec_np) = non_pod_init_alloc(&jemalloc_allocator, i, i * 3, i / 2);
     }
 
     // -- snip --
