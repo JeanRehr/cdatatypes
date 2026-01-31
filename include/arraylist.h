@@ -208,6 +208,12 @@ extern "C" {
             return NULL;
 #endif // ARRAYLIST_USE_ASSERT if directive
 
+#ifdef __cplusplus
+    #define ARRAYLIST_CAST(T) (T*)
+#else
+    #define ARRAYLIST_CAST(T)
+#endif
+
 /**
  * @enum arraylist_error
  * @brief Error codes for the arraylist
@@ -292,7 +298,7 @@ struct arraylist_##name {                                                       
  * @details
  * The following functions are declared:
  * - struct arraylist_##name ARRAYLIST_FN(name, init)(const struct Allocator alloc);
- * - enum arraylist_error ARRAYLIST_FN(name, reserve)(struct arraylist_##name *self, const size_t capacity);
+ * - enum arraylist_error ARRAYLIST_FN(name, reserve)(struct arraylist_##name *self, const size_t cap);
  * - enum arraylist_error ARRAYLIST_FN(name, shrink_size)(struct arraylist_##name *self, const size_t size);
  * - enum arraylist_error ARRAYLIST_FN(name, shrink_to_fit)(struct arraylist_##name *self);
  * - enum arraylist_error ARRAYLIST_FN(name, push_back)(struct arraylist_##name *self, T value);
@@ -351,7 +357,7 @@ ARRAYLIST_UNUSED static inline struct arraylist_##name ARRAYLIST_FN(name, init)(
  */                                                                                                                    \
 ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, reserve)(                                       \
     struct arraylist_##name * self,                                                                                    \
-    const size_t capacity                                                                                              \
+    const size_t cap                                                                                                   \
 );                                                                                                                     \
                                                                                                                        \
 /**                                                                                                                    \
@@ -745,24 +751,24 @@ ARRAYLIST_UNUSED static inline void ARRAYLIST_FN(name, deinit)(struct arraylist_
  */                                                                                                                    \
 static inline enum arraylist_error ARRAYLIST_FN(name, double_capacity)(struct arraylist_##name * self) {               \
     /* Assumes self is never null */                                                                                   \
-    size_t new_capacity = 0;                                                                                           \
+    size_t new_cap = 0;                                                                                                \
     if (self->capacity != 0) {                                                                                         \
-        new_capacity = self->capacity * 2;                                                                             \
+        new_cap = self->capacity * 2;                                                                                  \
     } else {                                                                                                           \
-        new_capacity = initial_cap;                                                                                    \
+        new_cap = initial_cap;                                                                                         \
     }                                                                                                                  \
-    ARRAYLIST_ENSURE(new_capacity <= SIZE_MAX / sizeof(T), ARRAYLIST_ERR_OVERFLOW)                                     \
+    ARRAYLIST_ENSURE(new_cap <= SIZE_MAX / sizeof(T), ARRAYLIST_ERR_OVERFLOW)                                          \
     T *new_data = NULL;                                                                                                \
     if (self->data == NULL) {                                                                                          \
-        new_data = self->alloc.malloc(new_capacity * sizeof(T), self->alloc.ctx);                                      \
+        new_data = ARRAYLIST_CAST(T)self->alloc.malloc(new_cap * sizeof(T), self->alloc.ctx);                          \
     } else {                                                                                                           \
-        new_data =                                                                                                     \
-            self->alloc                                                                                                \
-                .realloc(self->data, self->capacity * sizeof(T), new_capacity * sizeof(T), self->alloc.ctx);           \
+        new_data = ARRAYLIST_CAST(T)self->alloc.realloc(                                                               \
+            self->data, self->capacity * sizeof(T), new_cap * sizeof(T), self->alloc.ctx                               \
+        );                                                                                                             \
     }                                                                                                                  \
     ARRAYLIST_ENSURE(new_data != NULL, ARRAYLIST_ERR_ALLOC)                                                            \
     self->data = new_data;                                                                                             \
-    self->capacity = new_capacity;                                                                                     \
+    self->capacity = new_cap;                                                                                          \
     return ARRAYLIST_OK;                                                                                               \
 }                                                                                                                      \
                                                                                                                        \
@@ -800,7 +806,7 @@ static inline size_t ARRAYLIST_FN(name, partition_buffer)(                      
                                                                                                                        \
     /* Move pivot after smaller elements and return its position */                                                    \
     ARRAYLIST_FN(name, swap_elems)(&self->data[i], &self->data[high]);                                                 \
-return i;                                                                                                              \
+    return i;                                                                                                          \
 }                                                                                                                      \
                                                                                                                        \
 /**                                                                                                                    \
@@ -838,23 +844,24 @@ static inline struct arraylist_##name ARRAYLIST_FN(name, init)(const struct Allo
                                                                                                                        \
 static inline enum arraylist_error ARRAYLIST_FN(name, reserve)(                                                        \
     struct arraylist_##name * self,                                                                                    \
-    const size_t capacity                                                                                              \
+    const size_t cap                                                                                                   \
 ) {                                                                                                                    \
     ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL)                                                                 \
-    if (self->capacity >= capacity) {                                                                                  \
+    if (self->capacity >= cap) {                                                                                       \
         return ARRAYLIST_OK;                                                                                           \
     }                                                                                                                  \
-    ARRAYLIST_ENSURE(capacity <= SIZE_MAX / sizeof(T), ARRAYLIST_ERR_OVERFLOW);                                        \
+    ARRAYLIST_ENSURE(cap <= SIZE_MAX / sizeof(T), ARRAYLIST_ERR_OVERFLOW);                                             \
     T *new_data = NULL;                                                                                                \
     if (self->capacity == 0) {                                                                                         \
-        new_data = self->alloc.malloc(capacity * sizeof(T), self->alloc.ctx);                                          \
+        new_data = ARRAYLIST_CAST(T)self->alloc.malloc(cap * sizeof(T), self->alloc.ctx);                              \
     } else {                                                                                                           \
-        new_data =                                                                                                     \
-            self->alloc.realloc(self->data, self->capacity * sizeof(T), capacity * sizeof(T), self->alloc.ctx);        \
+        new_data = ARRAYLIST_CAST(T)self->alloc.realloc(                                                               \
+            self->data, self->capacity * sizeof(T), cap * sizeof(T), self->alloc.ctx                                   \
+        );                                                                                                             \
     }                                                                                                                  \
     ARRAYLIST_ENSURE(new_data != NULL, ARRAYLIST_ERR_ALLOC)                                                            \
     self->data = new_data;                                                                                             \
-    self->capacity = capacity;                                                                                         \
+    self->capacity = cap;                                                                                              \
     return ARRAYLIST_OK;                                                                                               \
 }                                                                                                                      \
                                                                                                                        \
@@ -884,8 +891,9 @@ static inline enum arraylist_error ARRAYLIST_FN(name, shrink_to_fit)(struct arra
         self->capacity = 0;                                                                                            \
         return ARRAYLIST_OK;                                                                                           \
     }                                                                                                                  \
-    T *new_data =                                                                                                      \
-        self->alloc.realloc(self->data, self->capacity * sizeof(T), self->size * sizeof(T), self->alloc.ctx);          \
+    T *new_data = ARRAYLIST_CAST(T)self->alloc.realloc(                                                                \
+        self->data, self->capacity * sizeof(T), self->size * sizeof(T), self->alloc.ctx                                \
+    );                                                                                                                 \
     ARRAYLIST_ENSURE(new_data != NULL, ARRAYLIST_ERR_ALLOC)                                                            \
     self->data = new_data;                                                                                             \
     self->capacity = self->size;                                                                                       \
@@ -1255,7 +1263,7 @@ struct arraylist_dyn_##name {                                                   
  * @details
  * The following functions are declared:
  * - struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, init)(const struct Allocator alloc, void (*destructor)(T *type));
- * - enum arraylist_error ARRAYLIST_DYN_FN(name, reserve)(struct arraylist_dyn_##name *self, const size_t capacity);
+ * - enum arraylist_error ARRAYLIST_DYN_FN(name, reserve)(struct arraylist_dyn_##name *self, const size_t cap);
  * - enum arraylist_error ARRAYLIST_DYN_FN(name, shrink_size)(struct arraylist_dyn_##name *self, const size_t size);
  * - enum arraylist_error ARRAYLIST_DYN_FN(name, shrink_to_fit)(struct arraylist_dyn_##name *self);
  * - enum arraylist_error ARRAYLIST_DYN_FN(name, push_back)(struct arraylist_dyn_##name *self, T value);
@@ -1317,7 +1325,7 @@ ARRAYLIST_UNUSED static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name
  */                                                                                                                    \
 ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_DYN_FN(name, reserve)(                                   \
     struct arraylist_dyn_##name * self,                                                                                \
-    const size_t capacity                                                                                              \
+    const size_t cap                                                                                                   \
 );                                                                                                                     \
                                                                                                                        \
 /**                                                                                                                    \
@@ -1712,24 +1720,24 @@ ARRAYLIST_UNUSED static inline void ARRAYLIST_DYN_FN(name, deinit)(struct arrayl
  */                                                                                                                    \
 static inline enum arraylist_error ARRAYLIST_DYN_FN(name, double_capacity)(struct arraylist_dyn_##name * self) {       \
     /* Assumes self is never null */                                                                                   \
-    size_t new_capacity = 0;                                                                                           \
+    size_t new_cap = 0;                                                                                                \
     if (self->capacity != 0) {                                                                                         \
-        new_capacity = self->capacity * 2;                                                                             \
+        new_cap = self->capacity * 2;                                                                                  \
     } else {                                                                                                           \
-        new_capacity = initial_cap;                                                                                    \
+        new_cap = initial_cap;                                                                                         \
     }                                                                                                                  \
-    ARRAYLIST_ENSURE(new_capacity <= SIZE_MAX / sizeof(T), ARRAYLIST_ERR_OVERFLOW)                                     \
+    ARRAYLIST_ENSURE(new_cap <= SIZE_MAX / sizeof(T), ARRAYLIST_ERR_OVERFLOW)                                          \
     T *new_data = NULL;                                                                                                \
     if (self->data == NULL) {                                                                                          \
-        new_data = self->alloc.malloc(new_capacity * sizeof(T), self->alloc.ctx);                                      \
+        new_data = ARRAYLIST_CAST(T)self->alloc.malloc(new_cap * sizeof(T), self->alloc.ctx);                          \
     } else {                                                                                                           \
-        new_data =                                                                                                     \
-            self->alloc                                                                                                \
-                .realloc(self->data, self->capacity * sizeof(T), new_capacity * sizeof(T), self->alloc.ctx);           \
+        new_data = ARRAYLIST_CAST(T)self->alloc.realloc(                                                               \
+            self->data, self->capacity * sizeof(T), new_cap * sizeof(T), self->alloc.ctx                               \
+        );                                                                                                             \
     }                                                                                                                  \
     ARRAYLIST_ENSURE(new_data != NULL, ARRAYLIST_ERR_ALLOC)                                                            \
     self->data = new_data;                                                                                             \
-    self->capacity = new_capacity;                                                                                     \
+    self->capacity = new_cap;                                                                                          \
     return ARRAYLIST_OK;                                                                                               \
 }                                                                                                                      \
                                                                                                                        \
@@ -1809,23 +1817,24 @@ static inline struct arraylist_dyn_##name ARRAYLIST_DYN_FN(name, init)(         
                                                                                                                        \
 static inline enum arraylist_error ARRAYLIST_DYN_FN(name, reserve)(                                                    \
     struct arraylist_dyn_##name * self,                                                                                \
-    const size_t capacity                                                                                              \
+    const size_t cap                                                                                                   \
 ) {                                                                                                                    \
     ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL)                                                                 \
-    if (self->capacity >= capacity) {                                                                                  \
+    if (self->capacity >= cap) {                                                                                       \
         return ARRAYLIST_OK;                                                                                           \
     }                                                                                                                  \
-    ARRAYLIST_ENSURE(capacity <= SIZE_MAX / sizeof(T), ARRAYLIST_ERR_OVERFLOW);                                        \
+    ARRAYLIST_ENSURE(cap <= SIZE_MAX / sizeof(T), ARRAYLIST_ERR_OVERFLOW);                                             \
     T *new_data = NULL;                                                                                                \
     if (self->capacity == 0) {                                                                                         \
-        new_data = self->alloc.malloc(capacity * sizeof(T), self->alloc.ctx);                                          \
+        new_data = ARRAYLIST_CAST(T)self->alloc.malloc(cap * sizeof(T), self->alloc.ctx);                              \
     } else {                                                                                                           \
-        new_data =                                                                                                     \
-            self->alloc.realloc(self->data, self->capacity * sizeof(T), capacity * sizeof(T), self->alloc.ctx);        \
+        new_data = ARRAYLIST_CAST(T)self->alloc.realloc(                                                               \
+            self->data, self->capacity * sizeof(T), cap * sizeof(T), self->alloc.ctx                                   \
+        );                                                                                                             \
     }                                                                                                                  \
     ARRAYLIST_ENSURE(new_data != NULL, ARRAYLIST_ERR_ALLOC)                                                            \
     self->data = new_data;                                                                                             \
-    self->capacity = capacity;                                                                                         \
+    self->capacity = cap;                                                                                              \
     return ARRAYLIST_OK;                                                                                               \
 }                                                                                                                      \
                                                                                                                        \
@@ -1857,8 +1866,9 @@ static inline enum arraylist_error ARRAYLIST_DYN_FN(name, shrink_to_fit)(struct 
         self->capacity = 0;                                                                                            \
         return ARRAYLIST_OK;                                                                                           \
     }                                                                                                                  \
-    T *new_data =                                                                                                      \
-        self->alloc.realloc(self->data, self->capacity * sizeof(T), self->size * sizeof(T), self->alloc.ctx);          \
+    T *new_data = ARRAYLIST_CAST(T)self->alloc.realloc(                                                                \
+            self->data, self->capacity * sizeof(T), self->size * sizeof(T), self->alloc.ctx                            \
+        );                                                                                                             \
     ARRAYLIST_ENSURE(new_data != NULL, ARRAYLIST_ERR_ALLOC)                                                            \
     self->data = new_data;                                                                                             \
     self->capacity = self->size;                                                                                       \
