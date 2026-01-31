@@ -208,11 +208,18 @@ extern "C" {
             return NULL;
 #endif // ARRAYLIST_USE_ASSERT if directive
 
+/**
+ * @def ARRAYLIST_CAST
+ * @brief Defines a macro that either casts type T to T* or does nothing
+ * @details
+ * If __cplusplus is defined (compiled with a c++ compiler) then it will cast the results of malloc
+ * and realloc, if compiled with a C compiler, then it does nothing
+ */
 #ifdef __cplusplus
-    #define ARRAYLIST_CAST(T) (T*)
+    #define ARRAYLIST_CAST(T) (T *)
 #else
     #define ARRAYLIST_CAST(T)
-#endif
+#endif // ARRAYLIST_CAST(T)
 
 /**
  * @enum arraylist_error
@@ -794,7 +801,6 @@ static inline size_t ARRAYLIST_FN(name, partition_buffer)(                      
 ) {                                                                                                                    \
     T *pivot = &self->data[high];                                                                                      \
     size_t i = low;                                                                                                    \
-                                                                                                                       \
     /* Traverse buffer */                                                                                              \
     for (size_t j = low; j < high; ++j) {                                                                              \
         if (comp(&self->data[j], pivot)) {                                                                             \
@@ -803,7 +809,6 @@ static inline size_t ARRAYLIST_FN(name, partition_buffer)(                      
             ++i;                                                                                                       \
         }                                                                                                              \
     }                                                                                                                  \
-                                                                                                                       \
     /* Move pivot after smaller elements and return its position */                                                    \
     ARRAYLIST_FN(name, swap_elems)(&self->data[i], &self->data[high]);                                                 \
     return i;                                                                                                          \
@@ -994,7 +999,6 @@ static inline enum arraylist_error ARRAYLIST_FN(name, remove_from_to)(          
     for (size_t i = from; i <= to; ++i) {                                                                              \
         fn_dtor(&self->data[i], &self->alloc);                                                                         \
     }                                                                                                                  \
-                                                                                                                       \
     /* how many numbers are left after the 'to' param */                                                               \
     size_t num_after = self->size - to - 1;                                                                            \
     for (size_t i = 0; i < num_after; ++i) {                                                                           \
@@ -1763,7 +1767,6 @@ static inline size_t ARRAYLIST_DYN_FN(name, partition_buffer)(                  
 ) {                                                                                                                    \
     T *pivot = &self->data[high];                                                                                      \
     size_t i = low;                                                                                                    \
-                                                                                                                       \
     /* Traverse buffer */                                                                                              \
     for (size_t j = low; j < high; ++j) {                                                                              \
         if (comp(&self->data[j], pivot)) {                                                                             \
@@ -1772,7 +1775,6 @@ static inline size_t ARRAYLIST_DYN_FN(name, partition_buffer)(                  
             ++i;                                                                                                       \
         }                                                                                                              \
     }                                                                                                                  \
-                                                                                                                       \
     /* Move pivot after smaller elements and return its position */                                                    \
     ARRAYLIST_DYN_FN(name, swap_elems)(&self->data[i], &self->data[high]);                                             \
     return i;                                                                                                          \
@@ -1978,7 +1980,6 @@ static inline enum arraylist_error ARRAYLIST_DYN_FN(name, remove_from_to)(      
             self->destructor(&self->data[i], &self->alloc);                                                            \
         }                                                                                                              \
     }                                                                                                                  \
-                                                                                                                       \
     /* how many numbers are left after the 'to' param */                                                               \
     size_t num_after = self->size - to - 1;                                                                            \
     for (size_t i = 0; i < num_after; ++i) {                                                                           \
