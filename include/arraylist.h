@@ -2,24 +2,133 @@
  * @file arraylist.h
  * @brief Generic and typesafe arraylist implementation using macros
  *
- * It provides two versions ARRAYLIST and ARRAYLIST_DYN, DYN has a flexible function pointer for
- * destructor inside the struct.
- * As a cost for the flexibility, there is a runtime performance penalty of ~0.3% (compared to
- * c++ standard vector and the normal version ARRAYLIST without function pointer).
+ * This header provides a generic, typesafe dynamic array (arraylist) implementation using C99
+ * macros, similar to the c++ std::vector. It offers full control over memory management with
+ * custom allocators and destructors.
  *
- * One of the use-cases of the function pointer version is to change the destructor implementation
- * at runtime, where, for example, you have an arraylist of pointer to a base interface, and then
- * during runtime, the base pointer is casted to derived structs and the destructor is changed
- * dynamically.
+ * @details
+ * The implementation provides two versions:
+ * 1. ARRAYLIST: Compile-time destructor (macro base), better performance
+ * 2. ARRAYLIST_DYN: Runtime destructor (function pointer), more flexible
  *
- * It is a zero-cost abstraction for both versions, if no destructor is provided to the arraylist
- * and no manual assignment of it (in the case of the function pointer version) later in the usage
- * code, compiler eliminates all tests for destructor because it can be proved that no dtor is
- * needed, this works due to all functions being static inlined (tested on clang with -O3 -flto)
+ * Both versions are zero-cost abstractions when no destructor is needed, all functions are static
+ * inline for maximum optimization as well.
+ * The DYN version has ~0.3% runtime overhead compared to the ARRAYLIST and std::vector due to
+ * function pointer indirection, the compiler can eliminate destructor checks when the compiler
+ * can prove that they are unused (tested on clang with -O3 -flto).
  *
- * Prefer the ARRAYLIST version if the runtime flexibility of a destructor function pointer is not
- * needed.
+ * Regarding memory management:
+ * - The arraylist owns and manages its internal storage
+ * - Elements are copied when added (shallow copy by default)
+ * - For deep copy semantics, use deep_clone() with appropriate copy functions
+ * - For move semantics, use steal() or construct in-place with emplace_back_slot()
  *
+ * Comparison to c++ std::vector:
+ * - Similar functionality but with explicit C semantics
+ * - No automatic move/copy constructors, must be explicit
+ * - Destructors are explicit rather than implicit
+ * - Custom allocator interface instead of allocator template parameter
+ * - Manual iteration instead of iterator abstraction
+ *
+ * Equivalent operations to c++ vector:
+ * | C++ std::vector                    | C arraylist                                                           |
+ * |------------------------------------|-----------------------------------------------------------------------|
+ * | vector<T> list;                    | ARRAYLIST(T, list, dtor); struct arraylist_list v = list_init(alloc); |
+ * | list.push_back(x)                  | list_push_back(&v, x)                                                 |
+ * | list.emplace_back()                | list_emplace_back_slot(&v)                                            |
+ * | list[i]                            | *list_at(&v, i)                                                       |
+ * | list.size()                        | list_size(&v)                                                         |
+ * | list.capacity()                    | list_capacity(&v)                                                     |
+ * | list.reserve(n)                    | list_reserve(&v, n)                                                   |
+ * | list.clear()                       | list_clear(&v)                                                        |
+ * | ~vector()                          | list_deinit(&v)                                                       | 
+ * | vector<T> list2 = list;            | struct arraylist_List v2 = List_shallow_copy(&v)                      |
+ * | vector<T> list2 = std::move(list); | struct arraylist_list v2 = list_steal(&v)                             |
+ *
+ * If there is a deep copy constructor, then assignment on vector is equal to:
+ * `struct arraylist_list v2 = list_deep_clone(&v, deep_clone_fn)`
+ *
+ * Usage example:
+ * @code
+ * // Simple value types (int, float, POD structs)
+ * ARRAYLIST(int, int_list, noop_dtor)
+ * struct arraylist_int_list list = int_list_init(allocator_get_default());
+ * int_list_push_back(&list, 42);
+ * // ... use list ...
+ * int_list_deinit(&list);
+ * 
+ * // Complex value types with destructors
+ * void Person_dtor(struct Person *p, struct Allocator *alloc) {
+ *     alloc->free(p->name, strlen(p->name) + 1, alloc->ctx);
+ * }
+ * ARRAYLIST(struct Person, person_list, Person_dtor)
+ * 
+ * // Pointer types with ownership
+ * void Person_ptr_dtor(struct Person **p_ptr, struct Allocator *alloc) {
+ *     if (!p_ptr || !*p_ptr) return;
+ *     alloc->free((*p_ptr)->name, strlen((*p_ptr)->name) + 1, alloc->ctx);
+ *     alloc->free(*p_ptr, sizeof(struct Person), alloc->ctx);
+ *     *p_ptr = NULL;
+ * }
+ * ARRAYLIST(struct Person*, person_ptr_list, Person_ptr_dtor)
+ * @endcode
+ *
+ * The destructor function may be macro based for the non function pointer arraylist type, most
+ * probably the compiler will optimize either function or macro equally, but the macro is more
+ * guaranteed to be inlined.
+ *
+ * Exmaple for a destructor macro:
+ * @code
+ * #define Person_ptr_dtor_macro(person_dptr, alloc) \
+ * do { \
+ *     if (!person_dptr || !*person_dptr) { \
+ *         break; \
+ *     } \
+ *     (alloc)->free(*(*person_dptr)->name, sizeof(*(*person_dptr)->name), (alloc)->ctx); \
+ *     (alloc)->free(*person_dptr, sizeof(*person_dptr), (alloc)->ctx); \
+ *     (person_dptr) = NULL; \
+ * } while (0)
+ * @endcode
+ *
+ * C23 typeof with _Generic and static_assert/assert may make the macro code safer by checking if
+ * person_dptr is indeed of type struct Person **.
+ *
+ * Performance:
+ * - Use reserve() when you know the approximate final size
+ * - Prefer emplace_back_slot() over push_back() for complex types
+ * - Use ARRAYLIST (not DYN) when destructor flexibility isn't needed
+ * - Pass noop_dtor for types that don't need cleanup
+ * - Enable LTO for maximum optimization
+ *
+ * Thread safety:
+ * - Individual arraylists are not thread-safe
+ * - Operations on different arraylist instances are independent
+ * - Concurrent access requires external synchronization
+ *
+ * Error handling:
+ * When ARRAYLIST_USE_ASSERT=1 (default 0):
+ * - Invalid operations trigger assert() and abort
+ * When ARRAYLIST_USE_ASSERT=0:
+ * - Functions return error codes
+ * - Accessor functions return NULL or default values
+ *
+ * Memory allocation:
+ * - Default initial capacity: 1 element
+ * - Growth factor: 2x (exponential growth)
+ * - Capacity never shrinks automatically (like std::vector), but there is a shrink_to_fit()
+ *
+ * Supported Operations:
+ * - Initialization: init
+ * - Insertion: emplace_back_slot, push_back, insert_at
+ * - Removal: pop_back, remove_at
+ * - Access: at, begin, end, back
+ * - Capacity: reserve, shrink_to_fit, size, capacity
+ * - Search: find, contains
+ * - Sorting: qsort
+ * - Copy/Move: shallow_copy, deep_clone, steal
+ * - Memory: clear, deinit
+ *
+ * Requirements:
  * This arraylist requires a file named "allocator.h", which is a simple allocator interface that
  * defines a struct Allocator with 4 fields:
  * - void *(*malloc)(size_t size, void *ctx);
@@ -30,103 +139,24 @@
  * And defines a function named allocator_get_default which returns a struct Allocator with
  * initialized fields to a default allocator of choice (std libc memory functions in this case).
  *
- * Very easy to provide your own arraylist.h and/or custom allocators by
+ * Very easy to provide your own allocator.h and/or custom allocators by
  * implementing the Allocator interface
  *
- * @details
- * This arraylist implementation provides similar functionality to cpp standard vec, with explicit
- * control over memory management with custom allocator and destructors
+ * Compiled and tests with GCC, Clang and MSVC
+ * Also supports c++ compilation (extern "C"), with some warnings
+ * There are no platform specific dependencies
  *
- * The arraylist will own and manage the memory of its internal storage. Once elements are added:
- * - Do not manually free elements, use the arraylist functions to remove.
- * - Destructor callback (if provided) will be called automatically when elements are removed.
- * - After deinit(), all contained elements are destroyed and the storage freed. 
+ * Security Considerations:
+ * - Bounds checking in accessor functions (only when asserts are enabled)
+ * - No buffer overflows (checked via SIZE_MAX)
+ * - Destructor calls prevent resource leaks
+ * - Zero-initialization after deinit/steal
  *
- * For value types (int, struct foo):
- * - Elements are copied into the arraylist.
- * - Destructors are called on removal/destruction if provided.
- * - If the struct/element contains heap-allocated memory, supply a destructor to avoid memory leaks
- *   or manually free them if not provided
- * - Prefer using emplace_back_slot() to construct objects in-place, avoids shallow copies
- *
- * For pointer types (struct foo*):
- * - The arraylist store the pointers, ownership of the pointed-to memory is only managed if a
- *   destructor is provided, the destructor must free the pointer and set it to null
- * - Without the destructor, the user must manage the pointed-to objects manually
- * - The typical destructor usually is: Foo_dtor_ptr(struct Foo **foo, Alloc *alloc), so it can
- *   free internal resources, the obj itself, and set the pointer (in the list) to null
- *
- * Copy/Move Semantics:
- * Unlike cpp standard lib vec, it has no builtin move semantics, and performs shallow copies bit by bit always
- * when adding an element or on reallocating memory, deep copy and move semantics are not automatic. 
- * For structs containing heap-allocated memory, this means that the internal pointers may be
- * duplicated or invalidated after an internal realloc.
- * A steal and deep_clone functions are provided for move and clone semantics. 
- *
- * It's recommended to always use emplace_back_slot() when possible to prevent shallow copies and
- * construct the object in-place, or do a deep-copy (moving the src to dst and invalidating src)
- * if your type needs it.
- *
- * Comparison to cpp standard lib vec:
- * - For value types, usage is equivalent to vector of type <T>, with manual dtor/copy semantics in C
- * - For pointer types, it is like vector of type <T*> by default, if a destructor is provided, it
- *   behaves like vector <unique pointer<T>> (the container will own the pointed-to memory)
- * - If the value type is non-pod (it allocates memory for field members), and a destructor is
- *   provided, it behaves just like vector <unique pointer<T>> as well
- * - Copy and move semantics must still be manually handled explicitly if needed.
- *
- * Example destructor for value types to be supplied to the arraylist:
- * @code
- * inline void Foo_dtor(struct Foo *t, Alloc *alloc) {
- *     if (!t) return;
- *     // Free internal allocated members if needed
- *     alloc->free(t->member, sizeof(t->member), alloc->ctx);
- *     // Do not free t itself, arraylist owns it
- *     // Optionally set members to null
- *     t->member = NULL;
- * }
- * @endcode
- *
- * Example destructor for pointer types to be supplied to the arraylist:
- * @code
- * inline void Foo_dtor_ptr(struct Foo **t_ptr, Alloc *alloc) {
- *     if (!t_ptr || !*t_ptr) return;
- *     // Free internal allocated members if needed
- *     alloc->free((*t_ptr)->member, sizeof((*t_ptr)->member), alloc->ctx);
- *     // Or call the Foo_dtor:
- *     // Foo_dtor(*t_ptr);
- *     // Free the object itself
- *     alloc->free(*t_ptr, sizeof(*self), alloc->ctx);
- *     // Set it to null, which only affects the copy on the arraylist
- *     *t_ptr = NULL;
- * }
- * @endcode
- *
- * The destructor function may be macro based for the non function pointer arraylist type, most
- * probably the compiler will optimize either function or macro equally, but the macro is more
- * guaranteed to be inlined.
- *
- * Exmaple for a destructor macro:
- * @code
- * #define Foo_ptr_dtor_macro(foo_dptr, alloc) \
- * do { \
- *     if (!foo_dptr || !*foo_dptr) { \
- *         break; \
- *     } \
- *     (alloc)->free(*(*foo_dptr)->member, sizeof(*(*foo_dptr)->member), (alloc)->ctx); \
- *     (alloc)->free(*foo_dptr, sizeof(*foo_dptr), (alloc)->ctx); \
- *     (foo_dptr) = NULL; \
- * } while (0)
- * @endcode
- *
- * C23 typeof with _Generic and static_assert/assert may make the code safer by checking if
- * foo_dptr is indeed of type Foo **.
- *
- * @warning Always assume that pointers are invalid after adding them to pointer containers and
- *          don't hold pointers to elements across operations that may reallocate.
- *
- * @warning Call deinit() when done, if reusing after deinit(), initialize it again with init().
- *
+ * @warning Always call deinit() when done with the arraylist
+ * @warning Don't hold pointers to elements across reallocations
+ * @warning Use deep_clone() for independent copies of complex types
+ * @warning The steal() function invalidates the source arraylist
+ * @warning Destructors must handle null pointers
  * @warning After deinit() or steal() the arraylist will be left in an invalid and zeroed out state,
  *          to reuse it again, init() it first, if using without init() a segfault crash will most
  *          likely (hopefully) happen
@@ -684,15 +714,12 @@ ARRAYLIST_UNUSED static inline struct arraylist_##name ARRAYLIST_FN(name, shallo
 );                                                                                                                     \
                                                                                                                        \
 /**                                                                                                                    \
- * @brief move: Moves the arraylist in the parameter to the lhs, leaving self as NULL                                  \
- * @param self Pointer to the arraylist to move                                                                        \
+ * @brief steal: Steals the arraylist in the parameter to the lhs, leaving self invalidated                            \
+ * @param self Pointer to the arraylist to steal/move                                                                  \
  * @return A new arraylist struct                                                                                      \
  *                                                                                                                     \
- * @note The self parameter will be left in a used, but NULL/uninitialized state and should not be used                \
- *       to reuse it, one must call init again and reinitialize it                                                     \
- *                                                                                                                     \
- * @note The self parameter will be left in an unusable, NULL/uninitialized state and should not be used               \
- *       to reuse it, one must call init again and reinitialize it                                                     \
+ * @note The self parameter will be left in an unusable, NULL/uninitialized state and should not be                    \
+ *       used, to reuse it, one must call init again and reinitialize it                                               \
  *                                                                                                                     \
  * @warning The return of this function should not be discarded, if doing so, memory may be leaked                     \
  */                                                                                                                    \
@@ -720,8 +747,8 @@ ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, clear)(st
  * Safe to call on NULL or already deinitialized arraylists, returns early                                             \
  *                                                                                                                     \
  * @note Will call the destructor on data items if provided                                                            \
- * @note The self parameter will be left in an unusable, NULL/uninitialized state and should not be used               \
- *       to reuse it, one must call init again and reinitialize it                                                     \
+ * @note The self parameter will be left in an unusable, NULL/uninitialized state and should not be                    \
+ *       used, to reuse it, one must call init again and reinitialize it                                               \
  */                                                                                                                    \
 ARRAYLIST_UNUSED static inline void ARRAYLIST_FN(name, deinit)(struct arraylist_##name *self);
 
@@ -1654,15 +1681,12 @@ ARRAYLIST_UNUSED static inline struct arraylist_dyn_##name ARRAYLIST_FN_DYN(name
 );                                                                                                                     \
                                                                                                                        \
 /**                                                                                                                    \
- * @brief move: Moves the arraylist in the parameter to the lhs, leaving self as NULL                                  \
- * @param self Pointer to the arraylist to move                                                                        \
+ * @brief steal: Steals the arraylist in the parameter to the lhs, leaving self invalidated                            \
+ * @param self Pointer to the arraylist to steal/move                                                                  \
  * @return A new arraylist struct                                                                                      \
  *                                                                                                                     \
- * @note The self parameter will be left in a used, but NULL/uninitialized state and should not be used                \
- *       to reuse it, one must call init again and reinitialize it                                                     \
- *                                                                                                                     \
- * @note The self parameter will be left in an unusable, NULL/uninitialized state and should not be used               \
- *       to reuse it, one must call init again and reinitialize it                                                     \
+ * @note The self parameter will be left in an unusable, NULL/uninitialized state and should not be                    \
+ *       used, to reuse it, one must call init again and reinitialize it                                               \
  *                                                                                                                     \
  * @warning The return of this function should not be discarded, if doing so, memory may be leaked                     \
  */                                                                                                                    \
@@ -1692,8 +1716,8 @@ ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN_DYN(name, clear
  * Safe to call on NULL or already deinitialized arraylists, returns early                                             \
  *                                                                                                                     \
  * @note Will call the destructor on data items if provided                                                            \
- * @note The self parameter will be left in an unusable, NULL/uninitialized state and should not be used               \
- *       to reuse it, one must call init again and reinitialize it                                                     \
+ * @note The self parameter will be left in an unusable, NULL/uninitialized state and should not be                    \
+ *       used, to reuse it, one must call init again and reinitialize it                                               \
  */                                                                                                                    \
 ARRAYLIST_UNUSED static inline void ARRAYLIST_FN_DYN(name, deinit)(struct arraylist_dyn_##name *self);
 
