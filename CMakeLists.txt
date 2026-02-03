@@ -36,6 +36,9 @@ set(ARRAYLIST_EXAMPLE_DYN1_SRC arraylist/examples/example_dyn1.c)
 set(ARRAYLIST_EXAMPLE_DYN2_SRC arraylist/examples/example_dyn2.c)
 set(ARRAYLIST_EXAMPLE_DYN3_SRC arraylist/examples/example_dyn3.c)
 
+# Pair test and example sources
+set(PAIR_TEST_SRC pair/tests/test.c)
+
 # Build types
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release;Sanitizer" CACHE STRING "" FORCE)
 
@@ -128,23 +131,35 @@ target_include_directories(example_arraylistdyn1 PRIVATE "${PROJECT_SOURCE_DIR}/
 target_include_directories(example_arraylistdyn2 PRIVATE "${PROJECT_SOURCE_DIR}/include")
 target_include_directories(example_arraylistdyn3 PRIVATE "${PROJECT_SOURCE_DIR}/include")
 
-# ctest
-add_test(NAME unit_test COMMAND test_arraylist)
+# Pair unit tests executable
+add_executable(test_pair ${PAIR_TEST_SRC})
 
-add_custom_target(
-    run_all_binaries
-    COMMAND $<TARGET_FILE:example_arraylist1>
-    COMMAND $<TARGET_FILE:example_arraylist2>
-    COMMAND $<TARGET_FILE:example_arraylist3>
-    COMMAND $<TARGET_FILE:example_arraylistdyn1>
-    COMMAND $<TARGET_FILE:example_arraylistdyn2>
-    COMMAND $<TARGET_FILE:example_arraylistdyn3>
-    COMMAND $<TARGET_FILE:test_arraylist>
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-    COMMENT "Running all project executables..."
-    # Add a dependency so 'run_all_binaries' is built (though it doesn't create a file)
-    # DEPENDS MyApp1 MyApp2
-)
+# Pair examples executable
+
+# Output directory
+set_target_properties(test_pair PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+
+# Include directory
+target_include_directories(test_pair PRIVATE "${PROJECT_SOURCE_DIR}/include")
+
+# ctest
+add_test(NAME unit_test_arraylist COMMAND test_arraylist)
+add_test(NAME unit_test_pair COMMAND test_pair)
+
+# add_custom_target(
+#     run_all_binaries
+#     COMMAND $<TARGET_FILE:example_arraylist1>
+#     COMMAND $<TARGET_FILE:example_arraylist2>
+#     COMMAND $<TARGET_FILE:example_arraylist3>
+#     COMMAND $<TARGET_FILE:example_arraylistdyn1>
+#     COMMAND $<TARGET_FILE:example_arraylistdyn2>
+#     COMMAND $<TARGET_FILE:example_arraylistdyn3>
+#     COMMAND $<TARGET_FILE:test_arraylist>
+#     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+#     COMMENT "Running all project executables..."
+#     # Add a dependency so 'run_all_binaries' is built (though it doesn't create a file)
+#     # DEPENDS MyApp1 MyApp2
+# )
 
 # The default is set on the section "# Set default build type"
 # $cmake ..
@@ -165,6 +180,3 @@ add_custom_target(
 
 # To run tests:
 # $ctest
-
-# To run all binaries (including the test)
-# $cmake --build . --target run_all_binaries
