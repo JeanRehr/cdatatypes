@@ -663,6 +663,8 @@ ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, swap)(   
  * @brief qsort: Sorts the self based on the given comp function                                                       \
  * @param self Pointer to the arraylist                                                                                \
  * @param comp Function that knows how to compare two T types                                                          \
+ *             Must have the prototype:                                                                                \
+ *             void deep_clone_fn(T *elem1, T *elem2);                                                                 \
  * @return ARRAYLIST_ERR_NULL if self == null or if fn comp == null, otherwise ARRAYLIST_OK                            \
  *                                                                                                                     \
  * @note Performs a simple quicksort, non-stable, pivot is always the last element,                                    \
@@ -670,7 +672,7 @@ ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, swap)(   
  */                                                                                                                    \
 ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, qsort)(                                         \
     struct arraylist_##name *self,                                                                                     \
-    bool (*comp)(T *n1, T *n2)                                                                                         \
+    bool (*comp)(T *elem1, T *elem2)                                                                                   \
 );                                                                                                                     \
                                                                                                                        \
 /**                                                                                                                    \
@@ -678,7 +680,7 @@ ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, qsort)(  
  * @param self Pointer to the arraylist to copy                                                                        \
  * @param deep_clone_fn Function that knows how to clone a single element                                              \
  *                      Must have the prototype:                                                                       \
- *                      void deep_clone_fn(T *dst, const T *src, struct Allocator *alloc);                             \
+ *                      void deep_clone_fn(T *dst, T *src, struct Allocator *alloc);                                   \
  * @return A new arraylist struct that is independent of the self                                                      \
  *                                                                                                                     \
  * @note The correctness of this function depends on the provided deep_clone_fn parameter                              \
