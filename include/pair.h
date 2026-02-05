@@ -292,7 +292,8 @@ struct pair_##name {                                                            
  *
  * @details
  * The following functions are declared:
- * - static inline struct pair_##name PAIR_FN(name, init)(const K first, const V second);
+ * - static inline struct pair_##name PAIR_FN(name, init)(K first, V second);
+ * - static inline int PAIR_FN(name, cmp)(struct pair_##name *a, struct pair_##name *b, int (*cmp_first)(K *a_first, K *b_first), int (*cmp_second)(V *a_second, V *b_second));
  * - static inline enum pair_error PAIR_FN(name, swap)(struct pair_##name *self, struct pair_##name *other);
  * - static inline struct pair_##name PAIR_FN(name, deep_clone)(struct pair_##name *self, void (*deep_clone_first_fn)(K *dst, K *src, struct Allocator *alloc), void (*deep_clone_second_fn)(V *dst, V *src, struct Allocator *alloc), struct Allocator *alloc);
  * - static inline struct pair_##name PAIR_FN(name, shallow_copy)(const struct pair_##name *self);
@@ -307,7 +308,26 @@ struct pair_##name {                                                            
  * @return A pair with the given values                                                                                \
  * @details it does not allocate any memory for the pair itself, all members are values                                \
  */                                                                                                                    \
-PAIR_UNUSED static inline struct pair_##name PAIR_FN(name, init)(const K first, const V second);                       \
+PAIR_UNUSED static inline struct pair_##name PAIR_FN(name, init)(K first, V second);                                   \
+                                                                                                                       \
+/**                                                                                                                    \
+ * @brief cmp: Compare lexicographycally between two pairs                                                             \
+ * @param a Pointer to the first pair                                                                                  \
+ * @param b Pointer to another pair to compare with                                                                    \
+ * @param cmp_first Functions that know how to compare the first element of a pair                                     \
+ *                 Must have the prototype:                                                                            \
+ *                 int cmp_first(K *a_first, K *b_first);                                                              \
+ * @param cmp_second Functions that know how to compare the second element of a pair                                   \
+ *                 Must have the prototype:                                                                            \
+ *                 int cmp_second(V *a_second, V *b_second);                                                           \
+ * @return < 0 if a is less than b, 0 if they are equal, > 0 if a is greater than b                                    \
+ */                                                                                                                    \
+PAIR_UNUSED static inline int PAIR_FN(name, cmp)(                                                                      \
+    struct pair_##name *a,                                                                                             \
+    struct pair_##name *b,                                                                                             \
+    int (*cmp_first)(K *a_first, K *b_first),                                                                          \
+    int (*cmp_second)(V *a_second, V *b_second)                                                                        \
+);                                                                                                                     \
                                                                                                                        \
 /**                                                                                                                    \
  * @brief swap: Swaps the contents of one pair with other                                                              \
@@ -410,11 +430,25 @@ PAIR_UNUSED static inline void PAIR_FN(name, deinit)(struct pair_##name *self, s
  *          or a macro/function that does nothing.
  */
 #define PAIR_IMPL(K, V, name, dtor_first, dtor_second)                                                                 \
-static inline struct pair_##name PAIR_FN(name, init)(const K first, const V second) {                                  \
+static inline struct pair_##name PAIR_FN(name, init)(K first, V second) {                                              \
     struct pair_##name pair = { 0 };                                                                                   \
     pair.first = first;                                                                                                \
     pair.second = second;                                                                                              \
     return pair;                                                                                                       \
+}                                                                                                                      \
+                                                                                                                       \
+static inline int PAIR_FN(name, cmp)(                                                                                  \
+    struct pair_##name *a,                                                                                             \
+    struct pair_##name *b,                                                                                             \
+    int (*cmp_first)(K *a_first, K *b_first),                                                                          \
+    int (*cmp_second)(V *a_second, V *b_second)                                                                        \
+) {                                                                                                                    \
+    PAIR_ENSURE(a != NULL && b != NULL && cmp_first != NULL && cmp_second != NULL, 0);                                 \
+    int ret = cmp_first(&a->first, &b->first);                                                                         \
+    if (ret != 0) {                                                                                                    \
+        return ret;                                                                                                    \
+    }                                                                                                                  \
+    return cmp_second(&a->second, &b->second);                                                                         \
 }                                                                                                                      \
                                                                                                                        \
 static inline enum pair_error PAIR_FN(name, swap)(struct pair_##name *self, struct pair_##name *other) {               \
@@ -461,7 +495,6 @@ static inline void PAIR_FN(name, deinit)(struct pair_##name *self, struct Alloca
         return;                                                                                                        \
     }                                                                                                                  \
     PAIR_ENSURE_VOID(alloc != NULL);                                                                                   \
-    (void)alloc;                                                                                                       \
     dtor_first(&self->first, alloc);                                                                                   \
     dtor_second(&self->second, alloc);                                                                                 \
     memset(self, 0, sizeof(*self));                                                                                    \
