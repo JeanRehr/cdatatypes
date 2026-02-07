@@ -38,6 +38,7 @@ set(ARRAYLIST_EXAMPLE_DYN3_SRC arraylist/examples/example_dyn3.c)
 
 # Pair test and example sources
 set(PAIR_TEST_SRC pair/tests/test.c)
+set(PAIR_EXAMPLE_1_SRC pair/examples/example1.c)
 
 # Build types
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release;Sanitizer" CACHE STRING "" FORCE)
@@ -135,12 +136,15 @@ target_include_directories(example_arraylistdyn3 PRIVATE "${PROJECT_SOURCE_DIR}/
 add_executable(test_pair ${PAIR_TEST_SRC})
 
 # Pair examples executable
+add_executable(example_pair1 ${PAIR_EXAMPLE_1_SRC})
 
 # Output directory
 set_target_properties(test_pair PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set_target_properties(example_pair1 PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 # Include directory
 target_include_directories(test_pair PRIVATE "${PROJECT_SOURCE_DIR}/include")
+target_include_directories(example_pair1 PRIVATE "${PROJECT_SOURCE_DIR}/include")
 
 # ctest
 add_test(NAME unit_test_arraylist COMMAND test_arraylist)
