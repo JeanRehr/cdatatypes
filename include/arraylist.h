@@ -366,8 +366,6 @@ struct arraylist_##name {                                                       
 /**                                                                                                                    \
  * @brief init: Creates a new arraylist                                                                                \
  * @param alloc Custom allocator instance, if null, default alloc will be used                                         \
- * @param destructor Custom destructor function pointer, if null, the arraylist will not know                          \
- *        how to free the given value if needed, user will be responsible for freeing                                  \
  * @return A zero initialized arraylist structure                                                                      \
  *                                                                                                                     \
  * @note It does not allocate                                                                                          \
