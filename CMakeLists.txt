@@ -40,6 +40,9 @@ set(ARRAYLIST_EXAMPLE_DYN3_SRC arraylist/examples/example_dyn3.c)
 set(PAIR_TEST_SRC pair/tests/test.c)
 set(PAIR_EXAMPLE_1_SRC pair/examples/example1.c)
 
+# AVLTree test and example sources
+set(AVL_TEST_USE avltree/avlusage.c)
+
 # Build types
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release;Sanitizer" CACHE STRING "" FORCE)
 
@@ -103,10 +106,8 @@ endif()
 message(STATUS "Used build type: ${CMAKE_BUILD_TYPE}")
 
 # Executables
-# Arraylist unit tests executable
+# Arraylist executables
 add_executable(test_arraylist ${ARRAYLIST_TEST_SRC})
-
-# Arraylist examples executable
 add_executable(example_arraylist1 ${ARRAYLIST_EXAMPLE_1_SRC})
 add_executable(example_arraylist2 ${ARRAYLIST_EXAMPLE_2_SRC})
 add_executable(example_arraylist3 ${ARRAYLIST_EXAMPLE_3_SRC})
@@ -114,7 +115,7 @@ add_executable(example_arraylistdyn1 ${ARRAYLIST_EXAMPLE_DYN1_SRC})
 add_executable(example_arraylistdyn2 ${ARRAYLIST_EXAMPLE_DYN2_SRC})
 add_executable(example_arraylistdyn3 ${ARRAYLIST_EXAMPLE_DYN3_SRC})
 
-# Output directory
+# Arraylist Output directory
 set_target_properties(test_arraylist PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set_target_properties(example_arraylist1 PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set_target_properties(example_arraylist2 PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
@@ -123,7 +124,7 @@ set_target_properties(example_arraylistdyn1 PROPERTIES RUNTIME_OUTPUT_DIRECTORY 
 set_target_properties(example_arraylistdyn2 PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set_target_properties(example_arraylistdyn3 PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-# Include directory
+# Arraylist Include directory
 target_include_directories(test_arraylist PRIVATE "${PROJECT_SOURCE_DIR}/include")
 target_include_directories(example_arraylist1 PRIVATE "${PROJECT_SOURCE_DIR}/include")
 target_include_directories(example_arraylist2 PRIVATE "${PROJECT_SOURCE_DIR}/include")
@@ -132,19 +133,26 @@ target_include_directories(example_arraylistdyn1 PRIVATE "${PROJECT_SOURCE_DIR}/
 target_include_directories(example_arraylistdyn2 PRIVATE "${PROJECT_SOURCE_DIR}/include")
 target_include_directories(example_arraylistdyn3 PRIVATE "${PROJECT_SOURCE_DIR}/include")
 
-# Pair unit tests executable
+# Pair executables
 add_executable(test_pair ${PAIR_TEST_SRC})
-
-# Pair examples executable
 add_executable(example_pair1 ${PAIR_EXAMPLE_1_SRC})
 
-# Output directory
+# Pair Output directory
 set_target_properties(test_pair PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set_target_properties(example_pair1 PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-# Include directory
+# Pair Include directory
 target_include_directories(test_pair PRIVATE "${PROJECT_SOURCE_DIR}/include")
 target_include_directories(example_pair1 PRIVATE "${PROJECT_SOURCE_DIR}/include")
+
+# AVLTree executables
+add_executable(avl_test_usage ${AVL_TEST_USE})
+
+# AVLTree Output directory
+set_target_properties(avl_test_usage PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+
+# AVLTree Include directory
+target_include_directories(avl_test_usage PRIVATE "${PROJECT_SOURCE_DIR}/include")
 
 # ctest
 add_test(NAME unit_test_arraylist COMMAND test_arraylist)
