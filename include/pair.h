@@ -1,5 +1,6 @@
 /**
  * @file pair.h
+ * @author Jean Rehr <jeanrehr@gmail.com>
  * @brief Generic and typesafe pair implementation using macros
  *
  * This header provides a generic pair (2-tuple) implementation using C99 macros, similar to c++

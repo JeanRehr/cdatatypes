@@ -11375,8 +11375,6 @@ void test_arraylist_dyn_deinit_ptr(void) {
 
 /* === START TEST SHALLOW COPY/DEEP CLONE ON POD TYPE === */
 
-#define noop_dtor(ptr, alloc) (void)0
-
 // Just to ensure that calling deep_clone with a function that shallow copies behaves just like shallow copy
 static void int_deep_clone(int *dst, int *src, struct Allocator *alloc) {
     (void)alloc;
@@ -11389,7 +11387,7 @@ static void int_deep_clone(int *dst, int *src, struct Allocator *alloc) {
 
 /* === START ARRAYLIST SHALLOW COPY ON SCALAR TYPE=== */
 
-ARRAYLIST(int, intlist, noop_dtor)
+ARRAYLIST(int, intlist, arraylist_noop_deinit)
 
 void test_arraylist_shallow_copy_scalar_type(void) {
     struct Allocator gpa = allocator_get_default();

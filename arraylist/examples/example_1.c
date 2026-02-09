@@ -1,7 +1,7 @@
 /**
- * @file example_fp1.c
+ * @file example_1.c
  * @brief Example usage on how to use the arraylist.h
- * @details This example will show the function pointer version usage for simple types like ints
+ * @details This example will show simple types like ints
  */
 
 #include <stdio.h>
@@ -22,12 +22,13 @@ ARRAYLIST_DECL(int, ints)
 // For simple and/or non pointer types, a destructor is not needed
 // if using (void) as a parameter to the ARRAYLIST_IMPL macro, the compiler will warn about unused
 // values inside the macro if compiling in Debug or Sanitizer mode, Release mode the compiler
-// completely removes the code for these calls and will not complain, however, if the warnings
+// completely removes the code for those calls and will not complain, however, if the warnings
 // bothers, defining a noop macro also works, like:
-#define dummy_dtor(ptr, alloc) (void)0
+//#define dummy_dtor(ptr, alloc) (void)0
+// Or use the already provided one in the ARRAYLIST: arraylist_noop_deinit
 
 // This must always be on a .c file
-ARRAYLIST_IMPL(int, ints, dummy_dtor)
+ARRAYLIST_IMPL(int, ints, arraylist_noop_deinit)
 
 // Or with the all in one macro, must be in a .c file
 // ARRAYLIST(int, ints, macro_dtor)

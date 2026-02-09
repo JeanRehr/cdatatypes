@@ -13,9 +13,7 @@
 
 // == SIMPLE TYPE ==
 
-#define noop_dtor(ptr, alloc) ((void)0)
-
-PAIR(int, int, int_pair, noop_dtor, noop_dtor)
+PAIR(int, int, int_pair, pair_noop_deinit, pair_noop_deinit)
 
 // Comparator for ints for cmp test
 static int int_cmp(int *a, int *b) {

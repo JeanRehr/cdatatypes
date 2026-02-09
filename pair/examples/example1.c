@@ -15,8 +15,6 @@
 
 #include "arraylist.h"
 
-#define noop_dtor(ptr, alloc) ((void)0)
-
 // dinamically allocate strings
 static char *heap_alloc_from_str_lit(const char *src, struct Allocator *alloc) {
     size_t len = strlen(src);
@@ -43,7 +41,8 @@ PAIR_DECL(char *, int, grades)
 // struct pair_grades { char *first; int second; }
 
 // This must always be on a .c file
-PAIR_IMPL(char *, int, grades, char_ptr_deinit, noop_dtor)
+// pair_noop_deinit here is a destructor that does nothing, used for scalar types or types that don't heap allocate
+PAIR_IMPL(char *, int, grades, char_ptr_deinit, pair_noop_deinit)
 
 // Or with the all in one macro, must be in a .c file
 // PAIR()
