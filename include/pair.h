@@ -54,8 +54,7 @@
  * Usage example:
  * @code
  * // Simple value types (int, float, POD structs)
- * #define noop_dtor(ptr, alloc) (void)0
- * PAIR(int, float, int_float_pair, noop_dtor, noop_dtor)
+ * PAIR(int, float, int_float_pair, pair_noop_deinit, pair_noop_deinit)
  * struct pair_int_float_pair p = int_float_pair_init(42, 3.14f);
  * printf("First: %d, Second: %f\n", p.first, p.second);
  * int_float_pair_deinit(&p, allocator_get_default());
@@ -74,13 +73,13 @@
  * 
  * PAIR(char*, struct Person, string_person_pair, String_dtor, Person_dtor)
  * 
- * struct Allocator *alloc = allocator_get_default();
+ * struct Allocator alloc = allocator_get_default();
  * struct pair_string_person_pair pair = string_person_pair_init(
  *     strdup("nominee"), 
  *     (struct Person){.name = strdup("name example"), .age = 69}
  * );
  * // ... use pair ...
- * string_person_pair_deinit(&pair, alloc);
+ * string_person_pair_deinit(&pair, &alloc);
  * @endcode
  *
  * The destructor functions may be macro-based, and the compiler will typically
@@ -99,7 +98,7 @@
  * } while (0)
  * @endcode
  *
- * Pass noop_dtor for types that don't need cleanup and enable LTO for maximum optimization
+ * Pass pair_noop_deinit for types that don't need cleanup and enable LTO for maximum optimization
  *
  * Thread safety:
  * - Individual pairs are not thread-safe
@@ -150,6 +149,15 @@
 #ifdef __cplusplus
 extern "C" {
 #endif // extern "C"
+
+/**
+ * @def pair_noop_deinit
+ * @brief Defines a no-op destructor macro for usage in scalar types or types
+ *        that does not need a destructor
+ */
+#ifndef pair_noop_deinit
+    #define pair_noop_deinit(ptr, alloc) ((void)0)
+#endif // pair_noop_deinit
 
 /**
  * @def PAIR_UNUSED
@@ -230,16 +238,17 @@ enum pair_error {
  * @def PAIR_USE_PREFIX
  * @brief Defines at compile-time if the functions will use pair_* prefix
  * @details 
+ * This macro constructs function names for the pair library. The naming convention depends on
+ * whether @c PAIR_USE_PREFIX is defined.
  * Generates functions with the pattern pair_##name##_function() instead of name##_function()
  * Must be defined before including the pair.h header, it will be per TU/file, so once defined
- * can't be undef in the same TU for different pair types and names.
  * The struct generated will always have the prefix pair_##name to them.
  * Inspiration taken from the Tsoding's nob.h lib, and some other libs like jemalloc which also does
  * something similar.
  *
  * The default is without prefixes, as the "name" parameter already acts like a user defined prefix:
  * @code
- * PAIR(int, int, intsp, noopdtor, noopdtor)
+ * PAIR(int, int, intsp, pair_noop_deinit, pair_noop_deinit)
  * struct pair_intsp intpair = intsp_init(...);
  * @endcode
  *
@@ -251,8 +260,10 @@ enum pair_error {
  * PAIR_TYPE(int, int, intsp) // Creates a struct: struct pair_intsp;
  * PAIR_DECL(int, int, intsp) // Declares functions named pair_intsp_init(...)
  * // In a .c file:
- * PAIR_IMPL(int, int, intsp, noopdtor, noopdtor)
+ * PAIR_IMPL(int, int, intsp, pair_noop_deinit, pair_noop_deinit)
  * @endcode
+ *
+ * @warning The @c PAIR_FN macro is for intenal use only, I can't see any usefulness for user code
  */
 #ifdef PAIR_USE_PREFIX
     #define PAIR_FN(name, func) pair_##name##_##func
@@ -426,8 +437,8 @@ PAIR_UNUSED static inline void PAIR_FN(name, deinit)(struct pair_##name *self, s
  * @note The two last parameters may be a macro or a function, recommended to inline the function
  *
  * @warning If the type K (dtor_first) or V (dtor_second) doesn't need to have a destructor, or one
- *          doesn't want to pass it and manually free, then a noop must be passed, like (void),
- *          or a macro/function that does nothing.
+ *          doesn't want to pass it and manually free, then a noop must be passed, like the already
+ *          provided pair_noop_deinit nacro, or (void), or a macro/function that does nothing.
  */
 #define PAIR_IMPL(K, V, name, dtor_first, dtor_second)                                                                 \
 static inline struct pair_##name PAIR_FN(name, init)(K first, V second) {                                              \
