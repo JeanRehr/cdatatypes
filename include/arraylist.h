@@ -1,5 +1,6 @@
 /**
  * @file arraylist.h
+ * @author Jean Rehr <jeanrehr@gmail.com>
  * @brief Generic and typesafe arraylist implementation using macros
  *
  * This header provides a generic, typesafe dynamic array (arraylist) implementation using C99
@@ -269,11 +270,12 @@ enum arraylist_error {
 /**
  * @def ARRAYLIST_USE_PREFIX
  * @brief Defines at compile-time if the functions will use the arraylist_* prefix
- * @details 
+ * @details
+ * This macro constructs function names for the pair library. The naming convention depends on
+ * whether @c ARRAYLIST_USE_PREFIX is defined.
  * Generates functions with the pattern arraylist_##name##_function() instead of name##_function()
  * Must be defined before including the arraylist.h header, it will be per TU/file, so once defined
  * can't be undef in the same TU for different arraylist types and names.
- * The struct generated will always have the prefix arraylist_##name to them.
  * Inspiration taken from the Tsoding's nob.h lib, and some other libs like jemalloc which also does
  * something similar.
  *
@@ -293,6 +295,8 @@ enum arraylist_error {
  * // In a .c file:
  * ARRAYLIST_IMPL(int, int_list)
  * @endcode
+ *
+ * @warning The @c ARRAYLIST_FN macro is for intenal use only, I can't see any usefulness for user code
  */
 #ifdef ARRAYLIST_USE_PREFIX
     #define ARRAYLIST_FN(name, func) arraylist_##name##_##func
@@ -753,11 +757,11 @@ ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, clear)(st
 ARRAYLIST_UNUSED static inline void ARRAYLIST_FN(name, deinit)(struct arraylist_##name *self);
 
 /** \
- * @def ARRAYLIST_IMPL(T, name, fn_dtor)
+ * @def ARRAYLIST_IMPL(T, name, deinit_fn)
  * @brief Implements all functions for an arraylist type
  * @param T The type arraylist will hold
  * @param name The name suffix for the arraylist type
- * @param fn_dtor The function that knows how to free type T and its members (may be a macro or
+ * @param deinit_fn The function that knows how to free type T and its members (may be a macro or
  *                a normal function), recommended to inline the function
  *
  * Implements the functions of the ARRAYLIST_DECL macro
@@ -768,7 +772,7 @@ ARRAYLIST_UNUSED static inline void ARRAYLIST_FN(name, deinit)(struct arraylist_
  *          manually free, then a noop must be passed, like (void), or a macro/function
  *          that does nothing.
  */
-#define ARRAYLIST_IMPL(T, name, fn_dtor)                                                                               \
+#define ARRAYLIST_IMPL(T, name, deinit_fn)                                                                             \
 /* =========================== PRIVATE FUNCTIONS =========================== */                                        \
 /**                                                                                                                    \
  * @private                                                                                                            \
@@ -906,7 +910,7 @@ static inline enum arraylist_error ARRAYLIST_FN(name, shrink_size)(             
         return ARRAYLIST_OK;                                                                                           \
     }                                                                                                                  \
     for (size_t i = size; i < self->size; i++) {                                                                       \
-        fn_dtor(&self->data[i], &self->alloc);                                                                         \
+        deinit_fn(&self->data[i], &self->alloc);                                                                       \
     }                                                                                                                  \
     self->size = size;                                                                                                 \
     return ARRAYLIST_OK;                                                                                               \
@@ -983,7 +987,7 @@ static inline enum arraylist_error ARRAYLIST_FN(name, pop_back)(struct arraylist
     if (self->size <= 0) {                                                                                             \
         return ARRAYLIST_OK;                                                                                           \
     }                                                                                                                  \
-    fn_dtor(&self->data[self->size - 1], &self->alloc);                                                                \
+    deinit_fn(&self->data[self->size - 1], &self->alloc);                                                              \
     --self->size;                                                                                                      \
     return ARRAYLIST_OK;                                                                                               \
 }                                                                                                                      \
@@ -996,7 +1000,7 @@ static inline enum arraylist_error ARRAYLIST_FN(name, remove_at)(               
     if (index >= self->size) {                                                                                         \
         return ARRAYLIST_FN(name, pop_back)(self);                                                                     \
     }                                                                                                                  \
-    fn_dtor(&self->data[index], &self->alloc);                                                                         \
+    deinit_fn(&self->data[index], &self->alloc);                                                                       \
     for (size_t i = index; i < self->size - 1; ++i) {                                                                  \
         self->data[i] = self->data[i + 1];                                                                             \
     }                                                                                                                  \
@@ -1024,7 +1028,7 @@ static inline enum arraylist_error ARRAYLIST_FN(name, remove_from_to)(          
     }                                                                                                                  \
     size_t num_to_remove = to - from + 1;                                                                              \
     for (size_t i = from; i <= to; ++i) {                                                                              \
-        fn_dtor(&self->data[i], &self->alloc);                                                                         \
+        deinit_fn(&self->data[i], &self->alloc);                                                                       \
     }                                                                                                                  \
     /* how many numbers are left after the 'to' param */                                                               \
     size_t num_after = self->size - to - 1;                                                                            \
@@ -1181,7 +1185,7 @@ static inline enum arraylist_error ARRAYLIST_FN(name, clear)(struct arraylist_##
         return ARRAYLIST_OK;                                                                                           \
     }                                                                                                                  \
     for (size_t i = 0; i < self->size; ++i) {                                                                          \
-        fn_dtor(&self->data[i], &self->alloc);                                                                         \
+        deinit_fn(&self->data[i], &self->alloc);                                                                       \
     }                                                                                                                  \
     self->size = 0;                                                                                                    \
     return ARRAYLIST_OK;                                                                                               \
@@ -1193,7 +1197,7 @@ static inline void ARRAYLIST_FN(name, deinit)(struct arraylist_##name *self) {  
     }                                                                                                                  \
     if (self->data) {                                                                                                  \
         for (size_t i = 0; i < self->size; ++i) {                                                                      \
-            fn_dtor(&self->data[i], &self->alloc);                                                                     \
+            deinit_fn(&self->data[i], &self->alloc);                                                                   \
         }                                                                                                              \
         self->alloc.free(self->data, self->capacity * sizeof(T), self->alloc.ctx);                                     \
         self->data = NULL;                                                                                             \
@@ -1210,10 +1214,10 @@ static inline void ARRAYLIST_FN(name, deinit)(struct arraylist_##name *self) {  
  * @param T The type arraylist will hold
  * @param name The name suffix for the arraylist type
  */
-#define ARRAYLIST(T, name, fn_dtor)                                                                                    \
+#define ARRAYLIST(T, name, deinit_fn)                                                                                  \
 ARRAYLIST_TYPE(T, name)                                                                                                \
 ARRAYLIST_DECL(T, name)                                                                                                \
-ARRAYLIST_IMPL(T, name, fn_dtor)
+ARRAYLIST_IMPL(T, name, deinit_fn)
 
 /* ====== ARRAYLIST_DYN Function Pointer destructor version START ====== */
 
@@ -1221,11 +1225,13 @@ ARRAYLIST_IMPL(T, name, fn_dtor)
  * @def ARRAYLIST_USE_PREFIX_DYN
  * @brief Defines at compile-time if the functions will use the arraylist_dyn_* prefix
  * @details 
- * Generates functions with the pattern arraylist_dyn_##name##_function() instead of dyn_name##_function()
+ * This macro constructs function names for the pair library. The naming convention depends on
+ * whether @c ARRAYLIST_USE_PREFIX is defined.
+ * Generates functions with the pattern arraylist_##name##_function() instead of name##_function()
  * Must be defined before including the arraylist.h header, it will be per TU/file, so once defined
  * can't be undef in the same TU for different arraylist types and names.
- * The struct generated will always have the prefix arraylist_dyn_##name to them.
- * Inspiration taken from the Tsoding's nob.h lib.
+ * Inspiration taken from the Tsoding's nob.h lib, and some other libs like jemalloc which also does
+ * something similar.
  *
  * The default is without prefixes, as the "name" parameter already acts like a user defined prefix:
  * @code
@@ -1243,6 +1249,8 @@ ARRAYLIST_IMPL(T, name, fn_dtor)
  * // In a .c file:
  * ARRAYLIST_IMPL(int, int_list)
  * @endcode
+ *
+ * @warning The @c ARRAYLIST_FN_DYN macro is for intenal use only, I can't see any usefulness for user code
  */
 #ifdef ARRAYLIST_USE_PREFIX_DYN
     #define ARRAYLIST_FN_DYN(name, func) arraylist_dyn_##name##_##func
@@ -1333,7 +1341,7 @@ struct arraylist_dyn_##name {                                                   
  *                                                                                                                     \
  * For pre-allocation (which is better for performance):                                                               \
  * @code                                                                                                               \
- * struct arraylist_ints list = ints_init(alloc, dtor_fn);                                                             \
+ * struct arraylist_ints list = ints_init(alloc, deinit_fn);                                                             \
  * if (ints_reserve(&list, expected_size) != ARRAYLIST_OK) {                                                           \
  *       // Handle or continue with default growth                                                                     \
  * }                                                                                                                   \
