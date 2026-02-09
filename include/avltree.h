@@ -56,7 +56,7 @@ extern "C" {
  */
 #define AVLTREE_TYPE(T, name)                                                                                          \
 struct avltree_node_##name {                                                                                           \
-    T *data;                                                                                                           \
+    T data;                                                                                                            \
     size_t height;                                                                                                     \
     struct avltree_node_##name *left;                                                                                  \
     struct avltree_node_##name *right;                                                                                 \
@@ -67,6 +67,7 @@ struct avltree_##name {                                                         
     struct Allocator alloc;                                                                                            \
     struct avltree_node_##name *root;                                                                                  \
     int (*comparator_fn)(const T *a, const T *b);                                                                      \
+    size_t size;                                                                                                       \
 };
 
 /**
