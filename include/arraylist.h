@@ -98,7 +98,7 @@
  * - Use reserve() when you know the approximate final size
  * - Prefer emplace_back_slot() over push_back() for complex types
  * - Use ARRAYLIST (not DYN) when destructor flexibility isn't needed
- * - Pass noop_dtor for types that don't need cleanup
+ * - Pass the arraylist_noop_deinit macro for types that don't need cleanup
  * - Enable LTO for maximum optimization
  *
  * Thread safety:
@@ -176,6 +176,15 @@ extern "C" {
 #endif // extern "C"
 
 #define initial_cap 1
+
+/**
+ * @def arraylist_noop_deinit
+ * @brief Defines a no-op destructor macro for usage in scalar types or types
+ *        that does not need a destructor
+ */
+#ifndef arraylist_noop_deinit
+    #define arraylist_noop_deinit(ptr, alloc) ((void)0)
+#endif // arraylist_noop_deinit
 
 /**
  * @def ARRAYLIST_UNUSED
@@ -768,9 +777,9 @@ ARRAYLIST_UNUSED static inline void ARRAYLIST_FN(name, deinit)(struct arraylist_
  *
  * @note This macro should be used in a .c file, not in a header
  *
- * @warning If the type T doesn't need to have a destructor, or one doesn't want to pass it and
- *          manually free, then a noop must be passed, like (void), or a macro/function
- *          that does nothing.
+ * @warning If the type T doesn't need to have a destructor, or one doesn't want to pass it
+ *          and manually free, then a noop must be passed, like the already provided
+ *          arraylist_noop_deinit nacro, or (void), or a macro/function that does nothing.
  */
 #define ARRAYLIST_IMPL(T, name, deinit_fn)                                                                             \
 /* =========================== PRIVATE FUNCTIONS =========================== */                                        \
