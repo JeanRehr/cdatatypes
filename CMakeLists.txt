@@ -158,20 +158,22 @@ target_include_directories(avl_test_usage PRIVATE "${PROJECT_SOURCE_DIR}/include
 add_test(NAME unit_test_arraylist COMMAND test_arraylist)
 add_test(NAME unit_test_pair COMMAND test_pair)
 
-# add_custom_target(
-#     run_all_binaries
-#     COMMAND $<TARGET_FILE:example_arraylist1>
-#     COMMAND $<TARGET_FILE:example_arraylist2>
-#     COMMAND $<TARGET_FILE:example_arraylist3>
-#     COMMAND $<TARGET_FILE:example_arraylistdyn1>
-#     COMMAND $<TARGET_FILE:example_arraylistdyn2>
-#     COMMAND $<TARGET_FILE:example_arraylistdyn3>
-#     COMMAND $<TARGET_FILE:test_arraylist>
-#     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-#     COMMENT "Running all project executables..."
-#     # Add a dependency so 'run_all_binaries' is built (though it doesn't create a file)
-#     # DEPENDS MyApp1 MyApp2
-# )
+add_custom_target(
+    run_all_binaries
+    COMMAND $<TARGET_FILE:test_arraylist>
+    COMMAND $<TARGET_FILE:example_arraylist1>
+    COMMAND $<TARGET_FILE:example_arraylist2>
+    COMMAND $<TARGET_FILE:example_arraylist3>
+    COMMAND $<TARGET_FILE:example_arraylistdyn1>
+    COMMAND $<TARGET_FILE:example_arraylistdyn2>
+    COMMAND $<TARGET_FILE:example_arraylistdyn3>
+    COMMAND $<TARGET_FILE:test_pair>
+    COMMAND $<TARGET_FILE:example_pair1>
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    COMMENT "Running all project executables..."
+    # Add a dependency so 'run_all_binaries' is built (though it doesn't create a file)
+    # DEPENDS MyApp1 MyApp2
+)
 
 # The default is set on the section "# Set default build type"
 # $cmake ..
@@ -192,3 +194,6 @@ add_test(NAME unit_test_pair COMMAND test_pair)
 
 # To run tests:
 # $ctest
+
+# To run all binaries (including the test)
+# $cmake --build . --target run_all_binaries
