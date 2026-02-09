@@ -214,13 +214,13 @@ extern "C" {
     #define PAIR_ENSURE(cond, return_val, msg) assert((cond) && (msg));
     #define PAIR_ENSURE_VOID(cond, msg) assert((cond) && (msg));
 #else
-    #define PAIR_ENSURE(cond, return_val, msg)                                                                              \
+    #define PAIR_ENSURE(cond, return_val, msg)                                                                         \
         do {                                                                                                           \
             if (!(cond)) {                                                                                             \
                 return (return_val);                                                                                   \
             }                                                                                                          \
         } while(0)
-    #define PAIR_ENSURE_VOID(cond, msg)                                                                                     \
+    #define PAIR_ENSURE_VOID(cond, msg)                                                                                \
         do {                                                                                                           \
             if (!(cond)) {                                                                                             \
                 return;                                                                                                \
