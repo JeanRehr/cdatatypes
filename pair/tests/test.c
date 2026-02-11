@@ -38,11 +38,33 @@ void test_int_pair_cmp(void) {
     struct pair_int_pair p2 = int_pair_init(1, 2);
     struct pair_int_pair p3 = int_pair_init(2, 2);
     struct pair_int_pair p4 = int_pair_init(1, 3);
-    assert(int_pair_cmp(&p1, &p2, int_cmp, int_cmp) == 0), // Equal
-    assert(int_pair_cmp(&p1, &p3, int_cmp, int_cmp) < 0),  // p1 < p3
-    assert(int_pair_cmp(&p3, &p1, int_cmp, int_cmp) > 0),  // p3 > p1
-    assert(int_pair_cmp(&p1, &p4, int_cmp, int_cmp) < 0),  // Secondary cmp
+    assert(int_pair_cmp(&p1, &p2, int_cmp, int_cmp) == PAIR_CMP_EQUAL); // Equal
+    assert(int_pair_cmp(&p1, &p3, int_cmp, int_cmp) == PAIR_CMP_LESS);  // p1 < p3
+    assert(int_pair_cmp(&p3, &p1, int_cmp, int_cmp) == PAIR_CMP_GREATER);  // p3 > p1
+    assert(int_pair_cmp(&p1, &p4, int_cmp, int_cmp) == PAIR_CMP_LESS);  // Secondary cmp
+    assert(int_pair_cmp(&p4, &p1, int_cmp, int_cmp) == PAIR_CMP_GREATER);
+
+    // May assert with normal ints as well:
+    assert(int_pair_cmp(&p1, &p2, int_cmp, int_cmp) == 0); // Equal
+    assert(int_pair_cmp(&p1, &p3, int_cmp, int_cmp) < 0);  // p1 < p3
+    assert(int_pair_cmp(&p3, &p1, int_cmp, int_cmp) > 0);  // p3 > p1
+    assert(int_pair_cmp(&p1, &p4, int_cmp, int_cmp) < 0);  // Secondary cmp
     assert(int_pair_cmp(&p4, &p1, int_cmp, int_cmp) > 0);
+
+    // But care that PAIR_CMP_ERR is 2, so that may conflate when testing > 0
+
+    assert(int_pair_cmp(&p1, &p2, int_cmp, int_cmp) == 0); // Equal
+    assert(int_pair_cmp(&p1, &p3, int_cmp, int_cmp) == -1);  // p1 < p3
+    assert(int_pair_cmp(&p3, &p1, int_cmp, int_cmp) == 1);  // p3 > p1
+    assert(int_pair_cmp(&p1, &p4, int_cmp, int_cmp) == -1);  // Secondary cmp
+    assert(int_pair_cmp(&p4, &p1, int_cmp, int_cmp) == 1);
+
+    // Testing error:
+    assert(int_pair_cmp(&p1, &p2, NULL, int_cmp) == PAIR_CMP_ERR);
+    assert(int_pair_cmp(&p1, &p2, int_cmp, NULL) == PAIR_CMP_ERR);
+    assert(int_pair_cmp(NULL, &p2, int_cmp, int_cmp) == PAIR_CMP_ERR);
+    assert(int_pair_cmp(&p1, NULL, int_cmp, int_cmp) == PAIR_CMP_ERR);
+
     puts("test_int_pair_cmp passed");
 }
 

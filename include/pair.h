@@ -262,6 +262,18 @@ enum pair_error {
     PAIR_ERR_NULL = -1, ///< Null pointer
 };
 
+/**
+ * @enum pair_cmp_result
+ * @brief Error codes for the cmp function of pair
+ */
+enum pair_cmp_result {
+    PAIR_CMP_LESS = -1,   ///< Comparison is less
+    PAIR_CMP_EQUAL = 0,   ///< Comparison is equal
+    PAIR_CMP_GREATER = 1, ///< Comparison is greater
+    PAIR_CMP_ERR = 2,     ///< Error occurred during compare
+
+};
+
 /* ====== PAIR Macro destructor version START ====== */
 
 // clang-format off
@@ -354,18 +366,30 @@ struct pair_##name {                                                            
 PAIR_UNUSED static inline struct pair_##name PAIR_FN(name, init)(K first, V second);                                   \
                                                                                                                        \
 /**                                                                                                                    \
- * @brief cmp: Compare lexicographycally between two pairs                                                             \
+ * @brief cmp: Lexicographically compare two pairs                                                                     \
  * @param a Pointer to the first pair                                                                                  \
- * @param b Pointer to another pair to compare with                                                                    \
- * @param cmp_first Functions that know how to compare the first element of a pair                                     \
- *                 Must have the prototype:                                                                            \
- *                 int cmp_first(K *a_first, K *b_first);                                                              \
- * @param cmp_second Functions that know how to compare the second element of a pair                                   \
- *                 Must have the prototype:                                                                            \
- *                 int cmp_second(V *a_second, V *b_second);                                                           \
- * @return < 0 if a is less than b, 0 if they are equal, > 0 if a is greater than b                                    \
+ * @param b Pointer to the second pair                                                                                 \
+ * @param cmp_first Comparator for the first element.                                                                  \
+ *                  Must have the prototype:                                                                           \
+ *                  int cmp_first(K *a_first, K *b_first);                                                             \
+ * @param cmp_second Comparator for the second element.                                                                \
+ *                   Must have the prototype:                                                                          \
+ *                   int cmp_second(V *a_second, V *b_second);                                                         \
+ * @return enum pair_cmp_result:                                                                                       \
+ *         - PAIR_CMP_LESS    if a < b                                                                                 \
+ *         - PAIR_CMP_EQUAL   if a == b                                                                                \
+ *         - PAIR_CMP_GREATER if a > b                                                                                 \
+ *         - PAIR_CMP_ERR     if any argument or comparator is NULL                                                    \
+ *         (with PAIR_USE_ASSERT=1, the function aborts instead)                                                       \
+ *                                                                                                                     \
+ * @details                                                                                                            \
+ * Comparison is lexicographic: first elements are compared via cmp_first,                                             \
+ * if equal, second elements are compared via cmp_second.                                                              \
+ * Comparator outputs are interpreted by sign only; magnitudes are ignored.                                            \
+ * Any negative value means "less", any positive means "greater", zero means "equal".                                  \
+ * The result should not be discarded (PAIR_NODISCARD) to avoid ignoring potential errors (PAIR_CMP_ERR).              \
  */                                                                                                                    \
-PAIR_UNUSED static inline int PAIR_FN(name, cmp)(                                                                      \
+PAIR_NODISCARD PAIR_UNUSED static inline enum pair_cmp_result PAIR_FN(name, cmp)(                                      \
     struct pair_##name *a,                                                                                             \
     struct pair_##name *b,                                                                                             \
     int (*cmp_first)(K *a_first, K *b_first),                                                                          \
@@ -480,21 +504,31 @@ static inline struct pair_##name PAIR_FN(name, init)(K first, V second) {       
     return pair;                                                                                                       \
 }                                                                                                                      \
                                                                                                                        \
-static inline int PAIR_FN(name, cmp)(                                                                                  \
+static inline enum pair_cmp_result PAIR_FN(name, cmp)(                                                                 \
     struct pair_##name *a,                                                                                             \
     struct pair_##name *b,                                                                                             \
     int (*cmp_first)(K *a_first, K *b_first),                                                                          \
     int (*cmp_second)(V *a_second, V *b_second)                                                                        \
 ) {                                                                                                                    \
-    PAIR_ENSURE(a != NULL, 0, "Error on cmp(), first argument is null.");                                              \
-    PAIR_ENSURE(b != NULL, 0, "Error on cmp(), second argument is null.");                                             \
-    PAIR_ENSURE(cmp_first != NULL, 0, "Error on cmp(), cmp_first function is null.");                                  \
-    PAIR_ENSURE(cmp_second != NULL, 0, "Error on cmp(), cmp_second function is null.");                                \
-    int ret = cmp_first(&a->first, &b->first);                                                                         \
-    if (ret != 0) {                                                                                                    \
-        return ret;                                                                                                    \
+    PAIR_ENSURE(a != NULL, PAIR_CMP_ERR, "cmp(): first argument is null.");                                            \
+    PAIR_ENSURE(b != NULL, PAIR_CMP_ERR, "cmp(): second argument is null.");                                           \
+    PAIR_ENSURE(cmp_first != NULL, PAIR_CMP_ERR, "cmp(): cmp_first function is null.");                                \
+    PAIR_ENSURE(cmp_second != NULL, PAIR_CMP_ERR, "cmp(): cmp_second function is null.");                              \
+    int res = cmp_first(&a->first, &b->first);                                                                         \
+    if (res < 0) {                                                                                                     \
+        return PAIR_CMP_LESS;                                                                                          \
     }                                                                                                                  \
-    return cmp_second(&a->second, &b->second);                                                                         \
+    if (res > 0) {                                                                                                     \
+        return PAIR_CMP_GREATER;                                                                                       \
+    }                                                                                                                  \
+    res = cmp_second(&a->second, &b->second);                                                                          \
+    if (res < 0) {                                                                                                     \
+        return PAIR_CMP_LESS;                                                                                          \
+    }                                                                                                                  \
+    if (res > 0) {                                                                                                     \
+        return PAIR_CMP_GREATER;                                                                                       \
+    }                                                                                                                  \
+    return PAIR_CMP_EQUAL;                                                                                             \
 }                                                                                                                      \
                                                                                                                        \
 static inline enum pair_error PAIR_FN(name, swap)(struct pair_##name *self, struct pair_##name *other) {               \
