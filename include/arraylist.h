@@ -87,7 +87,7 @@
  *     } \
  *     (alloc)->free((*person_dptr)->name, strlen((*person_dptr)->name) + 1, (alloc)->ctx); \
  *     (alloc)->free(*person_dptr, sizeof(*person_dptr), (alloc)->ctx); \
- *     (person_dptr) = NULL; \
+ *     (*person_dptr) = NULL; \
  * } while (0)
  * @endcode
  *
@@ -511,7 +511,8 @@ ARRAYLIST_UNUSED static inline T *ARRAYLIST_FN(name, emplace_back_slot)(struct a
  * @param value Value of type T to be inserted                                                                         \
  * @param index Index to insert                                                                                        \
  * @return ARRAYLIST_ERR_NULL if self is null, or ARRAYLIST_ERR_ALLOC on allocation failure, or                        \
- *         ARRAYLIST_ERR_OVERFLOW on buffer overflow, or ARRAYLIST_OK on success                                       \
+ *         ARRAYLIST_ERR_OVERFLOW on buffer overflow, or ARRAYLIST_ERR_OOB if out-of-bounds,                           \
+ *         or ARRAYLIST_OK on success                                                                                  \
  *                                                                                                                     \
  * Will automatically resize and reallocate capacity, doubling it                                                      \
  */                                                                                                                    \
@@ -536,7 +537,8 @@ ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, pop_back)
  * @brief remove_at: Removes the element at position index                                                             \
  * @param self Pointer to the arraylist                                                                                \
  * @param index Position to remove                                                                                     \
- * @return ARRAYLIST_ERR_NULL in case of NULL being passed, or ARRAYLIST_OK                                            \
+ * @return ARRAYLIST_ERR_NULL in case of NULL being passed, ARRAYLIST_ERR_OOB if out-of-bounds,                        \
+ *         or ARRAYLIST_OK                                                                                             \
  *                                                                                                                     \
  * Will call destructor if available (if passed in the ARRAYLIST_IMPL macro)                                           \
  */                                                                                                                    \
@@ -953,7 +955,7 @@ static inline enum arraylist_error ARRAYLIST_FN(name, shrink_size)(             
     const size_t size                                                                                                  \
 ) {                                                                                                                    \
     ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "shrink_size() arraylist is null.");                            \
-    if (size >= self->size || self->size <= 0) {                                                                       \
+    if (size >= self->size) {                                                                                          \
         return ARRAYLIST_OK;                                                                                           \
     }                                                                                                                  \
     for (size_t i = size; i < self->size; i++) {                                                                       \
@@ -1282,9 +1284,9 @@ ARRAYLIST_IMPL(T, name, deinit_fn)
  * @def ARRAYLIST_USE_PREFIX_DYN
  * @brief Defines at compile-time if the functions will use the arraylist_dyn_* prefix
  * @details 
- * This macro constructs function names for the pair library. The naming convention depends on
- * whether @c ARRAYLIST_USE_PREFIX is defined.
- * Generates functions with the pattern arraylist_##name##_function() instead of name##_function()
+ * This macro constructs function names for the arraylist library. The naming convention depends on
+ * whether @c ARRAYLIST_USE_PREFIX_DYN is defined.
+ * Generates functions with the pattern arraylist_dyn_##name##_function() instead of name##_function()
  * Must be defined before including the arraylist.h header, it will be per TU/file, so once defined
  * can't be undef in the same TU for different arraylist types and names.
  * Inspiration taken from the Tsoding's nob.h lib, and some other libs like jemalloc which also does
@@ -1292,19 +1294,19 @@ ARRAYLIST_IMPL(T, name, deinit_fn)
  *
  * The default is without prefixes, as the "name" parameter already acts like a user defined prefix:
  * @code
- * ARRAYLIST(int, int_list)
+ * ARRAYLIST_DYN(int, int_list)
  * struct arraylist_dyn_int_list int_list = dyn_int_list_init(...);
  * @endcode
  *
  * Usage:
  * @code
  * // In a header that will include arraylist.h and will define some arraylist types:
- * #define ARRAYLIST_USE_PREFIX
+ * #define ARRAYLIST_USE_PREFIX_DYN
  * #include "arraylist.h"
- * ARRAYLIST_TYPE(int, int_list) // Creates a struct: struct arraylist_dyn_int_list;
- * ARRAYLIST_DECL(int, int_list) // Declares functions named arraylist_dyn_int_list_init(...)
+ * ARRAYLIST_TYPE_DYN(int, int_list) // Creates a struct: struct arraylist_dyn_int_list;
+ * ARRAYLIST_DECL_DYN(int, int_list) // Declares functions named arraylist_dyn_int_list_init(...)
  * // In a .c file:
- * ARRAYLIST_IMPL(int, int_list)
+ * ARRAYLIST_IMPL_DYN(int, int_list)
  * @endcode
  *
  * @warning The @c ARRAYLIST_FN_DYN macro is for intenal use only, I can't see any usefulness for user code
@@ -1494,7 +1496,8 @@ ARRAYLIST_UNUSED static inline T *ARRAYLIST_FN_DYN(name, emplace_back_slot)(stru
  * @param value Value of type T to be inserted                                                                         \
  * @param index Index to insert                                                                                        \
  * @return ARRAYLIST_ERR_NULL if self is null, or ARRAYLIST_ERR_ALLOC on allocation failure, or                        \
- *         ARRAYLIST_ERR_OVERFLOW on buffer overflow, or ARRAYLIST_OK on success                                       \
+ *         ARRAYLIST_ERR_OVERFLOW on buffer overflow, or ARRAYLIST_ERR_OOB if out-of-bounds,                           \
+ *         or ARRAYLIST_OK on success                                                                                  \
  *                                                                                                                     \
  * Will automatically resize and reallocate capacity, doubling it                                                      \
  */                                                                                                                    \
@@ -1521,7 +1524,8 @@ ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN_DYN(name, pop_b
  * @brief remove_at: Removes the element at position index                                                             \
  * @param self Pointer to the arraylist                                                                                \
  * @param index Position to remove                                                                                     \
- * @return ARRAYLIST_ERR_NULL in case of NULL being passed, or ARRAYLIST_OK                                            \
+ * @return ARRAYLIST_ERR_NULL in case of NULL being passed, ARRAYLIST_ERR_OOB if out-of-bounds,                        \
+ *         or ARRAYLIST_OK                                                                                             \
  *                                                                                                                     \
  * Will call destructor if available                                                                                   \
  */                                                                                                                    \
@@ -1708,7 +1712,7 @@ ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN_DYN(name, qsort
  * @param self Pointer to the arraylist to copy                                                                        \
  * @param deep_clone_fn Function that knows how to clone a single element                                              \
  *                      Must have the prototype:                                                                       \
- *                      void deep_clone_fn(T *dst, const T *src, struct Allocator *alloc);                             \
+ *                      void deep_clone_fn(T *dst, T *src, struct Allocator *alloc);                                   \
  * @return A new arraylist struct that is independent of the self                                                      \
  *                                                                                                                     \
  * @note The correctness of this function depends on the provided deep_clone_fn parameter                              \
@@ -1941,7 +1945,7 @@ static inline enum arraylist_error ARRAYLIST_FN_DYN(name, shrink_size)(         
     const size_t size                                                                                                  \
 ) {                                                                                                                    \
     ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "shrink_size() arraylist is null.");                            \
-    if (size >= self->size || self->size <= 0) {                                                                       \
+    if (size >= self->size) {                                                                                          \
         return ARRAYLIST_OK;                                                                                           \
     }                                                                                                                  \
     if (self->destructor) {                                                                                            \
