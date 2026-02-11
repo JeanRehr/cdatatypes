@@ -1073,17 +1073,17 @@ void test_arraylist_remove_at_value(void) {
     err = nonpods_remove_at(&list, 9999); // way OOB
     assert(err == ARRAYLIST_ERR_OOB);
 
-    err = nonpods_remove_at(&list, list.size);
+    err = nonpods_remove_at(&list, list.size - 1);
     assert(list.size == sz - 1);
     assert(global_destructor_counter_arraylist == before - 1);
 
-    // Remove with index == size (past end, also acts like pop_back)
+    // Remove with index == size (past end, also returns error)
     sz = list.size;
     before = global_destructor_counter_arraylist;
     err = nonpods_remove_at(&list, list.size);
-    assert(err == ARRAYLIST_OK);
-    assert(list.size == sz - 1);
-    assert(global_destructor_counter_arraylist == before - 1);
+    assert(err == ARRAYLIST_ERR_OOB);
+    assert(list.size == sz);
+    assert(global_destructor_counter_arraylist == before);
 
     // Remove with index == SIZE_MAX, returns ARRAYLIST_ERR_OOB
     sz = list.size;
@@ -3848,17 +3848,17 @@ void test_arraylist_remove_at_ptr(void) {
     err = nonpods_ptr_remove_at(&list, 9999); // way OOB
     assert(err == ARRAYLIST_ERR_OOB);
 
-    err = nonpods_ptr_remove_at(&list, list.size);
+    err = nonpods_ptr_remove_at(&list, list.size - 1);
     assert(list.size == sz - 1);
     assert(global_destructor_counter_arraylist == before - 1);
 
-    // Remove with index == size (past end, also acts like pop_back)
+    // Remove with index == size (past end, also returns error)
     sz = list.size;
     before = global_destructor_counter_arraylist;
     err = nonpods_ptr_remove_at(&list, list.size);
-    assert(err == ARRAYLIST_OK);
-    assert(list.size == sz - 1);
-    assert(global_destructor_counter_arraylist == before - 1);
+    assert(err == ARRAYLIST_ERR_OOB);
+    assert(list.size == sz);
+    assert(global_destructor_counter_arraylist == before);
 
     // Remove with index == SIZE_MAX, returns ARRAYLIST_ERR_OOB
     sz = list.size;
@@ -6628,17 +6628,17 @@ void test_arraylist_dyn_remove_at_value(void) {
     err = dyn_non_pods_d_remove_at(&list, 9999); // way OOB
     assert(err == ARRAYLIST_ERR_OOB);
 
-    err = dyn_non_pods_d_remove_at(&list, list.size);
+    err = dyn_non_pods_d_remove_at(&list, list.size - 1);
     assert(list.size == sz - 1);
     assert(global_destructor_counter_arraylist == before - 1);
 
-    // Remove with index == size (past end, also acts like pop_back)
+    // Remove with index == size (past end, also returns error)
     sz = list.size;
     before = global_destructor_counter_arraylist;
     err = dyn_non_pods_d_remove_at(&list, list.size);
-    assert(err == ARRAYLIST_OK);
-    assert(list.size == sz - 1);
-    assert(global_destructor_counter_arraylist == before - 1);
+    assert(err == ARRAYLIST_ERR_OOB);
+    assert(list.size == sz);
+    assert(global_destructor_counter_arraylist == before);
 
     // Remove with index == SIZE_MAX, returns ARRAYLIST_ERR_OOB
     sz = list.size;
@@ -9405,17 +9405,17 @@ void test_arraylist_dyn_remove_at_ptr(void) {
     err = dyn_non_pods_d_ptr_remove_at(&list, 9999); // way OOB
     assert(err == ARRAYLIST_ERR_OOB);
 
-    err = dyn_non_pods_d_ptr_remove_at(&list, list.size);
+    err = dyn_non_pods_d_ptr_remove_at(&list, list.size - 1);
     assert(list.size == sz - 1);
     assert(global_destructor_counter_arraylist == before - 1);
 
-    // Remove with index == size (past end, also acts like pop_back)
+    // Remove with index == size (past end, also returns error)
     sz = list.size;
     before = global_destructor_counter_arraylist;
     err = dyn_non_pods_d_ptr_remove_at(&list, list.size);
-    assert(err == ARRAYLIST_OK);
-    assert(list.size == sz - 1);
-    assert(global_destructor_counter_arraylist == before - 1);
+    assert(err == ARRAYLIST_ERR_OOB);
+    assert(list.size == sz);
+    assert(global_destructor_counter_arraylist == before);
 
     // Remove with index == SIZE_MAX, returns ARRAYLIST_ERR_OOB
     sz = list.size;

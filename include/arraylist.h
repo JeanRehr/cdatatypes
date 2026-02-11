@@ -365,7 +365,7 @@ struct arraylist_##name {                                                       
  * - enum arraylist_error ARRAYLIST_FN(name, pop_back)(struct arraylist_##name *self);
  * - enum arraylist_error ARRAYLIST_FN(name, remove_at)(struct arraylist_##name *self, const size_t index);
  * - enum arraylist_error ARRAYLIST_FN(name, remove_from_to)(struct arraylist_##name *self, size_t from, size_t to);
- * - T* ARRAYLIST_FN(name, at(const struct arraylist_##name *self, const size_t index);
+ * - T* ARRAYLIST_FN(name, at)(const struct arraylist_##name *self, const size_t index);
  * - T* ARRAYLIST_FN(name, begin)(const struct arraylist_##name *self);
  * - T* ARRAYLIST_FN(name, back)(const struct arraylist_##name *self);
  * - T* ARRAYLIST_FN(name, end)(const struct arraylist_##name *self);
@@ -1023,8 +1023,8 @@ static inline enum arraylist_error ARRAYLIST_FN(name, remove_at)(               
     if (self->size == 0) {                                                                                             \
         return ARRAYLIST_OK;                                                                                           \
     }                                                                                                                  \
-    ARRAYLIST_ENSURE(index <= self->size, ARRAYLIST_ERR_OOB, "Error on remove_at(), out-of-bounds access.");           \
-    if (index == self->size) {                                                                                         \
+    ARRAYLIST_ENSURE(index < self->size, ARRAYLIST_ERR_OOB, "Error on remove_at(), out-of-bounds access.");            \
+    if (index == self->size - 1) {                                                                                     \
         return ARRAYLIST_FN(name, pop_back)(self);                                                                     \
     }                                                                                                                  \
     deinit_fn(&self->data[index], &self->alloc);                                                                       \
@@ -2018,8 +2018,8 @@ static inline enum arraylist_error ARRAYLIST_FN_DYN(name, remove_at)(           
     if (self->size == 0) {                                                                                             \
         return ARRAYLIST_OK;                                                                                           \
     }                                                                                                                  \
-    ARRAYLIST_ENSURE(index <= self->size, ARRAYLIST_ERR_OOB, "Error on remove_at(), out-of-bounds access.");           \
-    if (index == self->size) {                                                                                         \
+    ARRAYLIST_ENSURE(index < self->size, ARRAYLIST_ERR_OOB, "Error on remove_at(), out-of-bounds access.");            \
+    if (index == self->size - 1) {                                                                                     \
         return ARRAYLIST_FN_DYN(name, pop_back)(self);                                                                 \
     }                                                                                                                  \
     if (self->destructor) {                                                                                            \
