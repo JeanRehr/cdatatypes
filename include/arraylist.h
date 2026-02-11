@@ -265,7 +265,6 @@ extern "C" {
             }                                                                                                          \
         } while (0)
 #else
-    #include <assert.h> // For assert()
     #define ARRAYLIST_ENSURE(cond, ret, msg)                                                                           \
         do {                                                                                                           \
             if (ARRAYLIST_UNLIKELY(!(cond))) {                                                                         \
