@@ -226,6 +226,17 @@ extern "C" {
 #endif // ARRAYLIST_NODISCARD definition
 
 /**
+ * @def ARRAYLIST_UNLIKELY(x)
+ * @brief Branch prediction hint, used in the ARRAYLIST_ENSURE macro, as it usually
+ *        just always passes, C23 [[likely]] cannot be applied in this case
+ */
+#if defined(__GNUC__) || defined(__clang__)
+    #define ARRAYLIST_UNLIKELY(x) __builtin_expect(!!(x), 0)
+#else
+    #define ARRAYLIST_UNLIKELY(x) (x)
+#endif // ARRAYLIST_UNLIKELY definition
+
+/**
  * @def ARRAYLIST_USE_ASSERT
  * @brief Defines if the arraylist will use asserts or return error codes
  * @details If ARRAYLIST_USE_ASSERT is 1, then the lib will assert and fail early, otherwise,
@@ -235,24 +246,39 @@ extern "C" {
     #define ARRAYLIST_USE_ASSERT 0
 #endif // ARRAYLIST_USE_ASSERT
 
-#include <assert.h> // For assert()
-
 #if ARRAYLIST_USE_ASSERT
-    #define ARRAYLIST_ENSURE(cond, return_val, msg) assert((cond) && (msg));
-    #define ARRAYLIST_ENSURE_PTR(cond, msg) assert((cond) && (msg));
-#else
-    #define ARRAYLIST_ENSURE(cond, return_val, msg)                                                                    \
+    #include <assert.h> // For assert()
+    #include <stdlib.h> // For abort()
+    #define ARRAYLIST_ENSURE(cond, ret, msg)                                                                           \
         do {                                                                                                           \
-            if (!(cond)) {                                                                                             \
-                return (return_val);                                                                                   \
+            if (ARRAYLIST_UNLIKELY(!(cond))) {                                                                         \
+                assert(0 && (msg));                                                                                    \
+                abort();                                                                                               \
             }                                                                                                          \
-        } while(0)
+        } while (0)
 
     #define ARRAYLIST_ENSURE_PTR(cond, msg)                                                                            \
         do {                                                                                                           \
-            if (!(cond))                                                                                               \
+            if (ARRAYLIST_UNLIKELY(!(cond))) {                                                                         \
+                assert(0 && (msg));                                                                                    \
+                abort();                                                                                               \
+            }                                                                                                          \
+        } while (0)
+#else
+    #include <assert.h> // For assert()
+    #define ARRAYLIST_ENSURE(cond, ret, msg)                                                                           \
+        do {                                                                                                           \
+            if (ARRAYLIST_UNLIKELY(!(cond))) {                                                                         \
+                return (ret);                                                                                          \
+            }                                                                                                          \
+        } while (0)
+
+    #define ARRAYLIST_ENSURE_PTR(cond, msg)                                                                            \
+        do {                                                                                                           \
+            if (ARRAYLIST_UNLIKELY(!(cond))) {                                                                         \
                 return NULL;                                                                                           \
-        } while(0)
+            }                                                                                                          \
+        } while (0)
 #endif // ARRAYLIST_USE_ASSERT if directive
 
 /**
