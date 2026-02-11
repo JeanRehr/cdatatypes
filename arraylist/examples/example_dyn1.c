@@ -3,7 +3,7 @@
  * @brief Example usage on how to use the arraylist.h
  * @details This example will show the function pointer version usage for simple types like ints
  */
-
+#include <assert.h>
 #include <stdio.h>
 
 // If wanted to use asserts:
