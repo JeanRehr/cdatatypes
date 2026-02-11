@@ -199,6 +199,17 @@ extern "C" {
 #endif // PAIR_NODISCARD definition
 
 /**
+ * @def PAIR_UNLIKELY(x)
+ * @brief Branch prediction hint, used in the PAIR_ENSURE macro, as it usually
+ *        just always passes, C23 [[likely]] cannot be applied in this case
+ */
+#if defined(__GNUC__) || defined(__clang__)
+    #define PAIR_UNLIKELY(x) __builtin_expect(!!(x), 0)
+#else
+    #define PAIR_UNLIKELY(x) (x)
+#endif // PAIR_UNLIKELY definition
+
+/**
  * @def PAIR_USE_ASSERT
  * @brief Defines if the pair will use asserts or return error codes
  * @details If PAIR_USE_ASSERT is 1, then the lib will assert and fail early, otherwise,
@@ -208,24 +219,38 @@ extern "C" {
     #define PAIR_USE_ASSERT 0
 #endif // PAIR_USE_ASSERT
 
-#include <assert.h> // For assert()
-
 #if PAIR_USE_ASSERT
-    #define PAIR_ENSURE(cond, return_val, msg) assert((cond) && (msg));
-    #define PAIR_ENSURE_VOID(cond, msg) assert((cond) && (msg));
-#else
-    #define PAIR_ENSURE(cond, return_val, msg)                                                                         \
+    #include <assert.h> // For assert()
+    #include <stdlib.h> // For abort()
+    #define PAIR_ENSURE(cond, ret, msg)                                                                                \
         do {                                                                                                           \
-            if (!(cond)) {                                                                                             \
-                return (return_val);                                                                                   \
+            if (PAIR_UNLIKELY(!(cond))) {                                                                              \
+                assert(0 && (msg));                                                                                    \
+                abort();                                                                                               \
             }                                                                                                          \
-        } while(0)
+        } while (0)
+
     #define PAIR_ENSURE_VOID(cond, msg)                                                                                \
         do {                                                                                                           \
-            if (!(cond)) {                                                                                             \
+            if (PAIR_UNLIKELY(!(cond))) {                                                                              \
+                assert(0 && (msg));                                                                                    \
+                abort();                                                                                               \
+            }                                                                                                          \
+        } while (0)
+#else
+    #define PAIR_ENSURE(cond, ret, msg)                                                                                \
+        do {                                                                                                           \
+            if (PAIR_UNLIKELY(!(cond))) {                                                                              \
+                return (ret);                                                                                          \
+            }                                                                                                          \
+        } while (0)
+
+    #define PAIR_ENSURE_VOID(cond, msg)                                                                                \
+        do {                                                                                                           \
+            if (PAIR_UNLIKELY(!(cond))) {                                                                              \
                 return;                                                                                                \
             }                                                                                                          \
-        } while(0)
+        } while (0)
 #endif // PAIR_USE_ASSERT if directive
 
 /**
@@ -233,8 +258,8 @@ extern "C" {
  * @brief Error codes for the pair, there are not many ways a pair data structure can fail
  */
 enum pair_error {
-    PAIR_OK = 0,            ///< No error
-    PAIR_ERR_NULL = -1,     ///< Null pointer
+    PAIR_OK = 0,        ///< No error
+    PAIR_ERR_NULL = -1, ///< Null pointer
 };
 
 /* ====== PAIR Macro destructor version START ====== */
@@ -533,7 +558,7 @@ static inline void PAIR_FN(name, deinit)(struct pair_##name *self, struct Alloca
 #define PAIR(K, V, name, dtor_first, dtor_second)                                                                      \
 PAIR_TYPE(K, V, name)                                                                                                  \
 PAIR_DECL(K, V, name)                                                                                                  \
-PAIR_IMPL(K, V, name, dtor_first, dtor_second)                                                                         \
+PAIR_IMPL(K, V, name, dtor_first, dtor_second)
 
 // clang-format on
 
