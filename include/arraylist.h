@@ -808,6 +808,11 @@ static inline enum arraylist_error ARRAYLIST_FN(name, double_capacity)(struct ar
     /* Assumes self is never null */                                                                                   \
     size_t new_cap = 0;                                                                                                \
     if (self->capacity != 0) {                                                                                         \
+        ARRAYLIST_ENSURE(                                                                                              \
+            self->capacity <= SIZE_MAX / 2,                                                                             \
+            ARRAYLIST_ERR_OVERFLOW,                                                                                    \
+            "Overflow in capacity multiplication on double_capacity."                                                  \
+        );                                                                                                             \
         new_cap = self->capacity * 2;                                                                                  \
     } else {                                                                                                           \
         new_cap = ARRAYLIST_INITIAL_CAP;                                                                               \
@@ -1777,7 +1782,7 @@ ARRAYLIST_UNUSED static inline void ARRAYLIST_FN_DYN(name, deinit)(struct arrayl
  * @return ARRAYLIST_OK if successful, ARRAYLIST_ERR_OVERFLOW if buffer will overflow,                                 \
  *         or ARRAYLIST_ERR_NULL if allocation failure                                                                 \
  *                                                                                                                     \
- * This private function ensures that capacity of the arraylist is atleast min_cap                                     \
+ * This private function ensures that capacity of the arraylist is at least min_cap                                    \
  * If the self->capacity is 0 (first allocation) will call malloc, otherwise realloc                                   \
  * Then set the self->capacity to min_cap                                                                              \
  *                                                                                                                     \
@@ -1787,6 +1792,11 @@ static inline enum arraylist_error ARRAYLIST_FN_DYN(name, double_capacity)(struc
     /* Assumes self is never null */                                                                                   \
     size_t new_cap = 0;                                                                                                \
     if (self->capacity != 0) {                                                                                         \
+        ARRAYLIST_ENSURE(                                                                                              \
+            self->capacity <= SIZE_MAX / 2,                                                                             \
+            ARRAYLIST_ERR_OVERFLOW,                                                                                    \
+            "Overflow in capacity multiplication on double_capacity."                                                  \
+        );                                                                                                             \
         new_cap = self->capacity * 2;                                                                                  \
     } else {                                                                                                           \
         new_cap = ARRAYLIST_INITIAL_CAP;                                                                               \
