@@ -1169,7 +1169,9 @@ static inline struct arraylist_##name ARRAYLIST_FN(name, deep_clone)(           
     ARRAYLIST_ENSURE(self != NULL, clone, "Error on deep_clone(), arraylist is null.");                                \
     ARRAYLIST_ENSURE(deep_clone_fn != NULL, clone, "Error on deep_clone(), deep_clone_fn function is null.");          \
     clone = ARRAYLIST_FN(name, init)(self->alloc);                                                                     \
-    ARRAYLIST_FN(name, reserve)(&clone, self->capacity);                                                               \
+    if (ARRAYLIST_FN(name, reserve)(&clone, self->capacity) != ARRAYLIST_OK) {                                         \
+        return clone;                                                                                                  \
+    }                                                                                                                  \
     clone.size = self->size;                                                                                           \
     for (size_t i = 0; i < self->size; ++i) {                                                                          \
         deep_clone_fn(&clone.data[i], &self->data[i], &clone.alloc);                                                   \
@@ -1181,7 +1183,9 @@ static inline struct arraylist_##name ARRAYLIST_FN(name, shallow_copy)(const str
     struct arraylist_##name clone = { 0 };                                                                             \
     ARRAYLIST_ENSURE(self != NULL, clone, "Error on shallow_copy(), arraylist is null.");                              \
     clone = ARRAYLIST_FN(name, init)(self->alloc);                                                                     \
-    ARRAYLIST_FN(name, reserve)(&clone, self->capacity);                                                               \
+    if (ARRAYLIST_FN(name, reserve)(&clone, self->capacity) != ARRAYLIST_OK) {                                         \
+        return clone;                                                                                                  \
+    }                                                                                                                  \
     clone.size = self->size;                                                                                           \
     for (size_t i = 0; i < self->size; ++i) {                                                                          \
         clone.data[i] = self->data[i];                                                                                 \
@@ -2159,7 +2163,9 @@ static inline struct arraylist_dyn_##name ARRAYLIST_FN_DYN(name, deep_clone)(   
     ARRAYLIST_ENSURE(self != NULL, clone, "Error on deep_clone(), arraylist is null.");                                \
     ARRAYLIST_ENSURE(deep_clone_fn != NULL, clone, "Error on deep_clone(), deep_clone_fn function is null.");          \
     clone = ARRAYLIST_FN_DYN(name, init)(self->alloc, self->destructor);                                               \
-    ARRAYLIST_FN_DYN(name, reserve)(&clone, self->capacity);                                                           \
+    if (ARRAYLIST_FN_DYN(name, reserve)(&clone, self->capacity) != ARRAYLIST_OK) {                                     \
+        return clone;                                                                                                  \
+    }                                                                                                                  \
     clone.size = self->size;                                                                                           \
     for (size_t i = 0; i < self->size; ++i) {                                                                          \
         deep_clone_fn(&clone.data[i], &self->data[i], &clone.alloc);                                                   \
@@ -2173,7 +2179,9 @@ static inline struct arraylist_dyn_##name ARRAYLIST_FN_DYN(name, shallow_copy)( 
     struct arraylist_dyn_##name clone = { 0 };                                                                         \
     ARRAYLIST_ENSURE(self != NULL, clone, "Error on shallow_copy(), arraylist is null.");                              \
     clone = ARRAYLIST_FN_DYN(name, init)(self->alloc, self->destructor);                                               \
-    ARRAYLIST_FN_DYN(name, reserve)(&clone, self->capacity);                                                           \
+    if (ARRAYLIST_FN_DYN(name, reserve)(&clone, self->capacity) != ARRAYLIST_OK) {                                     \
+        return clone;                                                                                                  \
+    }                                                                                                                  \
     clone.size = self->size;                                                                                           \
     for (size_t i = 0; i < self->size; ++i) {                                                                          \
         clone.data[i] = self->data[i];                                                                                 \
