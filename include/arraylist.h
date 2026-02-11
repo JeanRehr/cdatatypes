@@ -277,6 +277,7 @@ enum arraylist_error {
     ARRAYLIST_ERR_NULL = -1,     ///< Null pointer
     ARRAYLIST_ERR_OVERFLOW = -2, ///< Buffer will overflow
     ARRAYLIST_ERR_ALLOC = -3,    ///< Allocation failure
+    ARRAYLIST_ERR_OOB = -4,      ///< Out-of-bounds access
 };
 
 // clang-format off
@@ -981,7 +982,8 @@ static inline enum arraylist_error ARRAYLIST_FN(name, insert_at)(               
     const size_t index                                                                                                 \
 ) {                                                                                                                    \
     ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "Error on insert_at(), arraylist is null.");                    \
-    if (index >= self->size) {                                                                                         \
+    ARRAYLIST_ENSURE(index <= self->size, ARRAYLIST_ERR_OOB, "Error on insert_at(), out-of-bounds access.");           \
+    if (index == self->size) {                                                                                         \
         return ARRAYLIST_FN(name, push_back)(self, value);                                                             \
     }                                                                                                                  \
     if (self->size >= self->capacity) {                                                                                \
@@ -1013,7 +1015,11 @@ static inline enum arraylist_error ARRAYLIST_FN(name, remove_at)(               
     const size_t index                                                                                                 \
 ) {                                                                                                                    \
     ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "Error on remove_at(), arraylist is null.");                    \
-    if (index >= self->size) {                                                                                         \
+    if (self->size == 0) {                                                                                             \
+        return ARRAYLIST_OK;                                                                                           \
+    }                                                                                                                  \
+    ARRAYLIST_ENSURE(index <= self->size, ARRAYLIST_ERR_OOB, "Error on remove_at(), out-of-bounds access.");           \
+    if (index == self->size) {                                                                                         \
         return ARRAYLIST_FN(name, pop_back)(self);                                                                     \
     }                                                                                                                  \
     deinit_fn(&self->data[index], &self->alloc);                                                                       \
@@ -1960,7 +1966,8 @@ static inline enum arraylist_error ARRAYLIST_FN_DYN(name, insert_at)(           
     const size_t index                                                                                                 \
 ) {                                                                                                                    \
     ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "Error on insert_at(), arraylist is null.");                    \
-    if (index >= self->size) {                                                                                         \
+    ARRAYLIST_ENSURE(index <= self->size, ARRAYLIST_ERR_OOB, "Error on insert_at(), out-of-bounds access.");           \
+    if (index == self->size) {                                                                                         \
         return ARRAYLIST_FN_DYN(name, push_back)(self, value);                                                         \
     }                                                                                                                  \
     if (self->size >= self->capacity) {                                                                                \
@@ -1994,7 +2001,11 @@ static inline enum arraylist_error ARRAYLIST_FN_DYN(name, remove_at)(           
     const size_t index                                                                                                 \
 ) {                                                                                                                    \
     ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "Error on remove_at(), arraylist is null.");                    \
-    if (index >= self->size) {                                                                                         \
+    if (self->size == 0) {                                                                                             \
+        return ARRAYLIST_OK;                                                                                           \
+    }                                                                                                                  \
+    ARRAYLIST_ENSURE(index <= self->size, ARRAYLIST_ERR_OOB, "Error on remove_at(), out-of-bounds access.");           \
+    if (index == self->size) {                                                                                         \
         return ARRAYLIST_FN_DYN(name, pop_back)(self);                                                                 \
     }                                                                                                                  \
     if (self->destructor) {                                                                                            \

@@ -808,12 +808,15 @@ void test_arraylist_insert_at_value(void) {
     assert(strcmp(list.data[2].objname, "A") == 0);
     assert(strcmp(list.data[3].objname, "C") == 0);
 
-    // Insert at index > size (out of bounds), should append
+    // Insert at index > size (out of bounds), should return an error code
     struct non_pod e = non_pod_init("E", 50, 0.5, &gpa);
     err = nonpods_insert_at(&list, e, 999);
-    assert(err == ARRAYLIST_OK);
-    assert(list.size == 5);
+    assert(err == ARRAYLIST_ERR_OOB);
+    assert(list.size == 4);
+
+    err = nonpods_insert_at(&list, e, list.size);
     assert(strcmp(list.data[4].objname, "E") == 0);
+    assert(list.size == 5);
 
     // Check all memory still valid and unchanged
     assert(strcmp(list.data[0].objname, "B") == 0);
@@ -1059,7 +1062,7 @@ void test_arraylist_remove_at_value(void) {
     assert(list.size == 0);
     assert(global_destructor_counter_arraylist == 0);
 
-    // Add more, remove with index out of bounds (should act like pop_back)
+    // Add more, remove with index out of bounds (should return an error code)
     for (int i = 0; i < 5; ++i) {
         char buf[8];
         snprintf(buf, sizeof buf, "X%d", i);
@@ -1068,7 +1071,9 @@ void test_arraylist_remove_at_value(void) {
     size_t sz = list.size;
     before = global_destructor_counter_arraylist;
     err = nonpods_remove_at(&list, 9999); // way OOB
-    assert(err == ARRAYLIST_OK);
+    assert(err == ARRAYLIST_ERR_OOB);
+
+    err = nonpods_remove_at(&list, list.size);
     assert(list.size == sz - 1);
     assert(global_destructor_counter_arraylist == before - 1);
 
@@ -1080,13 +1085,13 @@ void test_arraylist_remove_at_value(void) {
     assert(list.size == sz - 1);
     assert(global_destructor_counter_arraylist == before - 1);
 
-    // Remove with index == SIZE_MAX (wraps, will pop_back, test no crash)
+    // Remove with index == SIZE_MAX, returns ARRAYLIST_ERR_OOB
     sz = list.size;
     before = global_destructor_counter_arraylist;
     err = nonpods_remove_at(&list, SIZE_MAX);
-    assert(err == ARRAYLIST_OK);
-    assert(list.size == sz - 1);
-    assert(global_destructor_counter_arraylist == before - 1);
+    assert(err == ARRAYLIST_ERR_OOB);
+    assert(list.size == sz);
+    assert(global_destructor_counter_arraylist == before);
 
     // Remove remaining (result: should be fully destructed)
     while (list.size > 0) {
@@ -1982,11 +1987,13 @@ void test_arraylist_size_value(void) {
     nonpods_shrink_size(&list, 5);
     assert(nonpods_size(&list) == 5);
 
-    // insert_at > size acts as append
+    // insert_at > size returns error
     size_t before = nonpods_size(&list);
     struct non_pod dummy = non_pod_init("tail", 555, 5.55, &gpa);
     nonpods_insert_at(&list, dummy, 10000);
-    assert(nonpods_size(&list) == before + 1);
+    assert(nonpods_size(&list) == before);
+
+    nonpods_insert_at(&list, dummy, list.size);
 
     // pop_back until empty never underflows
     while (nonpods_size(&list) > 0)
@@ -3579,12 +3586,15 @@ void test_arraylist_insert_at_pointer(void) {
     assert(strcmp(list.data[2]->objname, "A") == 0);
     assert(strcmp(list.data[3]->objname, "C") == 0);
 
-    // Insert at index > size (out of bounds), should append
+    // Insert at index > size (out of bounds), should return an error code
     struct non_pod *e = non_pod_init_ptr("E", 50, 0.5, &gpa);
     err = nonpods_ptr_insert_at(&list, e, 999);
-    assert(err == ARRAYLIST_OK);
-    assert(list.size == 5);
+    assert(err == ARRAYLIST_ERR_OOB);
+    assert(list.size == 4);
+
+    err = nonpods_ptr_insert_at(&list, e, list.size);
     assert(strcmp(list.data[4]->objname, "E") == 0);
+    assert(list.size == 5);
 
     // Check all memory still valid and unchanged
     assert(strcmp(list.data[0]->objname, "B") == 0);
@@ -3827,7 +3837,7 @@ void test_arraylist_remove_at_ptr(void) {
     assert(list.size == 0);
     assert(global_destructor_counter_arraylist == 0);
 
-    // Add more, remove with index out of bounds (should act like pop_back)
+    // Add more, remove with index out of bounds (should return an error code)
     for (int i = 0; i < 5; ++i) {
         char buf[8];
         snprintf(buf, sizeof buf, "X%d", i);
@@ -3836,7 +3846,9 @@ void test_arraylist_remove_at_ptr(void) {
     size_t sz = list.size;
     before = global_destructor_counter_arraylist;
     err = nonpods_ptr_remove_at(&list, 9999); // way OOB
-    assert(err == ARRAYLIST_OK);
+    assert(err == ARRAYLIST_ERR_OOB);
+
+    err = nonpods_ptr_remove_at(&list, list.size);
     assert(list.size == sz - 1);
     assert(global_destructor_counter_arraylist == before - 1);
 
@@ -3848,13 +3860,13 @@ void test_arraylist_remove_at_ptr(void) {
     assert(list.size == sz - 1);
     assert(global_destructor_counter_arraylist == before - 1);
 
-    // Remove with index == SIZE_MAX (wraps, will pop_back, test no crash)
+    // Remove with index == SIZE_MAX, returns ARRAYLIST_ERR_OOB
     sz = list.size;
     before = global_destructor_counter_arraylist;
     err = nonpods_ptr_remove_at(&list, SIZE_MAX);
-    assert(err == ARRAYLIST_OK);
-    assert(list.size == sz - 1);
-    assert(global_destructor_counter_arraylist == before - 1);
+    assert(err == ARRAYLIST_ERR_OOB);
+    assert(list.size == sz);
+    assert(global_destructor_counter_arraylist == before);
 
     // Remove remaining (result: should be fully destructed)
     while (list.size > 0) {
@@ -4754,11 +4766,13 @@ void test_arraylist_size_ptr(void) {
     nonpods_ptr_shrink_size(&list, 5);
     assert(nonpods_ptr_size(&list) == 5);
 
-    // insert_at > size acts as append
+    // insert_at > size returns error
     size_t before = nonpods_ptr_size(&list);
     struct non_pod *dummy = non_pod_init_ptr("tail", 555, 5.55, &gpa);
     nonpods_ptr_insert_at(&list, dummy, 10000);
-    assert(nonpods_ptr_size(&list) == before + 1);
+    assert(nonpods_ptr_size(&list) == before);
+
+    nonpods_ptr_insert_at(&list, dummy, list.size);
 
     // pop_back until empty never underflows
     while (nonpods_ptr_size(&list) > 0)
@@ -6351,12 +6365,15 @@ void test_arraylist_dyn_insert_at_value(void) {
     assert(strcmp(list.data[2].objname, "A") == 0);
     assert(strcmp(list.data[3].objname, "C") == 0);
 
-    // Insert at index > size (out of bounds), should append
+    // Insert at index > size (out of bounds), should return an error code
     struct non_pod e = non_pod_init("E", 50, 0.5, &gpa);
     err = dyn_non_pods_d_insert_at(&list, e, 999);
-    assert(err == ARRAYLIST_OK);
-    assert(list.size == 5);
+    assert(err == ARRAYLIST_ERR_OOB);
+    assert(list.size == 4);
+
+    err = dyn_non_pods_d_insert_at(&list, e, list.size);
     assert(strcmp(list.data[4].objname, "E") == 0);
+    assert(list.size == 5);
 
     // Check all memory still valid and unchanged
     assert(strcmp(list.data[0].objname, "B") == 0);
@@ -6600,7 +6617,7 @@ void test_arraylist_dyn_remove_at_value(void) {
     assert(list.size == 0);
     assert(global_destructor_counter_arraylist == 0);
 
-    // Add more, remove with index out of bounds (should act like pop_back)
+    // Add more, remove with index out of bounds (should return an error code)
     for (int i = 0; i < 5; ++i) {
         char buf[8];
         snprintf(buf, sizeof buf, "X%d", i);
@@ -6609,7 +6626,9 @@ void test_arraylist_dyn_remove_at_value(void) {
     size_t sz = list.size;
     before = global_destructor_counter_arraylist;
     err = dyn_non_pods_d_remove_at(&list, 9999); // way OOB
-    assert(err == ARRAYLIST_OK);
+    assert(err == ARRAYLIST_ERR_OOB);
+
+    err = dyn_non_pods_d_remove_at(&list, list.size);
     assert(list.size == sz - 1);
     assert(global_destructor_counter_arraylist == before - 1);
 
@@ -6621,13 +6640,13 @@ void test_arraylist_dyn_remove_at_value(void) {
     assert(list.size == sz - 1);
     assert(global_destructor_counter_arraylist == before - 1);
 
-    // Remove with index == SIZE_MAX (wraps, will pop_back, test no crash)
+    // Remove with index == SIZE_MAX, returns ARRAYLIST_ERR_OOB
     sz = list.size;
     before = global_destructor_counter_arraylist;
     err = dyn_non_pods_d_remove_at(&list, SIZE_MAX);
-    assert(err == ARRAYLIST_OK);
-    assert(list.size == sz - 1);
-    assert(global_destructor_counter_arraylist == before - 1);
+    assert(err == ARRAYLIST_ERR_OOB);
+    assert(list.size == sz);
+    assert(global_destructor_counter_arraylist == before);
 
     // Remove remaining (result: should be fully destructed)
     while (list.size > 0) {
@@ -7524,11 +7543,13 @@ void test_arraylist_dyn_size_value(void) {
     dyn_non_pods_d_shrink_size(&list, 5);
     assert(dyn_non_pods_d_size(&list) == 5);
 
-    // insert_at > size acts as append
+    // insert_at > size returns error
     size_t before = dyn_non_pods_d_size(&list);
     struct non_pod dummy = non_pod_init("tail", 555, 5.55, &gpa);
     dyn_non_pods_d_insert_at(&list, dummy, 10000);
-    assert(dyn_non_pods_d_size(&list) == before + 1);
+    assert(dyn_non_pods_d_size(&list) == before);
+
+    dyn_non_pods_d_insert_at(&list, dummy, list.size);
 
     // pop_back until empty never underflows
     while (dyn_non_pods_d_size(&list) > 0)
@@ -9122,12 +9143,15 @@ void test_arraylist_dyn_insert_at_pointer(void) {
     assert(strcmp(list.data[2]->objname, "A") == 0);
     assert(strcmp(list.data[3]->objname, "C") == 0);
 
-    // Insert at index > size (out of bounds), should append
+    // Insert at index > size (out of bounds), should return an error code
     struct non_pod *e = non_pod_init_ptr("E", 50, 0.5, &gpa);
     err = dyn_non_pods_d_ptr_insert_at(&list, e, 999);
-    assert(err == ARRAYLIST_OK);
-    assert(list.size == 5);
+    assert(err == ARRAYLIST_ERR_OOB);
+    assert(list.size == 4);
+
+    err = dyn_non_pods_d_ptr_insert_at(&list, e, list.size);
     assert(strcmp(list.data[4]->objname, "E") == 0);
+    assert(list.size == 5);
 
     // Check all memory still valid and unchanged
     assert(strcmp(list.data[0]->objname, "B") == 0);
@@ -9370,7 +9394,7 @@ void test_arraylist_dyn_remove_at_ptr(void) {
     assert(list.size == 0);
     assert(global_destructor_counter_arraylist == 0);
 
-    // Add more, remove with index out of bounds (should act like pop_back)
+    // Add more, remove with index out of bounds (should return an error code)
     for (int i = 0; i < 5; ++i) {
         char buf[8];
         snprintf(buf, sizeof buf, "X%d", i);
@@ -9379,7 +9403,9 @@ void test_arraylist_dyn_remove_at_ptr(void) {
     size_t sz = list.size;
     before = global_destructor_counter_arraylist;
     err = dyn_non_pods_d_ptr_remove_at(&list, 9999); // way OOB
-    assert(err == ARRAYLIST_OK);
+    assert(err == ARRAYLIST_ERR_OOB);
+
+    err = dyn_non_pods_d_ptr_remove_at(&list, list.size);
     assert(list.size == sz - 1);
     assert(global_destructor_counter_arraylist == before - 1);
 
@@ -9391,13 +9417,13 @@ void test_arraylist_dyn_remove_at_ptr(void) {
     assert(list.size == sz - 1);
     assert(global_destructor_counter_arraylist == before - 1);
 
-    // Remove with index == SIZE_MAX (wraps, will pop_back, test no crash)
+    // Remove with index == SIZE_MAX, returns ARRAYLIST_ERR_OOB
     sz = list.size;
     before = global_destructor_counter_arraylist;
     err = dyn_non_pods_d_ptr_remove_at(&list, SIZE_MAX);
-    assert(err == ARRAYLIST_OK);
-    assert(list.size == sz - 1);
-    assert(global_destructor_counter_arraylist == before - 1);
+    assert(err == ARRAYLIST_ERR_OOB);
+    assert(list.size == sz);
+    assert(global_destructor_counter_arraylist == before);
 
     // Remove remaining (result: should be fully destructed)
     while (list.size > 0) {
@@ -10297,11 +10323,13 @@ void test_arraylist_dyn_size_ptr(void) {
     dyn_non_pods_d_ptr_shrink_size(&list, 5);
     assert(dyn_non_pods_d_ptr_size(&list) == 5);
 
-    // insert_at > size acts as append
+    // insert_at > size returns error
     size_t before = dyn_non_pods_d_ptr_size(&list);
     struct non_pod *dummy = non_pod_init_ptr("tail", 555, 5.55, &gpa);
     dyn_non_pods_d_ptr_insert_at(&list, dummy, 10000);
-    assert(dyn_non_pods_d_ptr_size(&list) == before + 1);
+    assert(dyn_non_pods_d_ptr_size(&list) == before);
+
+    dyn_non_pods_d_ptr_insert_at(&list, dummy, list.size);
 
     // pop_back until empty never underflows
     while (dyn_non_pods_d_ptr_size(&list) > 0)
