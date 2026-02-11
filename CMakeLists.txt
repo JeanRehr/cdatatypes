@@ -29,6 +29,7 @@ include_directories(include)
 
 # Arraylist test and example sources
 set(ARRAYLIST_TEST_SRC arraylist/tests/test.c)
+set(ARRAYLIST_DYN_TEST_SRC arraylist/tests/test_dyn.c)
 set(ARRAYLIST_EXAMPLE_1_SRC arraylist/examples/example_1.c)
 set(ARRAYLIST_EXAMPLE_2_SRC arraylist/examples/example_2.c)
 set(ARRAYLIST_EXAMPLE_3_SRC arraylist/examples/example_3.c)
@@ -108,6 +109,7 @@ message(STATUS "Used build type: ${CMAKE_BUILD_TYPE}")
 # Executables
 # Arraylist executables
 add_executable(test_arraylist ${ARRAYLIST_TEST_SRC})
+add_executable(test_arraylist_dyn ${ARRAYLIST_DYN_TEST_SRC})
 add_executable(example_arraylist1 ${ARRAYLIST_EXAMPLE_1_SRC})
 add_executable(example_arraylist2 ${ARRAYLIST_EXAMPLE_2_SRC})
 add_executable(example_arraylist3 ${ARRAYLIST_EXAMPLE_3_SRC})
@@ -117,6 +119,7 @@ add_executable(example_arraylistdyn3 ${ARRAYLIST_EXAMPLE_DYN3_SRC})
 
 # Arraylist Output directory
 set_target_properties(test_arraylist PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set_target_properties(test_arraylist_dyn PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set_target_properties(example_arraylist1 PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set_target_properties(example_arraylist2 PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set_target_properties(example_arraylist3 PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
@@ -126,6 +129,7 @@ set_target_properties(example_arraylistdyn3 PROPERTIES RUNTIME_OUTPUT_DIRECTORY 
 
 # Arraylist Include directory
 target_include_directories(test_arraylist PRIVATE "${PROJECT_SOURCE_DIR}/include")
+target_include_directories(test_arraylist_dyn PRIVATE "${PROJECT_SOURCE_DIR}/include")
 target_include_directories(example_arraylist1 PRIVATE "${PROJECT_SOURCE_DIR}/include")
 target_include_directories(example_arraylist2 PRIVATE "${PROJECT_SOURCE_DIR}/include")
 target_include_directories(example_arraylist3 PRIVATE "${PROJECT_SOURCE_DIR}/include")
@@ -156,11 +160,13 @@ target_include_directories(avl_test_usage PRIVATE "${PROJECT_SOURCE_DIR}/include
 
 # ctest
 add_test(NAME unit_test_arraylist COMMAND test_arraylist)
+add_test(NAME unit_test_arraylist_dyn COMMAND test_arraylist_dyn)
 add_test(NAME unit_test_pair COMMAND test_pair)
 
 add_custom_target(
     run_all_binaries
     COMMAND $<TARGET_FILE:test_arraylist>
+    COMMAND $<TARGET_FILE:test_arraylist_dyn>
     COMMAND $<TARGET_FILE:example_arraylist1>
     COMMAND $<TARGET_FILE:example_arraylist2>
     COMMAND $<TARGET_FILE:example_arraylist3>
