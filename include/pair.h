@@ -498,8 +498,8 @@ static inline int PAIR_FN(name, cmp)(                                           
 }                                                                                                                      \
                                                                                                                        \
 static inline enum pair_error PAIR_FN(name, swap)(struct pair_##name *self, struct pair_##name *other) {               \
-    PAIR_ENSURE(self != NULL, PAIR_ERR_NULL, "Error on swap(), first argument is null.");                              \
-    PAIR_ENSURE(other != NULL, PAIR_ERR_NULL, "Error on swap(), second argument is null.");                            \
+    PAIR_ENSURE(self != NULL, PAIR_ERR_NULL, "swap(): first argument is null.");                                       \
+    PAIR_ENSURE(other != NULL, PAIR_ERR_NULL, "swap(): second argument is null.");                                     \
     struct pair_##name temp = *other;                                                                                  \
     *other = *self;                                                                                                    \
     *self = temp;                                                                                                      \
@@ -513,9 +513,9 @@ static inline struct pair_##name PAIR_FN(name, deep_clone)(                     
     struct Allocator *alloc                                                                                            \
 ) {                                                                                                                    \
     struct pair_##name clone = { 0 };                                                                                  \
-    PAIR_ENSURE(self != NULL, clone, "Error on deep_clone(), pair is null.");                                          \
-    PAIR_ENSURE(deep_clone_first_fn != NULL, clone, "Error on deep_clone(), deep_clone_first_fn function is null.");   \
-    PAIR_ENSURE(deep_clone_second_fn != NULL, clone, "Error on deep_clone(), deep_clone_first_fn function is null.");  \
+    PAIR_ENSURE(self != NULL, clone, "deep_clone(): pair is null.");                                                   \
+    PAIR_ENSURE(deep_clone_first_fn != NULL, clone, "deep_clone(): deep_clone_first_fn function is null.");            \
+    PAIR_ENSURE(deep_clone_second_fn != NULL, clone, "deep_clone(): deep_clone_second_fn function is null.");          \
     deep_clone_first_fn(&clone.first, &self->first, alloc);                                                            \
     deep_clone_second_fn(&clone.second, &self->second, alloc);                                                         \
     return clone;                                                                                                      \
@@ -523,14 +523,14 @@ static inline struct pair_##name PAIR_FN(name, deep_clone)(                     
                                                                                                                        \
 static inline struct pair_##name PAIR_FN(name, shallow_copy)(const struct pair_##name *self) {                         \
     struct pair_##name clone = { 0 };                                                                                  \
-    PAIR_ENSURE(self != NULL, clone, "Error on shallow_copy(), pair is null.");                                        \
+    PAIR_ENSURE(self != NULL, clone, "shallow_copy(): pair is null.");                                                 \
     clone = *self;                                                                                                     \
     return clone;                                                                                                      \
 }                                                                                                                      \
                                                                                                                        \
 static inline struct pair_##name PAIR_FN(name, steal)(struct pair_##name *self) {                                      \
     struct pair_##name steal = { 0 };                                                                                  \
-    PAIR_ENSURE(self != NULL, steal, "Error on steal(), pair is null.");                                               \
+    PAIR_ENSURE(self != NULL, steal, "steal(): pair is null.");                                                        \
     steal = *self;                                                                                                     \
     memset(self, 0, sizeof(*self));                                                                                    \
     return steal;                                                                                                      \
@@ -540,7 +540,7 @@ static inline void PAIR_FN(name, deinit)(struct pair_##name *self, struct Alloca
     if (!self) {                                                                                                       \
         return;                                                                                                        \
     }                                                                                                                  \
-    PAIR_ENSURE_VOID(alloc != NULL, "Error on deinit(), Allocator is null.");                                          \
+    PAIR_ENSURE_VOID(alloc != NULL, "deinit(): Allocator is null.");                                                   \
     dtor_first(&self->first, alloc);                                                                                   \
     dtor_second(&self->second, alloc);                                                                                 \
     memset(self, 0, sizeof(*self));                                                                                    \
