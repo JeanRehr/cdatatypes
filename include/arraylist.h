@@ -834,15 +834,15 @@ static inline enum arraylist_error ARRAYLIST_FN(name, double_capacity)(struct ar
     size_t new_cap = 0;                                                                                                \
     if (self->capacity != 0) {                                                                                         \
         ARRAYLIST_ENSURE(                                                                                              \
-            self->capacity <= SIZE_MAX / 2,                                                                             \
+            self->capacity <= SIZE_MAX / 2,                                                                            \
             ARRAYLIST_ERR_OVERFLOW,                                                                                    \
-            "Overflow in capacity multiplication on double_capacity."                                                  \
+            "double_capacity(): Overflow in capacity multiplication."                                                  \
         );                                                                                                             \
         new_cap = self->capacity * 2;                                                                                  \
     } else {                                                                                                           \
         new_cap = ARRAYLIST_INITIAL_CAP;                                                                               \
     }                                                                                                                  \
-    ARRAYLIST_ENSURE(new_cap <= SIZE_MAX / sizeof(T), ARRAYLIST_ERR_OVERFLOW, "Buf will overflow on double_capacity.");\
+    ARRAYLIST_ENSURE(new_cap <= SIZE_MAX / sizeof(T), ARRAYLIST_ERR_OVERFLOW, "double_capacity(): Buf will overflow.");\
     T *new_data = NULL;                                                                                                \
     if (self->data == NULL) {                                                                                          \
         new_data = ARRAYLIST_CAST(T)self->alloc.malloc(new_cap * sizeof(T), self->alloc.ctx);                          \
@@ -851,7 +851,7 @@ static inline enum arraylist_error ARRAYLIST_FN(name, double_capacity)(struct ar
             self->data, self->capacity * sizeof(T), new_cap * sizeof(T), self->alloc.ctx                               \
         );                                                                                                             \
     }                                                                                                                  \
-    ARRAYLIST_ENSURE(new_data != NULL, ARRAYLIST_ERR_ALLOC, "Error during allocation on double_capacity.");            \
+    ARRAYLIST_ENSURE(new_data != NULL, ARRAYLIST_ERR_ALLOC, "double_capacity(): error during allocation.");            \
     self->data = new_data;                                                                                             \
     self->capacity = new_cap;                                                                                          \
     return ARRAYLIST_OK;                                                                                               \
@@ -929,7 +929,7 @@ static inline enum arraylist_error ARRAYLIST_FN(name, reserve)(                 
     struct arraylist_##name *self,                                                                                     \
     const size_t cap                                                                                                   \
 ) {                                                                                                                    \
-    ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "Error on reserve(), arraylist is null.");                      \
+    ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "reserve(): arraylist is null.");                               \
     if (self->capacity >= cap) {                                                                                       \
         return ARRAYLIST_OK;                                                                                           \
     }                                                                                                                  \
@@ -952,7 +952,7 @@ static inline enum arraylist_error ARRAYLIST_FN(name, shrink_size)(             
     struct arraylist_##name *self,                                                                                     \
     const size_t size                                                                                                  \
 ) {                                                                                                                    \
-    ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "Error on shrink_size() arraylist is null.");                   \
+    ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "shrink_size() arraylist is null.");                            \
     if (size >= self->size || self->size <= 0) {                                                                       \
         return ARRAYLIST_OK;                                                                                           \
     }                                                                                                                  \
@@ -964,7 +964,7 @@ static inline enum arraylist_error ARRAYLIST_FN(name, shrink_size)(             
 }                                                                                                                      \
                                                                                                                        \
 static inline enum arraylist_error ARRAYLIST_FN(name, shrink_to_fit)(struct arraylist_##name *self) {                  \
-    ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "Error on shrink_to_fit(), arraylist is null");                 \
+    ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "shrink_to_fit(): arraylist is null");                          \
     if (self->capacity == self->size) {                                                                                \
         return ARRAYLIST_OK;                                                                                           \
     }                                                                                                                  \
@@ -984,7 +984,7 @@ static inline enum arraylist_error ARRAYLIST_FN(name, shrink_to_fit)(struct arra
 }                                                                                                                      \
                                                                                                                        \
 static inline enum arraylist_error ARRAYLIST_FN(name, push_back)(struct arraylist_##name *self, T value) {             \
-    ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "Error on push_back(), arraylist is null.");                    \
+    ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "push_back(): arraylist is null.");                             \
     if (self->size >= self->capacity) {                                                                                \
         enum arraylist_error err = ARRAYLIST_FN(name, double_capacity)(self);                                          \
         if (err != ARRAYLIST_OK) {                                                                                     \
@@ -996,7 +996,7 @@ static inline enum arraylist_error ARRAYLIST_FN(name, push_back)(struct arraylis
 }                                                                                                                      \
                                                                                                                        \
 static inline T *ARRAYLIST_FN(name, emplace_back_slot)(struct arraylist_##name *self) {                                \
-    ARRAYLIST_ENSURE_PTR(self != NULL, "Error on emplace_back_slot(), arraylist is null.");                            \
+    ARRAYLIST_ENSURE_PTR(self != NULL, "emplace_back_slot(): arraylist is null.");                                     \
     if (self->size >= self->capacity) {                                                                                \
         enum arraylist_error err = ARRAYLIST_FN(name, double_capacity)(self);                                          \
         if (err != ARRAYLIST_OK) {                                                                                     \
@@ -1011,8 +1011,8 @@ static inline enum arraylist_error ARRAYLIST_FN(name, insert_at)(               
     T value,                                                                                                           \
     const size_t index                                                                                                 \
 ) {                                                                                                                    \
-    ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "Error on insert_at(), arraylist is null.");                    \
-    ARRAYLIST_ENSURE(index <= self->size, ARRAYLIST_ERR_OOB, "Error on insert_at(), out-of-bounds access.");           \
+    ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "insert_at(): arraylist is null.");                             \
+    ARRAYLIST_ENSURE(index <= self->size, ARRAYLIST_ERR_OOB, "insert_at(): out-of-bounds access.");                    \
     if (index == self->size) {                                                                                         \
         return ARRAYLIST_FN(name, push_back)(self, value);                                                             \
     }                                                                                                                  \
@@ -1031,7 +1031,7 @@ static inline enum arraylist_error ARRAYLIST_FN(name, insert_at)(               
 }                                                                                                                      \
                                                                                                                        \
 static inline enum arraylist_error ARRAYLIST_FN(name, pop_back)(struct arraylist_##name *self) {                       \
-    ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "Error on pop_back(), arraylist is null.");                     \
+    ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "pop_back(): arraylist is null.");                              \
     if (self->size <= 0) {                                                                                             \
         return ARRAYLIST_OK;                                                                                           \
     }                                                                                                                  \
@@ -1044,11 +1044,11 @@ static inline enum arraylist_error ARRAYLIST_FN(name, remove_at)(               
     struct arraylist_##name *self,                                                                                     \
     const size_t index                                                                                                 \
 ) {                                                                                                                    \
-    ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "Error on remove_at(), arraylist is null.");                    \
+    ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "remove_at(): arraylist is null.");                             \
     if (self->size == 0) {                                                                                             \
         return ARRAYLIST_OK;                                                                                           \
     }                                                                                                                  \
-    ARRAYLIST_ENSURE(index < self->size, ARRAYLIST_ERR_OOB, "Error on remove_at(), out-of-bounds access.");            \
+    ARRAYLIST_ENSURE(index < self->size, ARRAYLIST_ERR_OOB, "remove_at(): out-of-bounds access.");                     \
     if (index == self->size - 1) {                                                                                     \
         return ARRAYLIST_FN(name, pop_back)(self);                                                                     \
     }                                                                                                                  \
@@ -1065,7 +1065,7 @@ static inline enum arraylist_error ARRAYLIST_FN(name, remove_from_to)(          
     size_t from,                                                                                                       \
     size_t to                                                                                                          \
 ) {                                                                                                                    \
-    ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "Error on remove_from_to(), arraylist is null.");               \
+    ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "remove_from_to(): arraylist is null.");                        \
     if (self->size == 0) {                                                                                             \
         return ARRAYLIST_OK;                                                                                           \
     }                                                                                                                  \
@@ -1092,24 +1092,24 @@ static inline enum arraylist_error ARRAYLIST_FN(name, remove_from_to)(          
 }                                                                                                                      \
                                                                                                                        \
 static inline T *ARRAYLIST_FN(name, at)(const struct arraylist_##name *self, const size_t index) {                     \
-    ARRAYLIST_ENSURE_PTR(self != NULL, "Error on at(), arraylist is null.");                                           \
-    ARRAYLIST_ENSURE_PTR(index < self->size, "Error on at(), out-of-bounds access.");                                  \
+    ARRAYLIST_ENSURE_PTR(self != NULL, "at(): arraylist is null.");                                                    \
+    ARRAYLIST_ENSURE_PTR(index < self->size, "at(): out-of-bounds access.");                                           \
     return &self->data[index];                                                                                         \
 }                                                                                                                      \
                                                                                                                        \
 static inline T *ARRAYLIST_FN(name, begin)(const struct arraylist_##name *self) {                                      \
-    ARRAYLIST_ENSURE_PTR(self != NULL, "Error on begin(), arraylist is null.");                                        \
+    ARRAYLIST_ENSURE_PTR(self != NULL, "begin(): arraylist is null.");                                                 \
     return self->data;                                                                                                 \
 }                                                                                                                      \
                                                                                                                        \
 static inline T *ARRAYLIST_FN(name, back)(const struct arraylist_##name *self) {                                       \
-    ARRAYLIST_ENSURE_PTR(self != NULL, "Error on back(), arraylist is null.");                                         \
-    ARRAYLIST_ENSURE_PTR(self->size != 0, "Error on back(), arraylist is empty.");                                     \
+    ARRAYLIST_ENSURE_PTR(self != NULL, "back(): arraylist is null.");                                                  \
+    ARRAYLIST_ENSURE_PTR(self->size != 0, "back(): arraylist is empty.");                                              \
     return self->data + (self->size - 1);                                                                              \
 }                                                                                                                      \
                                                                                                                        \
 static inline T *ARRAYLIST_FN(name, end)(const struct arraylist_##name *self) {                                        \
-    ARRAYLIST_ENSURE_PTR(self != NULL, "Error on end(), arraylist is null.");                                          \
+    ARRAYLIST_ENSURE_PTR(self != NULL, "end(): arraylist is null.");                                                   \
     return self->data + self->size;                                                                                    \
 }                                                                                                                      \
                                                                                                                        \
@@ -1118,8 +1118,8 @@ static inline T *ARRAYLIST_FN(name, find)(                                      
     bool (*predicate)(T *elem, void *target),                                                                          \
     void *ctx                                                                                                          \
 ) {                                                                                                                    \
-    ARRAYLIST_ENSURE_PTR(self != NULL, "Error on find(), arraylist is null.");                                         \
-    ARRAYLIST_ENSURE_PTR(predicate != NULL, "Error on find(), predicate function is null.");                           \
+    ARRAYLIST_ENSURE_PTR(self != NULL, "find(): arraylist is null.");                                                  \
+    ARRAYLIST_ENSURE_PTR(predicate != NULL, "find(): predicate function is null.");                                    \
     for (size_t i = 0; i < self->size; ++i) {                                                                          \
         if (predicate(&self->data[i], ctx)) {                                                                          \
             return &self->data[i];                                                                                     \
@@ -1134,8 +1134,8 @@ static inline bool ARRAYLIST_FN(name, contains)(                                
     void *ctx,                                                                                                         \
     size_t *out_index                                                                                                  \
 ) {                                                                                                                    \
-    ARRAYLIST_ENSURE(self != NULL, false, "Error on contains(), arraylist is null.");                                  \
-    ARRAYLIST_ENSURE(predicate != NULL, false, "Error on contains(), predicate function is null.");                    \
+    ARRAYLIST_ENSURE(self != NULL, false, "contains(): arraylist is null.");                                           \
+    ARRAYLIST_ENSURE(predicate != NULL, false, "contains(): predicate function is null.");                             \
     for (size_t i = 0; i < self->size; ++i) {                                                                          \
         if (predicate(&self->data[i], ctx)) {                                                                          \
             if (out_index) {                                                                                           \
@@ -1148,22 +1148,22 @@ static inline bool ARRAYLIST_FN(name, contains)(                                
 }                                                                                                                      \
                                                                                                                        \
 static inline size_t ARRAYLIST_FN(name, size)(const struct arraylist_##name *self) {                                   \
-    ARRAYLIST_ENSURE(self != NULL, 0, "Error on size(), arraylist is null.");                                          \
+    ARRAYLIST_ENSURE(self != NULL, 0, "size(): arraylist is null.");                                                   \
     return self->size;                                                                                                 \
 }                                                                                                                      \
                                                                                                                        \
 static inline bool ARRAYLIST_FN(name, is_empty)(const struct arraylist_##name *self) {                                 \
-    ARRAYLIST_ENSURE(self != NULL, false, "Error on is_empty(), arraylist is null.");                                  \
+    ARRAYLIST_ENSURE(self != NULL, false, "is_empty(): arraylist is null.");                                           \
     return self->size == 0;                                                                                            \
 }                                                                                                                      \
                                                                                                                        \
 static inline size_t ARRAYLIST_FN(name, capacity)(const struct arraylist_##name *self) {                               \
-    ARRAYLIST_ENSURE(self != NULL, 0, "Error on capacity(), arraylist is null.");                                      \
+    ARRAYLIST_ENSURE(self != NULL, 0, "capacity(): arraylist is null.");                                               \
     return self->capacity;                                                                                             \
 }                                                                                                                      \
                                                                                                                        \
 static inline struct Allocator *ARRAYLIST_FN(name, get_allocator)(struct arraylist_##name *self) {                     \
-    ARRAYLIST_ENSURE_PTR(self != NULL, "Error on get_allocator(), arraylist is null.");                                \
+    ARRAYLIST_ENSURE_PTR(self != NULL, "get_allocator(): arraylist is null.");                                         \
     return &self->alloc;                                                                                               \
 }                                                                                                                      \
                                                                                                                        \
@@ -1171,8 +1171,8 @@ static inline enum arraylist_error ARRAYLIST_FN(name, swap)(                    
     struct arraylist_##name *self,                                                                                     \
     struct arraylist_##name *other                                                                                     \
 ) {                                                                                                                    \
-    ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "Error on swap(), first argument is null.");                    \
-    ARRAYLIST_ENSURE(other != NULL, ARRAYLIST_ERR_NULL, "Error on swap(), second argument is null.");                  \
+    ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "swap(): first argument is null.");                             \
+    ARRAYLIST_ENSURE(other != NULL, ARRAYLIST_ERR_NULL, "swap(): second argument is null.");                           \
     struct arraylist_##name temp = *other;                                                                             \
     *other = *self;                                                                                                    \
     *self = temp;                                                                                                      \
@@ -1183,8 +1183,8 @@ static inline enum arraylist_error ARRAYLIST_FN(name, qsort)(                   
     struct arraylist_##name *self,                                                                                     \
     bool (*comp)(T *n1, T *n2)                                                                                         \
 ) {                                                                                                                    \
-    ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "Error on qsort(), arraylist is null.");                        \
-    ARRAYLIST_ENSURE(comp != NULL, ARRAYLIST_ERR_NULL, "Error on qsort(), comp function is null.");                    \
+    ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "qsort(): arraylist is null.");                                 \
+    ARRAYLIST_ENSURE(comp != NULL, ARRAYLIST_ERR_NULL, "qsort(): comp function is null.");                             \
     if (self->size > 1) {                                                                                              \
         ARRAYLIST_FN(name, helper_qsort)(self, 0, self->size - 1, comp);                                               \
     }                                                                                                                  \
@@ -1196,8 +1196,8 @@ static inline struct arraylist_##name ARRAYLIST_FN(name, deep_clone)(           
     void (*deep_clone_fn)(T *dst, T *src, struct Allocator *alloc)                                                     \
 ) {                                                                                                                    \
     struct arraylist_##name clone = { 0 };                                                                             \
-    ARRAYLIST_ENSURE(self != NULL, clone, "Error on deep_clone(), arraylist is null.");                                \
-    ARRAYLIST_ENSURE(deep_clone_fn != NULL, clone, "Error on deep_clone(), deep_clone_fn function is null.");          \
+    ARRAYLIST_ENSURE(self != NULL, clone, "deep_clone(): arraylist is null.");                                         \
+    ARRAYLIST_ENSURE(deep_clone_fn != NULL, clone, "deep_clone(): deep_clone_fn function is null.");                   \
     clone = ARRAYLIST_FN(name, init)(self->alloc);                                                                     \
     if (ARRAYLIST_FN(name, reserve)(&clone, self->capacity) != ARRAYLIST_OK) {                                         \
         return clone;                                                                                                  \
@@ -1211,7 +1211,7 @@ static inline struct arraylist_##name ARRAYLIST_FN(name, deep_clone)(           
                                                                                                                        \
 static inline struct arraylist_##name ARRAYLIST_FN(name, shallow_copy)(const struct arraylist_##name *self) {          \
     struct arraylist_##name clone = { 0 };                                                                             \
-    ARRAYLIST_ENSURE(self != NULL, clone, "Error on shallow_copy(), arraylist is null.");                              \
+    ARRAYLIST_ENSURE(self != NULL, clone, "shallow_copy(): arraylist is null.");                                       \
     clone = ARRAYLIST_FN(name, init)(self->alloc);                                                                     \
     if (ARRAYLIST_FN(name, reserve)(&clone, self->capacity) != ARRAYLIST_OK) {                                         \
         return clone;                                                                                                  \
@@ -1225,7 +1225,7 @@ static inline struct arraylist_##name ARRAYLIST_FN(name, shallow_copy)(const str
                                                                                                                        \
 static inline struct arraylist_##name ARRAYLIST_FN(name, steal)(struct arraylist_##name *self) {                       \
     struct arraylist_##name steal = { 0 };                                                                             \
-    ARRAYLIST_ENSURE(self != NULL, steal, "Error on steal(), arraylist is null.");                                     \
+    ARRAYLIST_ENSURE(self != NULL, steal, "steal(): arraylist is null.");                                              \
     steal.data = self->data;                                                                                           \
     steal.size = self->size;                                                                                           \
     steal.capacity = self->capacity;                                                                                   \
@@ -1818,15 +1818,15 @@ static inline enum arraylist_error ARRAYLIST_FN_DYN(name, double_capacity)(struc
     size_t new_cap = 0;                                                                                                \
     if (self->capacity != 0) {                                                                                         \
         ARRAYLIST_ENSURE(                                                                                              \
-            self->capacity <= SIZE_MAX / 2,                                                                             \
+            self->capacity <= SIZE_MAX / 2,                                                                            \
             ARRAYLIST_ERR_OVERFLOW,                                                                                    \
-            "Overflow in capacity multiplication on double_capacity."                                                  \
+            "double_capacity(): Overflow in capacity multiplication."                                                  \
         );                                                                                                             \
         new_cap = self->capacity * 2;                                                                                  \
     } else {                                                                                                           \
         new_cap = ARRAYLIST_INITIAL_CAP;                                                                               \
     }                                                                                                                  \
-    ARRAYLIST_ENSURE(new_cap <= SIZE_MAX / sizeof(T), ARRAYLIST_ERR_OVERFLOW, "Buf will overflow on double_capacity.");\
+    ARRAYLIST_ENSURE(new_cap <= SIZE_MAX / sizeof(T), ARRAYLIST_ERR_OVERFLOW, "double_capacity(): Buf will overflow.");\
     T *new_data = NULL;                                                                                                \
     if (self->data == NULL) {                                                                                          \
         new_data = ARRAYLIST_CAST(T)self->alloc.malloc(new_cap * sizeof(T), self->alloc.ctx);                          \
@@ -1835,7 +1835,7 @@ static inline enum arraylist_error ARRAYLIST_FN_DYN(name, double_capacity)(struc
             self->data, self->capacity * sizeof(T), new_cap * sizeof(T), self->alloc.ctx                               \
         );                                                                                                             \
     }                                                                                                                  \
-    ARRAYLIST_ENSURE(new_data != NULL, ARRAYLIST_ERR_ALLOC, "Error during allocation on double_capacity.");            \
+    ARRAYLIST_ENSURE(new_data != NULL, ARRAYLIST_ERR_ALLOC, "double_capacity(): Error during allocation.");            \
     self->data = new_data;                                                                                             \
     self->capacity = new_cap;                                                                                          \
     return ARRAYLIST_OK;                                                                                               \
@@ -1917,7 +1917,7 @@ static inline enum arraylist_error ARRAYLIST_FN_DYN(name, reserve)(             
     struct arraylist_dyn_##name *self,                                                                                 \
     const size_t cap                                                                                                   \
 ) {                                                                                                                    \
-    ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "Error on reserve(), arraylist is null.");                      \
+    ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "reserve(): arraylist is null.");                               \
     if (self->capacity >= cap) {                                                                                       \
         return ARRAYLIST_OK;                                                                                           \
     }                                                                                                                  \
@@ -1930,7 +1930,7 @@ static inline enum arraylist_error ARRAYLIST_FN_DYN(name, reserve)(             
             self->data, self->capacity * sizeof(T), cap * sizeof(T), self->alloc.ctx                                   \
         );                                                                                                             \
     }                                                                                                                  \
-    ARRAYLIST_ENSURE(new_data != NULL, ARRAYLIST_ERR_ALLOC, "Error on reserve() during allocation of new capacity.");  \
+    ARRAYLIST_ENSURE(new_data != NULL, ARRAYLIST_ERR_ALLOC, "reserve() during allocation of new capacity.");           \
     self->data = new_data;                                                                                             \
     self->capacity = cap;                                                                                              \
     return ARRAYLIST_OK;                                                                                               \
@@ -1940,7 +1940,7 @@ static inline enum arraylist_error ARRAYLIST_FN_DYN(name, shrink_size)(         
     struct arraylist_dyn_##name *self,                                                                                 \
     const size_t size                                                                                                  \
 ) {                                                                                                                    \
-    ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "Error on shrink_size() arraylist is null.");                   \
+    ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "shrink_size() arraylist is null.");                            \
     if (size >= self->size || self->size <= 0) {                                                                       \
         return ARRAYLIST_OK;                                                                                           \
     }                                                                                                                  \
@@ -1954,7 +1954,7 @@ static inline enum arraylist_error ARRAYLIST_FN_DYN(name, shrink_size)(         
 }                                                                                                                      \
                                                                                                                        \
 static inline enum arraylist_error ARRAYLIST_FN_DYN(name, shrink_to_fit)(struct arraylist_dyn_##name *self) {          \
-    ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "Error on shrink_to_fit() arraylist is null.");                 \
+    ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "shrink_to_fit() arraylist is null.");                          \
     if (self->capacity == self->size) {                                                                                \
         return ARRAYLIST_OK;                                                                                           \
     }                                                                                                                  \
@@ -1977,7 +1977,7 @@ static inline enum arraylist_error ARRAYLIST_FN_DYN(name, push_back)(           
     struct arraylist_dyn_##name *self,                                                                                 \
     T value                                                                                                            \
 ) {                                                                                                                    \
-    ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "Error on push_back(), arraylist is null.");                    \
+    ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "push_back(): arraylist is null.");                             \
     if (self->size >= self->capacity) {                                                                                \
         enum arraylist_error err = ARRAYLIST_FN_DYN(name, double_capacity)(self);                                      \
         if (err != ARRAYLIST_OK) {                                                                                     \
@@ -1989,7 +1989,7 @@ static inline enum arraylist_error ARRAYLIST_FN_DYN(name, push_back)(           
 }                                                                                                                      \
                                                                                                                        \
 static inline T *ARRAYLIST_FN_DYN(name, emplace_back_slot)(struct arraylist_dyn_##name *self) {                        \
-    ARRAYLIST_ENSURE_PTR(self != NULL, "Error on emplace_back_slot(), arraylist is null.");                            \
+    ARRAYLIST_ENSURE_PTR(self != NULL, "emplace_back_slot(): arraylist is null.");                                     \
     if (self->size >= self->capacity) {                                                                                \
         enum arraylist_error err = ARRAYLIST_FN_DYN(name, double_capacity)(self);                                      \
         if (err != ARRAYLIST_OK) {                                                                                     \
@@ -2004,8 +2004,8 @@ static inline enum arraylist_error ARRAYLIST_FN_DYN(name, insert_at)(           
     T value,                                                                                                           \
     const size_t index                                                                                                 \
 ) {                                                                                                                    \
-    ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "Error on insert_at(), arraylist is null.");                    \
-    ARRAYLIST_ENSURE(index <= self->size, ARRAYLIST_ERR_OOB, "Error on insert_at(), out-of-bounds access.");           \
+    ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "insert_at(): arraylist is null.");                             \
+    ARRAYLIST_ENSURE(index <= self->size, ARRAYLIST_ERR_OOB, "insert_at(): out-of-bounds access.");                    \
     if (index == self->size) {                                                                                         \
         return ARRAYLIST_FN_DYN(name, push_back)(self, value);                                                         \
     }                                                                                                                  \
@@ -2024,7 +2024,7 @@ static inline enum arraylist_error ARRAYLIST_FN_DYN(name, insert_at)(           
 }                                                                                                                      \
                                                                                                                        \
 static inline enum arraylist_error ARRAYLIST_FN_DYN(name, pop_back)(struct arraylist_dyn_##name *self) {               \
-    ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "Error on pop_back(), arraylist is null.");                     \
+    ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "pop_back(): arraylist is null.");                              \
     if (self->size <= 0) {                                                                                             \
         return ARRAYLIST_OK;                                                                                           \
     }                                                                                                                  \
@@ -2039,11 +2039,11 @@ static inline enum arraylist_error ARRAYLIST_FN_DYN(name, remove_at)(           
     struct arraylist_dyn_##name *self,                                                                                 \
     const size_t index                                                                                                 \
 ) {                                                                                                                    \
-    ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "Error on remove_at(), arraylist is null.");                    \
+    ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "remove_at(): arraylist is null.");                             \
     if (self->size == 0) {                                                                                             \
         return ARRAYLIST_OK;                                                                                           \
     }                                                                                                                  \
-    ARRAYLIST_ENSURE(index < self->size, ARRAYLIST_ERR_OOB, "Error on remove_at(), out-of-bounds access.");            \
+    ARRAYLIST_ENSURE(index < self->size, ARRAYLIST_ERR_OOB, "remove_at(): out-of-bounds access.");                     \
     if (index == self->size - 1) {                                                                                     \
         return ARRAYLIST_FN_DYN(name, pop_back)(self);                                                                 \
     }                                                                                                                  \
@@ -2062,7 +2062,7 @@ static inline enum arraylist_error ARRAYLIST_FN_DYN(name, remove_from_to)(      
     size_t from,                                                                                                       \
     size_t to                                                                                                          \
 ) {                                                                                                                    \
-    ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "Error on remove_from_to(), arraylist is null.");               \
+    ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "remove_from_to(): arraylist is null.");                        \
     if (self->size == 0) {                                                                                             \
         return ARRAYLIST_OK;                                                                                           \
     }                                                                                                                  \
@@ -2091,24 +2091,24 @@ static inline enum arraylist_error ARRAYLIST_FN_DYN(name, remove_from_to)(      
 }                                                                                                                      \
                                                                                                                        \
 static inline T *ARRAYLIST_FN_DYN(name, at)(const struct arraylist_dyn_##name *self, const size_t index) {             \
-    ARRAYLIST_ENSURE_PTR(self != NULL, "Error on at(), arraylist is null.");                                           \
-    ARRAYLIST_ENSURE_PTR(index < self->size, "Error on at(), out-of-bounds access.");                                  \
+    ARRAYLIST_ENSURE_PTR(self != NULL, "at(): arraylist is null.");                                                    \
+    ARRAYLIST_ENSURE_PTR(index < self->size, "at(): out-of-bounds access.");                                           \
     return &self->data[index];                                                                                         \
 }                                                                                                                      \
                                                                                                                        \
 static inline T *ARRAYLIST_FN_DYN(name, begin)(const struct arraylist_dyn_##name *self) {                              \
-    ARRAYLIST_ENSURE_PTR(self != NULL, "Error on begin(), arraylist is null.");                                        \
+    ARRAYLIST_ENSURE_PTR(self != NULL, "begin(): arraylist is null.");                                                 \
     return self->data;                                                                                                 \
 }                                                                                                                      \
                                                                                                                        \
 static inline T *ARRAYLIST_FN_DYN(name, back)(const struct arraylist_dyn_##name *self) {                               \
-    ARRAYLIST_ENSURE_PTR(self != NULL, "Error on back(), arraylist is null.");                                         \
-    ARRAYLIST_ENSURE_PTR(self->size != 0, "Error on back(), arraylist is empty.");                                     \
+    ARRAYLIST_ENSURE_PTR(self != NULL, "back(): arraylist is null.");                                                  \
+    ARRAYLIST_ENSURE_PTR(self->size != 0, "back(): arraylist is empty.");                                              \
     return self->data + (self->size - 1);                                                                              \
 }                                                                                                                      \
                                                                                                                        \
 static inline T *ARRAYLIST_FN_DYN(name, end)(const struct arraylist_dyn_##name *self) {                                \
-    ARRAYLIST_ENSURE_PTR(self != NULL, "Error on end(), arraylist is null.");                                          \
+    ARRAYLIST_ENSURE_PTR(self != NULL, "end(): arraylist is null.");                                                   \
     return self->data + self->size;                                                                                    \
 }                                                                                                                      \
                                                                                                                        \
@@ -2117,8 +2117,8 @@ static inline T *ARRAYLIST_FN_DYN(name, find)(                                  
     bool (*predicate)(T *elem, void *target),                                                                          \
     void *ctx                                                                                                          \
 ) {                                                                                                                    \
-    ARRAYLIST_ENSURE_PTR(self != NULL, "Error on find(), arraylist is null.");                                         \
-    ARRAYLIST_ENSURE_PTR(predicate != NULL, "Error on find(), predicate function is null.");                           \
+    ARRAYLIST_ENSURE_PTR(self != NULL, "find(): arraylist is null.");                                                  \
+    ARRAYLIST_ENSURE_PTR(predicate != NULL, "find(): predicate function is null.");                                    \
     for (size_t i = 0; i < self->size; ++i) {                                                                          \
         if (predicate(&self->data[i], ctx)) {                                                                          \
             return &self->data[i];                                                                                     \
@@ -2133,8 +2133,8 @@ static inline bool ARRAYLIST_FN_DYN(name, contains)(                            
     void *ctx,                                                                                                         \
     size_t *out_index                                                                                                  \
 ) {                                                                                                                    \
-    ARRAYLIST_ENSURE(self != NULL, false, "Error on contains(), arraylist is null.");                                  \
-    ARRAYLIST_ENSURE(predicate != NULL, false, "Error on contains(), predicate function is null.");                    \
+    ARRAYLIST_ENSURE(self != NULL, false, "contains(): arraylist is null.");                                           \
+    ARRAYLIST_ENSURE(predicate != NULL, false, "contains(): predicate function is null.");                             \
     for (size_t i = 0; i < self->size; ++i) {                                                                          \
         if (predicate(&self->data[i], ctx)) {                                                                          \
             if (out_index) {                                                                                           \
@@ -2147,22 +2147,22 @@ static inline bool ARRAYLIST_FN_DYN(name, contains)(                            
 }                                                                                                                      \
                                                                                                                        \
 static inline size_t ARRAYLIST_FN_DYN(name, size)(const struct arraylist_dyn_##name *self) {                           \
-    ARRAYLIST_ENSURE(self != NULL, 0, "Error on size(), arraylist is null.");                                          \
+    ARRAYLIST_ENSURE(self != NULL, 0, "size(): arraylist is null.");                                                   \
     return self->size;                                                                                                 \
 }                                                                                                                      \
                                                                                                                        \
 static inline bool ARRAYLIST_FN_DYN(name, is_empty)(const struct arraylist_dyn_##name *self) {                         \
-    ARRAYLIST_ENSURE(self != NULL, false, "Error on is_empty(), arraylist is null.");                                  \
+    ARRAYLIST_ENSURE(self != NULL, false, "is_empty(): arraylist is null.");                                           \
     return self->size == 0;                                                                                            \
 }                                                                                                                      \
                                                                                                                        \
 static inline size_t ARRAYLIST_FN_DYN(name, capacity)(const struct arraylist_dyn_##name *self) {                       \
-    ARRAYLIST_ENSURE(self != NULL, 0, "Error on capacity(), arraylist is null.");                                      \
+    ARRAYLIST_ENSURE(self != NULL, 0, "capacity(): arraylist is null.");                                               \
     return self->capacity;                                                                                             \
 }                                                                                                                      \
                                                                                                                        \
 static inline struct Allocator *ARRAYLIST_FN_DYN(name, get_allocator)(struct arraylist_dyn_##name *self) {             \
-    ARRAYLIST_ENSURE_PTR(self != NULL, "Error on get_allocator(), arraylist is null.");                                \
+    ARRAYLIST_ENSURE_PTR(self != NULL, "get_allocator(): arraylist is null.");                                         \
     return &self->alloc;                                                                                               \
 }                                                                                                                      \
                                                                                                                        \
@@ -2170,8 +2170,8 @@ static inline enum arraylist_error ARRAYLIST_FN_DYN(name, swap)(                
     struct arraylist_dyn_##name *self,                                                                                 \
     struct arraylist_dyn_##name *other                                                                                 \
 ) {                                                                                                                    \
-    ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "Error on swap(), first argument is null.");                    \
-    ARRAYLIST_ENSURE(other != NULL, ARRAYLIST_ERR_NULL, "Error on swap(), second argument is null.");                  \
+    ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "swap(): first argument is null.");                             \
+    ARRAYLIST_ENSURE(other != NULL, ARRAYLIST_ERR_NULL, "swap(): second argument is null.");                           \
     struct arraylist_dyn_##name temp = *other;                                                                         \
     *other = *self;                                                                                                    \
     *self = temp;                                                                                                      \
@@ -2182,8 +2182,8 @@ static inline enum arraylist_error ARRAYLIST_FN_DYN(name, qsort)(               
     struct arraylist_dyn_##name *self,                                                                                 \
     bool (*comp)(T *n1, T *n2)                                                                                         \
 ) {                                                                                                                    \
-    ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "Error on qsort(), arraylist is null.");                        \
-    ARRAYLIST_ENSURE(comp != NULL, ARRAYLIST_ERR_NULL, "Error on qsort(), comp function is null.");                    \
+    ARRAYLIST_ENSURE(self != NULL, ARRAYLIST_ERR_NULL, "qsort(): arraylist is null.");                                 \
+    ARRAYLIST_ENSURE(comp != NULL, ARRAYLIST_ERR_NULL, "qsort(): comp function is null.");                             \
     if (self->size > 1) {                                                                                              \
         ARRAYLIST_FN_DYN(name, helper_qsort)(self, 0, self->size - 1, comp);                                           \
     }                                                                                                                  \
@@ -2195,8 +2195,8 @@ static inline struct arraylist_dyn_##name ARRAYLIST_FN_DYN(name, deep_clone)(   
     void (*deep_clone_fn)(T *dst, T *src, struct Allocator *alloc)                                                     \
 ) {                                                                                                                    \
     struct arraylist_dyn_##name clone = { 0 };                                                                         \
-    ARRAYLIST_ENSURE(self != NULL, clone, "Error on deep_clone(), arraylist is null.");                                \
-    ARRAYLIST_ENSURE(deep_clone_fn != NULL, clone, "Error on deep_clone(), deep_clone_fn function is null.");          \
+    ARRAYLIST_ENSURE(self != NULL, clone, "deep_clone(): arraylist is null.");                                         \
+    ARRAYLIST_ENSURE(deep_clone_fn != NULL, clone, "deep_clone(): deep_clone_fn function is null.");                   \
     clone = ARRAYLIST_FN_DYN(name, init)(self->alloc, self->destructor);                                               \
     if (ARRAYLIST_FN_DYN(name, reserve)(&clone, self->capacity) != ARRAYLIST_OK) {                                     \
         return clone;                                                                                                  \
@@ -2212,7 +2212,7 @@ static inline struct arraylist_dyn_##name ARRAYLIST_FN_DYN(name, shallow_copy)( 
     const struct arraylist_dyn_##name *self                                                                            \
 ) {                                                                                                                    \
     struct arraylist_dyn_##name clone = { 0 };                                                                         \
-    ARRAYLIST_ENSURE(self != NULL, clone, "Error on shallow_copy(), arraylist is null.");                              \
+    ARRAYLIST_ENSURE(self != NULL, clone, "shallow_copy(): arraylist is null.");                                       \
     clone = ARRAYLIST_FN_DYN(name, init)(self->alloc, self->destructor);                                               \
     if (ARRAYLIST_FN_DYN(name, reserve)(&clone, self->capacity) != ARRAYLIST_OK) {                                     \
         return clone;                                                                                                  \
@@ -2226,7 +2226,7 @@ static inline struct arraylist_dyn_##name ARRAYLIST_FN_DYN(name, shallow_copy)( 
                                                                                                                        \
 static inline struct arraylist_dyn_##name ARRAYLIST_FN_DYN(name, steal)(struct arraylist_dyn_##name *self) {           \
     struct arraylist_dyn_##name steal = { 0 };                                                                         \
-    ARRAYLIST_ENSURE(self != NULL, steal, "Error on steal(), arraylist is null.");                                     \
+    ARRAYLIST_ENSURE(self != NULL, steal, "steal(): arraylist is null.");                                              \
     steal.data = self->data;                                                                                           \
     steal.size = self->size;                                                                                           \
     steal.capacity = self->capacity;                                                                                   \
