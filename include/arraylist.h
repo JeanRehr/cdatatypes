@@ -552,13 +552,10 @@ ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, remove_at
  * @param self Pointer to the arraylist                                                                                \
  * @param from Starting position to remove                                                                             \
  * @param to Ending position inclusive                                                                                 \
- * @return ARRAYLIST_ERR_NULL in case of NULL being passed, or ARRAYLIST_OK                                            \
+ * @return ARRAYLIST_ERR_NULL in case of NULL being passed, ARRAYLIST_ERR_OOB, if from > to,                           \
+ *         to >= self.size, or from >= self.size, or ARRAYLIST_OK                                                      \
  *                                                                                                                     \
  * Will call destructor if available                                                                                   \
- * If from > to does nothing                                                                                           \
- *                                                                                                                     \
- * @warning if from < 0 size_t overflows and removes at end, if to < 0,                                                \
- *          it will also overflow and may remove everything                                                            \
  */                                                                                                                    \
 ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, remove_from_to)(                                \
     struct arraylist_##name *self,                                                                                     \
@@ -1071,15 +1068,10 @@ static inline enum arraylist_error ARRAYLIST_FN(name, remove_from_to)(          
     if (self->size == 0) {                                                                                             \
         return ARRAYLIST_OK;                                                                                           \
     }                                                                                                                  \
-    if (from > to) {                                                                                                   \
-        return ARRAYLIST_OK;                                                                                           \
-    }                                                                                                                  \
-    if (to >= self->size) {                                                                                            \
-        to = self->size - 1;                                                                                           \
-    }                                                                                                                  \
-    if (from >= self->size) {                                                                                          \
-        from = self->size - 1;                                                                                         \
-    }                                                                                                                  \
+    /* Require 0 <= from <= to < size */                                                                               \
+    ARRAYLIST_ENSURE(from <= to, ARRAYLIST_ERR_OOB, "remove_from_to(); from > to.");                                   \
+    ARRAYLIST_ENSURE(from < self->size, ARRAYLIST_ERR_OOB, "remove_from_to(); from out-of-bounds.");                   \
+    ARRAYLIST_ENSURE(to < self->size, ARRAYLIST_ERR_OOB, "remove_from_to(); to out-of-bounds.");                       \
     size_t num_to_remove = to - from + 1;                                                                              \
     for (size_t i = from; i <= to; ++i) {                                                                              \
         deinit_fn(&self->data[i], &self->alloc);                                                                       \
@@ -1539,13 +1531,10 @@ ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN_DYN(name, remov
  * @param self Pointer to the arraylist                                                                                \
  * @param from Starting position to remove                                                                             \
  * @param to Ending position inclusive                                                                                 \
- * @return ARRAYLIST_ERR_NULL in case of NULL being passed, or ARRAYLIST_OK                                            \
+ * @return ARRAYLIST_ERR_NULL in case of NULL being passed, ARRAYLIST_ERR_OOB, if from > to,                           \
+ *         to >= self.size, or from >= self.size, or ARRAYLIST_OK                                                      \
  *                                                                                                                     \
  * Will call destructor if available                                                                                   \
- * If from > to does nothing                                                                                           \
- *                                                                                                                     \
- * @warning if from < 0 size_t overflows and removes at end, if to < 0,                                                \
- *          it will also overflow and may remove everything                                                            \
  */                                                                                                                    \
 ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN_DYN(name, remove_from_to)(                            \
     struct arraylist_dyn_##name *self,                                                                                 \
@@ -2070,15 +2059,10 @@ static inline enum arraylist_error ARRAYLIST_FN_DYN(name, remove_from_to)(      
     if (self->size == 0) {                                                                                             \
         return ARRAYLIST_OK;                                                                                           \
     }                                                                                                                  \
-    if (from > to) {                                                                                                   \
-        return ARRAYLIST_OK;                                                                                           \
-    }                                                                                                                  \
-    if (to >= self->size) {                                                                                            \
-        to = self->size - 1;                                                                                           \
-    }                                                                                                                  \
-    if (from >= self->size) {                                                                                          \
-        from = self->size - 1;                                                                                         \
-    }                                                                                                                  \
+    /* Require 0 <= from <= to < size */                                                                               \
+    ARRAYLIST_ENSURE(from <= to, ARRAYLIST_ERR_OOB, "remove_from_to(); from > to.");                                   \
+    ARRAYLIST_ENSURE(from < self->size, ARRAYLIST_ERR_OOB, "remove_from_to(); from out-of-bounds.");                   \
+    ARRAYLIST_ENSURE(to < self->size, ARRAYLIST_ERR_OOB, "remove_from_to(); to out-of-bounds.");                       \
     size_t num_to_remove = to - from + 1;                                                                              \
     if (self->destructor) {                                                                                            \
         for (size_t i = from; i <= to; ++i) {                                                                          \
