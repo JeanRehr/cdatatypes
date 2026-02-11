@@ -1229,27 +1229,30 @@ void test_arraylist_remove_from_to_value(void)
     }
     assert(list.size == 6);
 
-    // Remove with from > to: should be no-op
+    // Remove with from > to: should return ARRAYLIST_ERR_OOB
     before = list.size;
     size_t before_dtor = global_destructor_counter_arraylist;
     err = nonpods_remove_from_to(&list, 4, 2);
-    assert(err == ARRAYLIST_OK);
+    assert(err == ARRAYLIST_ERR_OOB);
     assert(list.size == before);
     assert(global_destructor_counter_arraylist == before_dtor);
 
-    // Remove with from == to == large index (index >= size): should clamp to size-1, remove last only
+    // Remove with from == to == large index (index >= size): should return err oob
     before = global_destructor_counter_arraylist;
     err = nonpods_remove_from_to(&list, 99, 99);
-    assert(err == ARRAYLIST_OK);
+    assert(err == ARRAYLIST_ERR_OOB);
+    err = nonpods_remove_from_to(&list, list.size - 1, list.size - 1);
     assert(list.size == 5);
     assert(global_destructor_counter_arraylist == before - 1);
     // Last element should have been removed, check new last
     assert(strcmp(list.data[4].objname, "E") == 0);
 
-    // Remove with to out of bounds but from valid: remove from 3..(big) => removes 3 and 4 only (last two)
+    // Remove with to out of bounds but from valid: remove from 3..(big) => returns ARRAYLIST_ERR_OOB
     before = global_destructor_counter_arraylist;
     err = nonpods_remove_from_to(&list, 3, 123456);
-    assert(err == ARRAYLIST_OK);
+    assert(err == ARRAYLIST_ERR_OOB);
+
+    err = nonpods_remove_from_to(&list, 3, 4);
     assert(list.size == 3);
     assert(global_destructor_counter_arraylist == before - 2);
     // Data: C, D, E was at 4, but now gone
@@ -1257,10 +1260,12 @@ void test_arraylist_remove_from_to_value(void)
     assert(strcmp(list.data[1].objname, "B") == 0);
     assert(strcmp(list.data[2].objname, "C") == 0);
 
-    // Remove with both out of bounds, with to being greater: clamps both to size-1, removes last element
+    // Remove with both out of bounds, with to being greater: returns ARRAYLIST_ERR_OOB
     before = global_destructor_counter_arraylist;
     err = nonpods_remove_from_to(&list, 123, 9999);
-    assert(err == ARRAYLIST_OK);
+    assert(err == ARRAYLIST_ERR_OOB);
+
+    err = nonpods_remove_from_to(&list, list.size - 1, list.size - 1);
     assert(list.size == 2);
     assert(global_destructor_counter_arraylist == before - 1);
 
@@ -4004,27 +4009,30 @@ void test_arraylist_remove_from_to_ptr(void)
     }
     assert(list.size == 6);
 
-    // Remove with from > to: should be no-op
+    // Remove with from > to: should return ARRAYLIST_ERR_OOB
     before = list.size;
     size_t before_dtor = global_destructor_counter_arraylist;
     err = nonpods_ptr_remove_from_to(&list, 4, 2);
-    assert(err == ARRAYLIST_OK);
+    assert(err == ARRAYLIST_ERR_OOB);
     assert(list.size == before);
     assert(global_destructor_counter_arraylist == before_dtor);
 
-    // Remove with from == to == large index (index >= size): should clamp to size-1, remove last only
+    // Remove with from == to == large index (index >= size): should return err oob
     before = global_destructor_counter_arraylist;
     err = nonpods_ptr_remove_from_to(&list, 99, 99);
-    assert(err == ARRAYLIST_OK);
+    assert(err == ARRAYLIST_ERR_OOB);
+    err = nonpods_ptr_remove_from_to(&list, list.size - 1, list.size - 1);
     assert(list.size == 5);
     assert(global_destructor_counter_arraylist == before - 1);
     // Last element should have been removed, check new last
     assert(strcmp(list.data[4]->objname, "E") == 0);
 
-    // Remove with to out of bounds but from valid: remove from 3..(big) => removes 3 and 4 only (last two)
+    // Remove with to out of bounds but from valid: remove from 3..(big) => returns ARRAYLIST_ERR_OOB
     before = global_destructor_counter_arraylist;
     err = nonpods_ptr_remove_from_to(&list, 3, 123456);
-    assert(err == ARRAYLIST_OK);
+    assert(err == ARRAYLIST_ERR_OOB);
+
+    err = nonpods_ptr_remove_from_to(&list, 3, 4);
     assert(list.size == 3);
     assert(global_destructor_counter_arraylist == before - 2);
     // Data: C, D, E was at 4, but now gone
@@ -4032,10 +4040,12 @@ void test_arraylist_remove_from_to_ptr(void)
     assert(strcmp(list.data[1]->objname, "B") == 0);
     assert(strcmp(list.data[2]->objname, "C") == 0);
 
-    // Remove with both out of bounds, with to being greater: clamps both to size-1, removes last element
+    // Remove with both out of bounds, with to being greater: returns ARRAYLIST_ERR_OOB
     before = global_destructor_counter_arraylist;
     err = nonpods_ptr_remove_from_to(&list, 123, 9999);
-    assert(err == ARRAYLIST_OK);
+    assert(err == ARRAYLIST_ERR_OOB);
+
+    err = nonpods_ptr_remove_from_to(&list, list.size - 1, list.size - 1);
     assert(list.size == 2);
     assert(global_destructor_counter_arraylist == before - 1);
 
@@ -6784,27 +6794,30 @@ void test_arraylist_dyn_remove_from_to_value(void)
     }
     assert(list.size == 6);
 
-    // Remove with from > to: should be no-op
+    // Remove with from > to: should return ARRAYLIST_ERR_OOB
     before = list.size;
     size_t before_dtor = global_destructor_counter_arraylist;
     err = dyn_non_pods_d_remove_from_to(&list, 4, 2);
-    assert(err == ARRAYLIST_OK);
+    assert(err == ARRAYLIST_ERR_OOB);
     assert(list.size == before);
     assert(global_destructor_counter_arraylist == before_dtor);
 
-    // Remove with from == to == large index (index >= size): should clamp to size-1, remove last only
+    // Remove with from == to == large index (index >= size): should return err oob
     before = global_destructor_counter_arraylist;
     err = dyn_non_pods_d_remove_from_to(&list, 99, 99);
-    assert(err == ARRAYLIST_OK);
+    assert(err == ARRAYLIST_ERR_OOB);
+    err = dyn_non_pods_d_remove_from_to(&list, list.size - 1, list.size - 1);
     assert(list.size == 5);
     assert(global_destructor_counter_arraylist == before - 1);
     // Last element should have been removed, check new last
     assert(strcmp(list.data[4].objname, "E") == 0);
 
-    // Remove with to out of bounds but from valid: remove from 3..(big) => removes 3 and 4 only (last two)
+    // Remove with to out of bounds but from valid: remove from 3..(big) => returns ARRAYLIST_ERR_OOB
     before = global_destructor_counter_arraylist;
     err = dyn_non_pods_d_remove_from_to(&list, 3, 123456);
-    assert(err == ARRAYLIST_OK);
+    assert(err == ARRAYLIST_ERR_OOB);
+
+    err = dyn_non_pods_d_remove_from_to(&list, 3, 4);
     assert(list.size == 3);
     assert(global_destructor_counter_arraylist == before - 2);
     // Data: C, D, E was at 4, but now gone
@@ -6812,10 +6825,12 @@ void test_arraylist_dyn_remove_from_to_value(void)
     assert(strcmp(list.data[1].objname, "B") == 0);
     assert(strcmp(list.data[2].objname, "C") == 0);
 
-    // Remove with both out of bounds, with to being greater: clamps both to size-1, removes last element
+    // Remove with both out of bounds, with to being greater: returns ARRAYLIST_ERR_OOB
     before = global_destructor_counter_arraylist;
     err = dyn_non_pods_d_remove_from_to(&list, 123, 9999);
-    assert(err == ARRAYLIST_OK);
+    assert(err == ARRAYLIST_ERR_OOB);
+
+    err = dyn_non_pods_d_remove_from_to(&list, list.size - 1, list.size - 1);
     assert(list.size == 2);
     assert(global_destructor_counter_arraylist == before - 1);
 
@@ -9561,27 +9576,30 @@ void test_arraylist_dyn_remove_from_to_ptr(void)
     }
     assert(list.size == 6);
 
-    // Remove with from > to: should be no-op
+    // Remove with from > to: should return ARRAYLIST_ERR_OOB
     before = list.size;
     size_t before_dtor = global_destructor_counter_arraylist;
     err = dyn_non_pods_d_ptr_remove_from_to(&list, 4, 2);
-    assert(err == ARRAYLIST_OK);
+    assert(err == ARRAYLIST_ERR_OOB);
     assert(list.size == before);
     assert(global_destructor_counter_arraylist == before_dtor);
 
-    // Remove with from == to == large index (index >= size): should clamp to size-1, remove last only
+    // Remove with from == to == large index (index >= size): should return err oob
     before = global_destructor_counter_arraylist;
     err = dyn_non_pods_d_ptr_remove_from_to(&list, 99, 99);
-    assert(err == ARRAYLIST_OK);
+    assert(err == ARRAYLIST_ERR_OOB);
+    err = dyn_non_pods_d_ptr_remove_from_to(&list, list.size - 1, list.size - 1);
     assert(list.size == 5);
     assert(global_destructor_counter_arraylist == before - 1);
     // Last element should have been removed, check new last
     assert(strcmp(list.data[4]->objname, "E") == 0);
 
-    // Remove with to out of bounds but from valid: remove from 3..(big) => removes 3 and 4 only (last two)
+    // Remove with to out of bounds but from valid: remove from 3..(big) => returns ARRAYLIST_ERR_OOB
     before = global_destructor_counter_arraylist;
     err = dyn_non_pods_d_ptr_remove_from_to(&list, 3, 123456);
-    assert(err == ARRAYLIST_OK);
+    assert(err == ARRAYLIST_ERR_OOB);
+
+    err = dyn_non_pods_d_ptr_remove_from_to(&list, 3, 4);
     assert(list.size == 3);
     assert(global_destructor_counter_arraylist == before - 2);
     // Data: C, D, E was at 4, but now gone
@@ -9589,10 +9607,12 @@ void test_arraylist_dyn_remove_from_to_ptr(void)
     assert(strcmp(list.data[1]->objname, "B") == 0);
     assert(strcmp(list.data[2]->objname, "C") == 0);
 
-    // Remove with both out of bounds, with to being greater: clamps both to size-1, removes last element
+    // Remove with both out of bounds, with to being greater: returns ARRAYLIST_ERR_OOB
     before = global_destructor_counter_arraylist;
     err = dyn_non_pods_d_ptr_remove_from_to(&list, 123, 9999);
-    assert(err == ARRAYLIST_OK);
+    assert(err == ARRAYLIST_ERR_OOB);
+
+    err = dyn_non_pods_d_ptr_remove_from_to(&list, list.size - 1, list.size - 1);
     assert(list.size == 2);
     assert(global_destructor_counter_arraylist == before - 1);
 
