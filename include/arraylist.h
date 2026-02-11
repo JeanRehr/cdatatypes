@@ -313,7 +313,7 @@ enum arraylist_error {
  * @def ARRAYLIST_USE_PREFIX
  * @brief Defines at compile-time if the functions will use the arraylist_* prefix
  * @details
- * This macro constructs function names for the pair library. The naming convention depends on
+ * This macro constructs function names for the arraylist library. The naming convention depends on
  * whether @c ARRAYLIST_USE_PREFIX is defined.
  * Generates functions with the pattern arraylist_##name##_function() instead of name##_function()
  * Must be defined before including the arraylist.h header, it will be per TU/file, so once defined
