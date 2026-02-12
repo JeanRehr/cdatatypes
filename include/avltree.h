@@ -39,6 +39,109 @@ extern "C" {
     #define AVLTREE_UNUSED
 #endif // AVLTREE_UNUSED definition
 
+/**
+ * @def AVLTREE_NODISCARD
+ * @brief Defines a macro to warn of discarded unused results when they matter
+ *        (possible leak of memory is involved)
+ */
+#if defined(__cplusplus) && __cplusplus >= 201703L
+    #define AVLTREE_NODISCARD [[nodiscard]]
+#elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L
+    #define AVLTREE_NODISCARD [[nodiscard]]
+#elif defined(__GNUC__) || defined(__clang__)
+    #define AVLTREE_NODISCARD __attribute__((warn_unused_result))
+#elif defined(_MSC_VER) && _MSC_VER >= 1700
+    #if defined(_SAL_VERSION_SOURCE) && _SAL_VERSION_SOURCE >= 2
+        #ifndef _Check_return_
+            #include <sal.h>
+        #endif // _Check_return_ from sal.h
+        #define AVLTREE_NODISCARD _Check_return_
+    #else
+        #define AVLTREE_NODISCARD
+    #endif // _SAL_VERSION_SOURCE && _SAL_VERSION_SOURCE >= 2
+#else
+    #define AVLTREE_NODISCARD
+#endif // AVLTREE_NODISCARD definition
+
+/**
+ * @def AVLTREE_UNLIKELY(x)
+ * @brief Branch prediction hint, used in the AVLTREE_ENSURE macro, as it usually
+ *        just always passes, C23 [[likely]] cannot be applied in this case
+ */
+#if defined(__GNUC__) || defined(__clang__)
+    #define AVLTREE_UNLIKELY(x) __builtin_expect(!!(x), 0)
+#else
+    #define AVLTREE_UNLIKELY(x) (x)
+#endif // AVLTREE_UNLIKELY definition
+
+/**
+ * @def AVLTREE_USE_ASSERT
+ * @brief Defines if the avltree will use asserts or return error codes
+ * @details If AVLTREE_USE_ASSERT is 1, then the lib will assert and fail early, otherwise,
+ *          defensive programming and returning error codes will be used
+ */
+#ifndef AVLTREE_USE_ASSERT
+    #define AVLTREE_USE_ASSERT 0
+#endif // AVLTREE_USE_ASSERT
+
+#if AVLTREE_USE_ASSERT
+    #include <assert.h> // For assert()
+    #include <stdlib.h> // For abort()
+    #define AVLTREE_ENSURE(cond, ret, msg)                                                                             \
+        do {                                                                                                           \
+            if (AVLTREE_UNLIKELY(!(cond))) {                                                                           \
+                assert(0 && (msg));                                                                                    \
+                abort();                                                                                               \
+            }                                                                                                          \
+        } while (0)
+
+    #define AVLTREE_ENSURE_PTR(cond, msg)                                                                              \
+        do {                                                                                                           \
+            if (AVLTREE_UNLIKELY(!(cond))) {                                                                           \
+                assert(0 && (msg));                                                                                    \
+                abort();                                                                                               \
+            }                                                                                                          \
+        } while (0)
+#else
+    #define AVLTREE_ENSURE(cond, ret, msg)                                                                             \
+        do {                                                                                                           \
+            if (AVLTREE_UNLIKELY(!(cond))) {                                                                           \
+                return (ret);                                                                                          \
+            }                                                                                                          \
+        } while (0)
+
+    #define AVLTREE_ENSURE_PTR(cond, msg)                                                                              \
+        do {                                                                                                           \
+            if (AVLTREE_UNLIKELY(!(cond))) {                                                                           \
+                return NULL;                                                                                           \
+            }                                                                                                          \
+        } while (0)
+#endif // AVLTREE_USE_ASSERT if directive
+
+/**
+ * @def AVLTREE_CAST
+ * @brief Defines a macro that either casts type T to T* or does nothing
+ * @details
+ * If __cplusplus is defined (compiled with a c++ compiler) then it will cast the results of malloc
+ * and realloc, if compiled with a C compiler, then it does nothing
+ */
+#ifdef __cplusplus
+    #define AVLTREE_CAST(T) (T *)
+#else
+    #define AVLTREE_CAST(T)
+#endif // AVLTREE_CAST(T)
+
+/**
+ * @enum avltree_error
+ * @brief Error codes for the avltree
+ */
+enum avltree_error {
+    AVLTREE_OK = 0,            ///< No error
+    AVLTREE_ERR_NULL = -1,     ///< Null pointer
+    AVLTREE_ERR_OVERFLOW = -2, ///< Buffer will overflow
+    AVLTREE_ERR_ALLOC = -3,    ///< Allocation failure
+};
+
 // clang-format off
 
 /**
