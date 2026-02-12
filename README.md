@@ -2,13 +2,13 @@
 
 This is (WIP) a collection of generic, macro-based container data structures for the C language, with a custom allocator support and test coverage.
 
-Currently, only an arraylist (c++ vector) is implemented, can be used with any C (custom user or not) type, including value types and pointers.
+Can be used with any C (custom user or scalar) type, including value types and pointers.
 
-The container itself is memory-safe (at least that I know of) with clear destruction patterns and ownership semantics, but the user can write unsafe code to operate on it, like operating directly on the data buffer.
+The container itself is memory-safe (at least that I know of) with clear destruction patterns and ownership semantics, but the user can write unsafe code to operate on it, like operating directly on the data buffer/nodes.
 
 # Requirements
 
-- C Compiler (at least C99)
+- C Compiler (tested on C99)
 - CMake (3.20+)
 
 ## Build & Run
@@ -64,16 +64,51 @@ You are also free to not use a destructor at all and manage all the memory.
 
 Once an arraylist is deinitialized (e.g. on deinit or steal call), they are not safe to be used again, and must be initialized again.
 
-Unit tests on [arraylist/src/test.c](arraylist/tests/test.c).
+Unit tests on [arraylist/tests](arraylist/tests) directory.
 
-Examples are on arraylist/examples/example_*.c.
+Examples are on [arraylist/examples](arraylist/examples) directory.
 
 ### Performance:
 
 The `arraylist` implementation provides performance nearly identical (sometimes beating) to C++ STL `std::vector<unique_ptr<T>>`.
 Overheads for the "function pointer" destructor version are very small (less than 1% for heavy pointer use).
 
-For more details and benchmarking code, see [arraylist/src/PERFORMANCE.md](arraylist/PERFORMANCE.md).
+For more details and benchmarking code, see [arraylist/PERFORMANCE.md](arraylist/PERFORMANCE.md).
+
+## Using the Pair
+
+### To define a pair type:
+
+Simple usage for double int:
+
+```c
+// myfile.h:
+#include "pair.h"
+
+PAIR_TYPE(int, int, int_pair)
+PAIR_DECL(int, int, int_pair)
+/* ============= */
+// myfile.c:
+#include "myfile.h"
+// Scalar types do not need a destructor function 
+PAIR_IMPL(int, int, int_pair, pair_noop_deinit, pair_noop_deinit)
+
+// But if your type allocates memory, or is a pointer type, a destructor can be passed to each one of them.
+
+struct pair_int_pair points = int_pair_init(1, 1);
+// Or:
+points.first = 10;
+points.second = 10;
+
+// Use points...
+
+// Not needed, as the type is scalar:
+//points_deinit(&points, &alloc);
+```
+
+Unit tests on [pair/tests/test.c](pair/tests/test.c).
+
+Example on using the pair for student grades on [pair/examples/example1.c](pair/examples/example1.c).
 
 # Custom Allocators
 
