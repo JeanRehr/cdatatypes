@@ -101,12 +101,12 @@ static inline int non_pod_calculate(struct non_pod *self) {
 ARRAYLIST(struct non_pod*, np, non_pod_deinit_ptr_macro)
 
 int main(void) {
-    struct Allocator gpa = allocator_get_default();
+    Allocator alloc = allocator_get_default();
 
-    struct arraylist_np vec_np = np_init(&gpa);
+    struct arraylist_np vec_np = np_init(alloc);
     np_reserve(&vec_np, 1000000);
     for (volatile size_t i = 0; i < 1000000; i++) {
-        *np_emplace_back_slot(&vec_np) = non_pod_init_alloc(&gpa, i, i * 3, i / 2);
+        *np_emplace_back_slot(&vec_np) = non_pod_init_alloc(&alloc, i, i * 3, i / 2);
     }
 
     for (volatile size_t i = 0; i < 1000000; i++) {
@@ -188,12 +188,12 @@ static inline int non_pod_calculate(struct non_pod *self) {
 ARRAYLIST_DYN(struct non_pod*, np)
 
 int main(void) {
-    struct Allocator gpa = allocator_get_default();
+    struct Allocator alloc = allocator_get_default();
 
-    struct arraylistfp_np vec_np = dyn_np_init(&gpa, non_pod_deinit_ptr);
+    struct arraylist_dyn_np vec_np = dyn_np_init(alloc, non_pod_deinit_ptr);
     dyn_np_reserve(&vec_np, 1000000);
     for (volatile size_t i = 0; i < 1000000; i++) {
-        *dyn_np_emplace_back_slot(&vec_np) = non_pod_init_alloc(&gpa, i, i * 3, i / 2);
+        *dyn_np_emplace_back_slot(&vec_np) = non_pod_init_alloc(&alloc, i, i * 3, i / 2);
     }
 
     for (volatile size_t i = 0; i < 1000000; i++) {
@@ -267,42 +267,42 @@ The following `perf` command was used:
 ```txt
  Performance counter stats for './c' (100 runs):
 
-     1.290.042.196      task-clock:u                     #    0,944 CPUs utilized               ( +-  0,09% )
+     1.288.326.621      task-clock:u                     #    0,943 CPUs utilized               ( +-  0,10% )
                  0      context-switches:u               #    0,000 /sec
                  0      cpu-migrations:u                 #    0,000 /sec
-            31.730      page-faults:u                    #   24,596 K/sec                       ( +-  0,00% )
-     2.086.190.560      instructions:u                   #    2,22  insn per cycle
-                                                  #    0,18  stalled cycles per insn     ( +-  0,00% )
-       940.407.072      cycles:u                         #    0,729 GHz                         ( +-  0,20% )
-       374.427.871      stalled-cycles-frontend:u        #   39,82% frontend cycles idle        ( +-  0,38% )
-       442.781.894      branches:u                       #  343,231 M/sec                       ( +-  0,00% )
-        12.116.514      branch-misses:u                  #    2,74% of all branches             ( +-  0,00% )
+            31.735      page-faults:u                    #   24,633 K/sec                       ( +-  0,02% )
+     2.103.190.655      instructions:u                   #    2,23  insn per cycle
+                                                  #    0,19  stalled cycles per insn     ( +-  0,00% )
+       941.470.235      cycles:u                         #    0,731 GHz                         ( +-  0,34% )
+       405.821.817      stalled-cycles-frontend:u        #   43,11% frontend cycles idle        ( +-  0,76% )
+       445.781.889      branches:u                       #  346,016 M/sec                       ( +-  0,00% )
+        12.146.181      branch-misses:u                  #    2,72% of all branches             ( +-  0,18% )
 
-           1,36616 +- 0,00119 seconds time elapsed  ( +-  0,09% )
+           1,36552 +- 0,00140 seconds time elapsed  ( +-  0,10% )
 
-[ perf record: Woken up 71 times to write data ]
-[ perf record: Captured and wrote 19,184 MB perf.data (501162 samples) ]
+[ perf record: Woken up 72 times to write data ]
+[ perf record: Captured and wrote 19,154 MB perf.data (500371 samples) ]
 ```
 
 ### Second time:
 ```
  Performance counter stats for './c' (100 runs):
 
-     1.292.967.989      task-clock:u                     #    0,944 CPUs utilized               ( +-  0,10% )
+     1.289.950.797      task-clock:u                     #    0,943 CPUs utilized               ( +-  0,09% )
                  0      context-switches:u               #    0,000 /sec
                  0      cpu-migrations:u                 #    0,000 /sec
-            31.730      page-faults:u                    #   24,540 K/sec                       ( +-  0,00% )
-     2.086.190.579      instructions:u                   #    2,21  insn per cycle
-                                                  #    0,18  stalled cycles per insn     ( +-  0,00% )
-       945.687.916      cycles:u                         #    0,731 GHz                         ( +-  0,22% )
-       377.158.829      stalled-cycles-frontend:u        #   39,88% frontend cycles idle        ( +-  0,41% )
-       442.781.900      branches:u                       #  342,454 M/sec                       ( +-  0,00% )
-        12.136.578      branch-misses:u                  #    2,74% of all branches             ( +-  0,12% )
+            31.741      page-faults:u                    #   24,606 K/sec                       ( +-  0,02% )
+     2.103.190.718      instructions:u                   #    2,23  insn per cycle
+                                                  #    0,19  stalled cycles per insn     ( +-  0,00% )
+       942.792.608      cycles:u                         #    0,731 GHz                         ( +-  0,33% )
+       405.445.598      stalled-cycles-frontend:u        #   43,00% frontend cycles idle        ( +-  0,72% )
+       445.781.928      branches:u                       #  345,581 M/sec                       ( +-  0,00% )
+        12.116.270      branch-misses:u                  #    2,72% of all branches             ( +-  0,00% )
 
-           1,36940 +- 0,00140 seconds time elapsed  ( +-  0,10% )
+           1,36764 +- 0,00125 seconds time elapsed  ( +-  0,09% )
 
-[ perf record: Woken up 72 times to write data ]
-[ perf record: Captured and wrote 19,239 MB perf.data (502586 samples) ]
+[ perf record: Woken up 70 times to write data ]
+[ perf record: Captured and wrote 19,240 MB perf.data (502630 samples) ]
 ```
 
 ## C `ARRAYLIST_DYN` Function Pointer version
@@ -310,42 +310,42 @@ The following `perf` command was used:
 ```txt
  Performance counter stats for './cfp' (100 runs):
 
-     1.305.094.905      task-clock:u                     #    0,944 CPUs utilized               ( +-  0,11% )
+     1.304.568.221      task-clock:u                     #    0,944 CPUs utilized               ( +-  0,10% )
                  0      context-switches:u               #    0,000 /sec
                  0      cpu-migrations:u                 #    0,000 /sec
-            31.730      page-faults:u                    #   24,312 K/sec                       ( +-  0,00% )
-     2.108.190.532      instructions:u                   #    2,14  insn per cycle
-                                                  #    0,18  stalled cycles per insn     ( +-  0,00% )
-       984.217.394      cycles:u                         #    0,754 GHz                         ( +-  0,22% )
-       384.144.910      stalled-cycles-frontend:u        #   39,03% frontend cycles idle        ( +-  0,40% )
-       447.781.953      branches:u                       #  343,103 M/sec                       ( +-  0,00% )
-        12.118.143      branch-misses:u                  #    2,71% of all branches             ( +-  0,01% )
+            31.730      page-faults:u                    #   24,322 K/sec                       ( +-  0,00% )
+     2.118.190.864      instructions:u                   #    2,15  insn per cycle
+                                                  #    0,19  stalled cycles per insn     ( +-  0,00% )
+       985.598.461      cycles:u                         #    0,755 GHz                         ( +-  0,34% )
+       400.238.272      stalled-cycles-frontend:u        #   40,61% frontend cycles idle        ( +-  0,74% )
+       448.782.067      branches:u                       #  344,008 M/sec                       ( +-  0,00% )
+        12.118.033      branch-misses:u                  #    2,70% of all branches             ( +-  0,01% )
 
-           1,38229 +- 0,00153 seconds time elapsed  ( +-  0,11% )
+           1,38192 +- 0,00138 seconds time elapsed  ( +-  0,10% )
 
 [ perf record: Woken up 73 times to write data ]
-[ perf record: Captured and wrote 19,380 MB perf.data (506267 samples) ]
+[ perf record: Captured and wrote 19,481 MB perf.data (508928 samples) ]
 ```
 
 ### Second time:
 ```
  Performance counter stats for './cfp' (100 runs):
 
-     1.302.618.214      task-clock:u                     #    0,943 CPUs utilized               ( +-  0,09% )
+     1.310.256.949      task-clock:u                     #    0,944 CPUs utilized               ( +-  0,11% )
                  0      context-switches:u               #    0,000 /sec
                  0      cpu-migrations:u                 #    0,000 /sec
-            31.730      page-faults:u                    #   24,359 K/sec                       ( +-  0,00% )
-     2.108.190.562      instructions:u                   #    2,14  insn per cycle
-                                                  #    0,18  stalled cycles per insn     ( +-  0,00% )
-       983.477.040      cycles:u                         #    0,755 GHz                         ( +-  0,22% )
-       381.931.151      stalled-cycles-frontend:u        #   38,83% frontend cycles idle        ( +-  0,39% )
-       447.781.971      branches:u                       #  343,755 M/sec                       ( +-  0,00% )
-        12.127.169      branch-misses:u                  #    2,71% of all branches             ( +-  0,08% )
+            31.730      page-faults:u                    #   24,217 K/sec                       ( +-  0,00% )
+     2.118.190.909      instructions:u                   #    2,12  insn per cycle
+                                                  #    0,20  stalled cycles per insn     ( +-  0,00% )
+     1.000.117.181      cycles:u                         #    0,763 GHz                         ( +-  0,35% )
+       414.423.539      stalled-cycles-frontend:u        #   41,44% frontend cycles idle        ( +-  0,71% )
+       448.782.084      branches:u                       #  342,515 M/sec                       ( +-  0,00% )
+        12.140.675      branch-misses:u                  #    2,71% of all branches             ( +-  0,11% )
 
-           1,38099 +- 0,00143 seconds time elapsed  ( +-  0,10% )
+           1,38811 +- 0,00162 seconds time elapsed  ( +-  0,12% )
 
-[ perf record: Woken up 74 times to write data ]
-[ perf record: Captured and wrote 19,425 MB perf.data (507443 samples) ]
+[ perf record: Woken up 73 times to write data ]
+[ perf record: Captured and wrote 19,588 MB perf.data (511733 samples) ]
 ```
 
 ## C++
@@ -353,42 +353,42 @@ The following `perf` command was used:
 ```txt
  Performance counter stats for './cpp' (100 runs):
 
-     1.286.880.232      task-clock:u                     #    0,938 CPUs utilized               ( +-  0,10% )
+     1.294.778.093      task-clock:u                     #    0,944 CPUs utilized               ( +-  0,11% )
                  0      context-switches:u               #    0,000 /sec
                  0      cpu-migrations:u                 #    0,000 /sec
-            31.802      page-faults:u                    #   24,712 K/sec                       ( +-  0,00% )
-     2.174.614.877      instructions:u                   #    2,33  insn per cycle
-                                                  #    0,18  stalled cycles per insn     ( +-  0,00% )
-       933.337.106      cycles:u                         #    0,725 GHz                         ( +-  0,18% )
-       383.611.949      stalled-cycles-frontend:u        #   41,10% frontend cycles idle        ( +-  0,33% )
-       466.200.816      branches:u                       #  362,272 M/sec                       ( +-  0,00% )
-        12.163.199      branch-misses:u                  #    2,61% of all branches             ( +-  0,00% )
+            31.802      page-faults:u                    #   24,562 K/sec                       ( +-  0,00% )
+     2.174.614.733      instructions:u                   #    2,25  insn per cycle
+                                                  #    0,19  stalled cycles per insn     ( +-  0,00% )
+       967.404.060      cycles:u                         #    0,747 GHz                         ( +-  0,36% )
+       405.420.581      stalled-cycles-frontend:u        #   41,91% frontend cycles idle        ( +-  0,72% )
+       466.200.804      branches:u                       #  360,062 M/sec                       ( +-  0,00% )
+        12.162.513      branch-misses:u                  #    2,61% of all branches             ( +-  0,00% )
 
-           1,37206 +- 0,00152 seconds time elapsed  ( +-  0,11% )
+           1,37158 +- 0,00147 seconds time elapsed  ( +-  0,11% )
 
-[ perf record: Woken up 70 times to write data ]
-[ perf record: Captured and wrote 19,251 MB perf.data (502037 samples) ]
+[ perf record: Woken up 74 times to write data ]
+[ perf record: Captured and wrote 19,270 MB perf.data (502526 samples) ]
 ```
 
 ### Second time:
 ```txt
  Performance counter stats for './cpp' (100 runs):
 
-     1.284.196.414      task-clock:u                     #    0,943 CPUs utilized               ( +-  0,09% )
+     1.294.685.964      task-clock:u                     #    0,944 CPUs utilized               ( +-  0,09% )
                  0      context-switches:u               #    0,000 /sec
                  0      cpu-migrations:u                 #    0,000 /sec
-            31.802      page-faults:u                    #   24,764 K/sec                       ( +-  0,00% )
-     2.174.614.864      instructions:u                   #    2,33  insn per cycle
-                                                  #    0,18  stalled cycles per insn     ( +-  0,00% )
-       933.468.796      cycles:u                         #    0,727 GHz                         ( +-  0,19% )
-       385.314.822      stalled-cycles-frontend:u        #   41,28% frontend cycles idle        ( +-  0,33% )
-       466.200.811      branches:u                       #  363,029 M/sec                       ( +-  0,00% )
-        12.162.517      branch-misses:u                  #    2,61% of all branches             ( +-  0,00% )
+            31.802      page-faults:u                    #   24,563 K/sec                       ( +-  0,00% )
+     2.174.614.747      instructions:u                   #    2,23  insn per cycle
+                                                  #    0,19  stalled cycles per insn     ( +-  0,00% )
+       973.873.703      cycles:u                         #    0,752 GHz                         ( +-  0,37% )
+       412.096.602      stalled-cycles-frontend:u        #   42,32% frontend cycles idle        ( +-  0,71% )
+       466.200.811      branches:u                       #  360,088 M/sec                       ( +-  0,00% )
+        12.172.407      branch-misses:u                  #    2,61% of all branches             ( +-  0,08% )
 
-           1,36208 +- 0,00129 seconds time elapsed  ( +-  0,09% )
+           1,37181 +- 0,00129 seconds time elapsed  ( +-  0,09% )
 
-[ perf record: Woken up 72 times to write data ]
-[ perf record: Captured and wrote 19,223 MB perf.data (501310 samples) ]
+[ perf record: Woken up 71 times to write data ]
+[ perf record: Captured and wrote 19,285 MB perf.data (502927 samples) ]
 ```
 
 # Results:
@@ -452,12 +452,12 @@ struct non_pod {
 
 // -- snip --
 
-ARRAYLIST(struct non_pod*, np, nptrdeinit_ptr_macro)
+ARRAYLIST(struct non_pod*, np, non_pod_deinit_ptr_macro)
 
 int main(void) {
     Allocator jemalloc_allocator = allocator_get_jemalloc();
 
-    struct arraylist_np vec_np = np_init(&jemalloc_allocator);
+    struct arraylist_np vec_np = np_init(jemalloc_allocator);
     np_reserve(&vec_np, 1000000);
     for (volatile size_t i = 0; i < 1000000; i++) {
         *np_emplace_back_slot(&vec_np) = non_pod_init_alloc(&jemalloc_allocator, i, i * 3, i / 2);
@@ -474,46 +474,44 @@ Command used: `perf record perf stat -r 100`
 ## C Macro using jemalloc:
 ### First time (already did a run before this to make it hot on the cache):
 ```txt
+ Performance counter stats for './cje' (100 runs):
 
- Performance counter stats for './c' (100 runs):
-
-     1.247.097.316      task-clock:u                     #    0,936 CPUs utilized               ( +-  0,13% )
-                 0      context-switches:u               #    0,000 /sec                      
-                 0      cpu-migrations:u                 #    0,000 /sec                      
-               199      page-faults:u                    #  159,571 /sec                        ( +-  0,05% )
-     1.680.869.863      instructions:u                   #    1,87  insn per cycle            
+     1.256.759.464      task-clock:u                     #    0,945 CPUs utilized               ( +-  0,09% )
+                 0      context-switches:u               #    0,000 /sec
+                 0      cpu-migrations:u                 #    0,000 /sec
+               199      page-faults:u                    #  158,344 /sec                        ( +-  0,06% )
+     1.697.415.197      instructions:u                   #    1,85  insn per cycle
                                                   #    0,22  stalled cycles per insn     ( +-  0,01% )
-       898.335.034      cycles:u                         #    0,720 GHz                         ( +-  0,32% )
-       373.551.599      stalled-cycles-frontend:u        #   41,58% frontend cycles idle        ( +-  0,35% )
-       292.200.526      branches:u                       #  234,305 M/sec                       ( +-  0,01% )
-        12.155.504      branch-misses:u                  #    4,16% of all branches             ( +-  0,05% )
+       915.305.285      cycles:u                         #    0,728 GHz                         ( +-  0,21% )
+       369.449.222      stalled-cycles-frontend:u        #   40,36% frontend cycles idle        ( +-  0,40% )
+       295.136.780      branches:u                       #  234,840 M/sec                       ( +-  0,01% )
+        12.163.435      branch-misses:u                  #    4,12% of all branches             ( +-  0,08% )
 
-           1,33166 +- 0,00182 seconds time elapsed  ( +-  0,14% )
+           1,32933 +- 0,00126 seconds time elapsed  ( +-  0,10% )
 
-[ perf record: Woken up 69 times to write data ]
-[ perf record: Captured and wrote 18,729 MB perf.data (488078 samples) ]
+[ perf record: Woken up 71 times to write data ]
+[ perf record: Captured and wrote 18,853 MB perf.data (491306 samples) ]
 ```
 
 ### Second time:
 ```
+ Performance counter stats for './cje' (100 runs):
 
- Performance counter stats for './c' (100 runs):
-
-     1.242.906.156      task-clock:u                     #    0,937 CPUs utilized               ( +-  0,14% )
-                 0      context-switches:u               #    0,000 /sec                      
-                 0      cpu-migrations:u                 #    0,000 /sec                      
-               198      page-faults:u                    #  159,304 /sec                        ( +-  0,04% )
-     1.680.678.592      instructions:u                   #    1,88  insn per cycle            
+     1.261.191.361      task-clock:u                     #    0,943 CPUs utilized               ( +-  0,12% )
+                 0      context-switches:u               #    0,000 /sec
+                 0      cpu-migrations:u                 #    0,000 /sec
+               199      page-faults:u                    #  157,787 /sec                        ( +-  0,03% )
+     1.697.573.121      instructions:u                   #    1,84  insn per cycle
                                                   #    0,22  stalled cycles per insn     ( +-  0,01% )
-       894.793.298      cycles:u                         #    0,720 GHz                         ( +-  0,38% )
-       371.860.118      stalled-cycles-frontend:u        #   41,56% frontend cycles idle        ( +-  0,43% )
-       292.178.183      branches:u                       #  235,077 M/sec                       ( +-  0,01% )
-        12.149.868      branch-misses:u                  #    4,16% of all branches             ( +-  0,01% )
+       923.253.453      cycles:u                         #    0,732 GHz                         ( +-  0,24% )
+       374.958.770      stalled-cycles-frontend:u        #   40,61% frontend cycles idle        ( +-  0,44% )
+       295.160.637      branches:u                       #  234,033 M/sec                       ( +-  0,01% )
+        12.153.200      branch-misses:u                  #    4,12% of all branches             ( +-  0,01% )
 
-           1,32663 +- 0,00201 seconds time elapsed  ( +-  0,15% )
+           1,33730 +- 0,00164 seconds time elapsed  ( +-  0,12% )
 
 [ perf record: Woken up 70 times to write data ]
-[ perf record: Captured and wrote 18,601 MB perf.data (484715 samples) ]
+[ perf record: Captured and wrote 18,880 MB perf.data (492003 samples) ]
 ```
 
 ## Results of the jemalloc allocator
