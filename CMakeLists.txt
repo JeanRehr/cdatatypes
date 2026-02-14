@@ -175,6 +175,7 @@ add_custom_target(
     COMMAND $<TARGET_FILE:example_arraylistdyn3>
     COMMAND $<TARGET_FILE:test_pair>
     COMMAND $<TARGET_FILE:example_pair1>
+    COMMAND $<TARGET_FILE:avl_test_usage>
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     COMMENT "Running all project executables..."
     # Add a dependency so 'run_all_binaries' is built (though it doesn't create a file)
