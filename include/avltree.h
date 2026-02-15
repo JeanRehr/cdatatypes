@@ -228,6 +228,7 @@ struct avltree_##name {                                                         
  * @param name The name suffix for the avltree type
  *
  * @details
+ * The following functions are declared:
  * 
  * @note All functions declared here operates on the avltree_##name struct
  * @note User code may create and operate on the node struct, but it is not part of the public api
@@ -271,6 +272,52 @@ AVLTREE_UNUSED static inline struct avltree_##name AVLTREE_FN(name, init)(      
  *          avltree_noop_deinit nacro, or (void), or a macro/function that does nothing.
  */
 #define AVLTREE_IMPL(T, name, deinit_fn)                                                                               \
+/**                                                                                                                    \
+ * @private                                                                                                            \
+ * @brief node_get_height: Gets the height of a node                                                                   \
+ * @param node Pointer to the node                                                                                     \
+ * @return The height of the node, or zero if node is null                                                             \
+ * This private function is needed to ensure it returns 0 in case of null and doesn't access height directly           \
+ */                                                                                                                    \
+static inline int AVLTREE_FN(name, node_get_height)(struct avltree_node_##name *node) {                                \
+    if (node == NULL) {                                                                                                \
+        return 0;                                                                                                      \
+    }                                                                                                                  \
+    return node->height;                                                                                               \
+}                                                                                                                      \
+                                                                                                                       \
+/**                                                                                                                    \
+ * @private                                                                                                            \
+ * @brief node_set_height: Sets the height of a node                                                                   \
+ * @param node Pointer to the node                                                                                     \
+ * This private function is needed to ensure it returns in case of null and doesn't access height directly             \
+ */                                                                                                                    \
+static inline void AVLTREE_FN(name, node_set_height)(struct avltree_node_##name *node) {                               \
+    if (node == NULL) {                                                                                                \
+        return;                                                                                                        \
+    }                                                                                                                  \
+    /* ternary operator to get the max height of left or right node */                                                 \
+    size_t max_height =                                                                                                \
+        (AVLTREE_FN(name, node_get_height)(node->left) > AVLTREE_FN(name, node_get_height)(node->right)) ?             \
+            AVLTREE_FN(name, node_get_height)(node->left) :                                                            \
+            AVLTREE_FN(name, node_get_height)(node->right);                                                            \
+    node->height = max_height + 1;                                                                                     \
+}                                                                                                                      \
+                                                                                                                       \
+/**                                                                                                                    \
+ * @private                                                                                                            \
+ * @brief node_get_balance_factor: Gets the balance factor of a node                                                   \
+ * @param node Pointer to the node                                                                                     \
+ * @return The balance factor                                                                                          \
+ * This private function is needed to ensure it returns 0 in case of null and doesn't access node's fields directly    \
+ */                                                                                                                    \
+static inline int AVLTREE_FN(name, node_get_balance_factor)(struct avltree_node_##name *node) {                        \
+    if (node == NULL) {                                                                                                \
+        return 0;                                                                                                      \
+    }                                                                                                                  \
+    return AVLTREE_FN(name, node_get_height)(node->left) - AVLTREE_FN(name, node_get_height)(node->right);             \
+}                                                                                                                      \
+                                                                                                                       \
 static inline struct avltree_##name AVLTREE_FN(name, init)(                                                            \
     const struct Allocator alloc,                                                                                      \
     int (*comparator_fn)(const T *a, const T *b)                                                                       \
