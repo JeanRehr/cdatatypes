@@ -330,7 +330,7 @@ void test_arraylist_dyn_reserve_value(void) {
 
     // Fill up to 4
     for (size_t i = 0; i < 4; ++i) {
-        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("a", i, i, &gpa);
+        *dyn_non_pods_d_emplace_back(&list) = non_pod_init("a", i, i, &gpa);
     }
 
     // struct non_pod *olddata = list.data;
@@ -350,7 +350,7 @@ void test_arraylist_dyn_reserve_value(void) {
     // Emplace more after reserve: no further realloc until cap hit
     size_t prevcap = list.capacity;
     for (size_t i = 4; i < 32; ++i) {
-        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("b", (int)i, (float)i, &gpa);
+        *dyn_non_pods_d_emplace_back(&list) = non_pod_init("b", (int)i, (float)i, &gpa);
     }
     assert(list.size == 32);
     assert(list.capacity == prevcap);
@@ -387,7 +387,7 @@ void test_arraylist_dyn_reserve_value(void) {
     // Fill a normal list to known good state
     struct arraylist_dyn_non_pods_d small = dyn_non_pods_d_init(gpa, non_pod_deinit);
     for (size_t i = 0; i < 2; ++i) {
-        *dyn_non_pods_d_emplace_back_slot(&small) = non_pod_init("QQ", 2, 3, &gpa);
+        *dyn_non_pods_d_emplace_back(&small) = non_pod_init("QQ", 2, 3, &gpa);
     }
     dyn_non_pods_d_shrink_to_fit(&small);
     // Now try to reserve with failing allocator change
@@ -428,9 +428,9 @@ void test_arraylist_dyn_shrink_size_value(void) {
     struct non_pod a = non_pod_init("a", 1, 1.1, &gpa);
     struct non_pod b = non_pod_init("b", 2, 2.2, &gpa);
     struct non_pod c = non_pod_init("c", 3, 3.3, &gpa);
-    *dyn_non_pods_d_emplace_back_slot(&list) = a;
-    *dyn_non_pods_d_emplace_back_slot(&list) = b;
-    *dyn_non_pods_d_emplace_back_slot(&list) = c;
+    *dyn_non_pods_d_emplace_back(&list) = a;
+    *dyn_non_pods_d_emplace_back(&list) = b;
+    *dyn_non_pods_d_emplace_back(&list) = c;
     assert(list.size == 3);
 
     // Shrink to 2: calls dtor for c only
@@ -487,7 +487,7 @@ void test_arraylist_dyn_shrink_to_fit_value(void) {
 
     // Grow to larger capacity
     for (size_t i = 0; i < 8; ++i) {
-        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("z", i, i, &gpa);
+        *dyn_non_pods_d_emplace_back(&list) = non_pod_init("z", i, i, &gpa);
     }
 
     size_t orig_cap = list.capacity;
@@ -542,7 +542,7 @@ void test_arraylist_dyn_shrink_to_fit_value(void) {
     dyn_non_pods_d_reserve(&failalloc, 100);
 
     for (size_t i = 0; i < 8; ++i) {
-        *dyn_non_pods_d_emplace_back_slot(&failalloc) = non_pod_init("z", i, i, &gpa);
+        *dyn_non_pods_d_emplace_back(&failalloc) = non_pod_init("z", i, i, &gpa);
     }
 
     // Change allocator mid operations just to test the return value
@@ -671,12 +671,12 @@ void test_arraylist_dyn_push_back_value(void) {
     printf("test arraylist dyn push_back value-type passed\n");
 }
 
-void test_arraylist_dyn_emplace_back_slot_value(void) {
+void test_arraylist_dyn_emplace_back_value(void) {
     struct Allocator gpa = allocator_get_default();
     struct arraylist_dyn_non_pods_d list = dyn_non_pods_d_init(gpa, non_pod_deinit);
 
     // Emplace one element; returned pointer is valid and modifiable
-    struct non_pod *slot1 = dyn_non_pods_d_emplace_back_slot(&list);
+    struct non_pod *slot1 = dyn_non_pods_d_emplace_back(&list);
     assert(slot1 != NULL);
     // Can write individually through the slots:
     // (*slot1)->objname = gpa.malloc(5, gpa.ctx);
@@ -700,7 +700,7 @@ void test_arraylist_dyn_emplace_back_slot_value(void) {
 
     // Emplace multiple: Each pointer is unique, order preserved
     for (size_t i = 0; i < 5; ++i) {
-        struct non_pod *slot = dyn_non_pods_d_emplace_back_slot(&list);
+        struct non_pod *slot = dyn_non_pods_d_emplace_back(&list);
         assert(slot != NULL);
         char name[6];
         snprintf(name, sizeof name, "item%lu", i);
@@ -713,7 +713,7 @@ void test_arraylist_dyn_emplace_back_slot_value(void) {
     size_t old_capacity = list.capacity;
     struct non_pod *old_first = &list.data[0];
     for (size_t i = 0; i < 20; ++i) {
-        struct non_pod *slot_grow = dyn_non_pods_d_emplace_back_slot(&list);
+        struct non_pod *slot_grow = dyn_non_pods_d_emplace_back(&list);
         char name[8];
         snprintf(name, sizeof name, "slot%lu", i);
         *slot_grow = non_pod_init(name, i + 1, 200.2f + i, &gpa);
@@ -729,34 +729,34 @@ void test_arraylist_dyn_emplace_back_slot_value(void) {
     // After deinit, one must init again to not crash
     dyn_non_pods_d_deinit(&list);
     list = dyn_non_pods_d_init(gpa, non_pod_deinit);
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("testing1", 1, 1.1, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("testing1", 1, 1.1, &gpa);
     assert(list.size == 1);
     assert(list.capacity == 1);
 
     // Testing doubling capacity
     // Do not need to create temp values to insert, however, there is way to check for failure this way
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("testing2", 2, 2.2, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("testing2", 2, 2.2, &gpa);
     assert(list.size == 2);
     assert(list.capacity == 2);
 
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("testing3", 3, 3.3, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("testing3", 3, 3.3, &gpa);
     assert(list.size == 3);
     assert(list.capacity == 4);
 
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("testing4", 4, 4.4, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("testing4", 4, 4.4, &gpa);
     assert(list.size == 4);
     assert(list.capacity == 4);
 
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("testing5", 5, 5.5, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("testing5", 5, 5.5, &gpa);
     assert(list.size == 5);
     assert(list.capacity == 8);
 
     // Testing null parameter
-    assert(dyn_non_pods_d_emplace_back_slot(NULL) == NULL);
+    assert(dyn_non_pods_d_emplace_back(NULL) == NULL);
 
     // Testing alloc failure
     struct arraylist_dyn_non_pods_d allocfail = dyn_non_pods_d_init(allocator_get_failling_alloc(), non_pod_deinit);
-    assert(dyn_non_pods_d_emplace_back_slot(&allocfail) == NULL);
+    assert(dyn_non_pods_d_emplace_back(&allocfail) == NULL);
 
     // Testing buffer overflow
     struct arraylist_dyn_non_pods_d arraylistoveralloc = dyn_non_pods_d_init(gpa, non_pod_deinit);
@@ -764,13 +764,13 @@ void test_arraylist_dyn_emplace_back_slot_value(void) {
     // Buffer overflow error is only triggered when the arraylist WOULD overflow, so we need to get a bit less
     arraylistoveralloc.capacity = SIZE_MAX / (2 * sizeof(struct non_pod)) + 1;
     arraylistoveralloc.size = arraylistoveralloc.capacity;
-    assert(dyn_non_pods_d_emplace_back_slot(&arraylistoveralloc) == NULL);
+    assert(dyn_non_pods_d_emplace_back(&arraylistoveralloc) == NULL);
 
     dyn_non_pods_d_deinit(&arraylistoveralloc);
     dyn_non_pods_d_deinit(&allocfail);
     dyn_non_pods_d_deinit(&list);
     assert(global_destructor_counter_arraylist == 0);
-    printf("test arraylist dyn emplace_back_slot value-type passed\n");
+    printf("test arraylist dyn emplace_back value-type passed\n");
 }
 
 void test_arraylist_dyn_insert_at_value(void) {
@@ -933,7 +933,7 @@ void test_arraylist_dyn_pop_back_value(void) {
     // Push several, then pop all
     for (size_t i = 0; i < 5; ++i) {
         char name[16]; snprintf(name, sizeof name, "item%lu", i);
-        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init(name, 10+i, 10+i, &gpa);
+        *dyn_non_pods_d_emplace_back(&list) = non_pod_init(name, 10+i, 10+i, &gpa);
     }
     assert(list.size == 5);
     size_t alive = global_destructor_counter_arraylist;
@@ -946,9 +946,9 @@ void test_arraylist_dyn_pop_back_value(void) {
     assert(list.size == 0);
 
     // Interleave push/pop (LIFO)
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("foo", 1, 1, &gpa);
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("bar", 2, 2, &gpa);
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("baz", 3, 3, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("foo", 1, 1, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("bar", 2, 2, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("baz", 3, 3, &gpa);
 
     const char* expect_names[] = {"foo", "bar", "baz"};
     for (size_t i = 0; i < 3; ++i)
@@ -968,7 +968,7 @@ void test_arraylist_dyn_pop_back_value(void) {
 
     // Push many to grow capacity, then pop many
     for (size_t i = 0; i < 16; ++i)
-        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("grow", i, i, &gpa);
+        *dyn_non_pods_d_emplace_back(&list) = non_pod_init("grow", i, i, &gpa);
     size_t cap = list.capacity;
     for (size_t i = 0; i < 16; ++i)
         dyn_non_pods_d_pop_back(&list);
@@ -977,7 +977,7 @@ void test_arraylist_dyn_pop_back_value(void) {
     assert(global_destructor_counter_arraylist == 0);
 
     // Push, clear, pop_back is no-op
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("after", 123, 1, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("after", 123, 1, &gpa);
     dyn_non_pods_d_clear(&list);
     before = global_destructor_counter_arraylist;
     err = dyn_non_pods_d_pop_back(&list);
@@ -1009,7 +1009,7 @@ void test_arraylist_dyn_remove_at_value(void) {
 
     // One element, remove at 0
     struct non_pod a = non_pod_init("A", 1, 1.1, &gpa);
-    *dyn_non_pods_d_emplace_back_slot(&list) = a;
+    *dyn_non_pods_d_emplace_back(&list) = a;
     assert(list.size == 1);
     before = global_destructor_counter_arraylist;
     err = dyn_non_pods_d_remove_at(&list, 0);
@@ -1022,10 +1022,10 @@ void test_arraylist_dyn_remove_at_value(void) {
     struct non_pod c = non_pod_init("C", 3, 3.3, &gpa);
     struct non_pod d = non_pod_init("D", 4, 4.4, &gpa);
     struct non_pod e = non_pod_init("E", 5, 5.5, &gpa);
-    *dyn_non_pods_d_emplace_back_slot(&list) = b;  // 0
-    *dyn_non_pods_d_emplace_back_slot(&list) = c;  // 1
-    *dyn_non_pods_d_emplace_back_slot(&list) = d;  // 2
-    *dyn_non_pods_d_emplace_back_slot(&list) = e;  // 3
+    *dyn_non_pods_d_emplace_back(&list) = b;  // 0
+    *dyn_non_pods_d_emplace_back(&list) = c;  // 1
+    *dyn_non_pods_d_emplace_back(&list) = d;  // 2
+    *dyn_non_pods_d_emplace_back(&list) = e;  // 3
     assert(list.size == 4);
 
     // Remove head (index 0)
@@ -1065,7 +1065,7 @@ void test_arraylist_dyn_remove_at_value(void) {
     for (int i = 0; i < 5; ++i) {
         char buf[8];
         snprintf(buf, sizeof buf, "X%d", i);
-        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init(buf, i, i+0.1, &gpa);
+        *dyn_non_pods_d_emplace_back(&list) = non_pod_init(buf, i, i+0.1, &gpa);
     }
     size_t sz = list.size;
     before = global_destructor_counter_arraylist;
@@ -1112,7 +1112,7 @@ void test_arraylist_dyn_remove_at_value(void) {
     for (int i = 0; i < 4; ++i) {
         char buf[8];
         snprintf(buf, sizeof buf, "YY%d", i);
-        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init(buf, 100+i, 500.5+i, &gpa);
+        *dyn_non_pods_d_emplace_back(&list) = non_pod_init(buf, 100+i, 500.5+i, &gpa);
     }
     // [YY0, YY1, YY2, YY3]
     // Remove 1 (YY1)
@@ -1161,7 +1161,7 @@ void test_arraylist_dyn_remove_from_to_value(void)
     // Fill with 6 named objects: A, B, C, D, E, F
     const char *names[] = {"A", "B", "C", "D", "E", "F"};
     for (size_t i = 0; i < 6; ++i) {
-        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init(names[i], 100 + i, 1.0+i, &gpa);
+        *dyn_non_pods_d_emplace_back(&list) = non_pod_init(names[i], 100 + i, 1.0+i, &gpa);
     }
 
     assert(list.size == 6);
@@ -1211,7 +1211,7 @@ void test_arraylist_dyn_remove_from_to_value(void)
 
     // Fill again for more tests
     for (size_t i = 0; i < 6; ++i) {
-        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init(names[i], 200 + i, 2.0+i, &gpa);
+        *dyn_non_pods_d_emplace_back(&list) = non_pod_init(names[i], 200 + i, 2.0+i, &gpa);
     }
     assert(list.size == 6);
 
@@ -1224,7 +1224,7 @@ void test_arraylist_dyn_remove_from_to_value(void)
 
     // Fill again for edge cases
     for (size_t i = 0; i < 6; ++i) {
-        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init(names[i], 400 + i, 4.0+i, &gpa);
+        *dyn_non_pods_d_emplace_back(&list) = non_pod_init(names[i], 400 + i, 4.0+i, &gpa);
     }
     assert(list.size == 6);
 
@@ -1303,9 +1303,9 @@ void test_arraylist_dyn_at_value(void) {
     assert(dyn_non_pods_d_at(&list, 123) == NULL);
 
     // Add some values
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("A", 10, 1.1, &gpa);
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("B", 20, 2.2, &gpa);
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("C", 30, 3.3, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("A", 10, 1.1, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("B", 20, 2.2, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("C", 30, 3.3, &gpa);
 
     // Valid indices (0,1,2) return address in data, not NULL
     for (size_t i = 0; i < list.size; ++i) {
@@ -1368,7 +1368,7 @@ void test_arraylist_dyn_at_value(void) {
     for (size_t i = 0; i < bigN; ++i) {
         char name[20];
         snprintf(name, sizeof name, "item%lu", i);
-        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init(name, (int)i, (float)i, &gpa);
+        *dyn_non_pods_d_emplace_back(&list) = non_pod_init(name, (int)i, (float)i, &gpa);
     }
     for (size_t i = 0; i < bigN; ++i) {
         struct non_pod *p = dyn_non_pods_d_at(&list, i);
@@ -1729,9 +1729,9 @@ void test_arraylist_dyn_find_value(void) {
     assert(res == dyn_non_pods_d_end(&list) || res == NULL);
 
     // Insert some non_pods
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("A", 1, 1.1, &gpa);
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("B", 2, 2.2, &gpa);
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("C", 3, 3.3, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("A", 1, 1.1, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("B", 2, 2.2, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("C", 3, 3.3, &gpa);
 
     // Find value for actual key; should point to that object
     // The predicate must match the type: struct non_pod*
@@ -1771,7 +1771,7 @@ void test_arraylist_dyn_find_value(void) {
     assert(strcmp(nz->objname, "Zmaybe") == 0);
 
     // List with duplicates: find returns the first matching by search order
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("C", 5, 10.1, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("C", 5, 10.1, &gpa);
     struct non_pod *dup1 = dyn_non_pods_d_find(&list, non_pod_find_val, "C");
     assert(dup1 && strcmp(dup1->objname, "C") == 0);
     assert(dup1 == &list.data[2]);
@@ -1801,10 +1801,10 @@ void test_arraylist_dyn_find_value(void) {
     const char *key = "BIGMATCH";
     for (size_t i = 0; i < big; ++i) {
         if (i == 50) {
-            *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init(key, 99, 101, &gpa);
+            *dyn_non_pods_d_emplace_back(&list) = non_pod_init(key, 99, 101, &gpa);
         } else {
             char nm[16]; snprintf(nm, sizeof nm, "num%02u", (unsigned)i);
-            *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init(nm, (int)i, (float)i, &gpa);
+            *dyn_non_pods_d_emplace_back(&list) = non_pod_init(nm, (int)i, (float)i, &gpa);
         }
     }
     struct non_pod *bigfound = dyn_non_pods_d_find(&list, non_pod_find_val, (void*)key);
@@ -1827,9 +1827,9 @@ void test_arraylist_dyn_contains_value(void) {
     assert(outidx == 12345);
 
     // Add some objects and check positive and negative cases
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("A", 1, 1.1, &gpa);
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("B", 2, 2.2, &gpa);
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("C", 3, 3.3, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("A", 1, 1.1, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("B", 2, 2.2, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("C", 3, 3.3, &gpa);
 
     // Positive: present
     outidx = 9999;
@@ -1853,7 +1853,7 @@ void test_arraylist_dyn_contains_value(void) {
     assert(dyn_non_pods_d_contains(&list, non_pod_find_val, "NO", NULL) == false);
 
     // Duplicate entries: first match wins, correct index
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("B", 12, 2.22, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("B", 12, 2.22, &gpa);
     outidx = 999;
     bool founddup = dyn_non_pods_d_contains(&list, non_pod_find_val, "B", &outidx);
     assert(founddup == true);
@@ -1897,7 +1897,7 @@ void test_arraylist_dyn_contains_value(void) {
     int N = 40;
     for (int i = 0; i < N; ++i) {
         char nm[10]; snprintf(nm, sizeof nm, "v%02d", i);
-        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init(nm, i*i, i*2, &gpa);
+        *dyn_non_pods_d_emplace_back(&list) = non_pod_init(nm, i*i, i*2, &gpa);
     }
     outidx = 0;
     bool hasv15 = dyn_non_pods_d_contains(&list, non_pod_find_val, "v15", &outidx);
@@ -1928,8 +1928,8 @@ void test_arraylist_dyn_size_value(void) {
     dyn_non_pods_d_remove_at(&list, 0);
     assert(dyn_non_pods_d_size(&list) == sz);
 
-    // Add with push_back, emplace_back_slot.
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("a", 1, 1.0, &gpa);
+    // Add with push_back, emplace_back.
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("a", 1, 1.0, &gpa);
     assert(dyn_non_pods_d_size(&list) == 1);
     struct non_pod b = non_pod_init("b", 2, 2.0, &gpa);
     dyn_non_pods_d_push_back(&list, b);
@@ -1954,14 +1954,14 @@ void test_arraylist_dyn_size_value(void) {
     assert(dyn_non_pods_d_size(&list) == 0);
 
     // At this point, can insert again.
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("x", 77, 7.7, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("x", 77, 7.7, &gpa);
     assert(dyn_non_pods_d_size(&list) == 1);
 
     // push_back until size > 1
     for (size_t i = 0; i < 5; ++i) {
         char name[10];
         snprintf(name, sizeof name, "item%lu", i);
-        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init(name, (int)i, (float)i, &gpa);
+        *dyn_non_pods_d_emplace_back(&list) = non_pod_init(name, (int)i, (float)i, &gpa);
         assert(dyn_non_pods_d_size(&list) == 2 + i);
     }
 
@@ -1984,7 +1984,7 @@ void test_arraylist_dyn_size_value(void) {
     for (size_t i = 0; i < 16; ++i) {
         char name[10];
         snprintf(name, sizeof name, "bulk%lu", i);
-        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init(name, 0, 0, &gpa);
+        *dyn_non_pods_d_emplace_back(&list) = non_pod_init(name, 0, 0, &gpa);
     }
     assert(dyn_non_pods_d_size(&list) == 16);
     dyn_non_pods_d_remove_from_to(&list, 3, 8); // removes 6
@@ -2011,7 +2011,7 @@ void test_arraylist_dyn_size_value(void) {
 
     // after deinit, must be initialized again
     list = dyn_non_pods_d_init(gpa, non_pod_deinit);
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("q", 2, 2.2, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("q", 2, 2.2, &gpa);
     assert(dyn_non_pods_d_size(&list) == 1);
 
     // Shrink_to_fit doesn't change size
@@ -2064,8 +2064,8 @@ void test_arraylist_dyn_is_empty_value(void) {
     assert(dyn_non_pods_d_is_empty(&list) == true);
     assert(list.size == 0);
 
-    // Emplace_back_slot, non-empty
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("two", 2, 2.2, &gpa);
+    // emplace_back, non-empty
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("two", 2, 2.2, &gpa);
     assert(dyn_non_pods_d_is_empty(&list) == false);
     assert(list.size == 1);
 
@@ -2132,7 +2132,7 @@ void test_arraylist_dyn_is_empty_value(void) {
 
     // Empty after many growths/reallocs
     for (size_t i = 0; i < 128; ++i) {
-        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("bulk", i, i, &gpa);
+        *dyn_non_pods_d_emplace_back(&list) = non_pod_init("bulk", i, i, &gpa);
     }
 
     assert(dyn_non_pods_d_is_empty(&list) == false);
@@ -2154,7 +2154,7 @@ void test_arraylist_dyn_is_empty_value(void) {
 
     // needs to be init again to be used
     list = dyn_non_pods_d_init(gpa, non_pod_deinit);
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("after", 7, 7.7, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("after", 7, 7.7, &gpa);
     assert(dyn_non_pods_d_is_empty(&list) == false);
     dyn_non_pods_d_clear(&list);
 
@@ -2269,7 +2269,7 @@ void test_arraylist_dyn_capacity_value(void) {
     // Add many, check grows as powers of two (OPTIONAL: for your implementation)
     size_t last_cap = 0;
     for (size_t i = 0; i < 40; ++i) {
-        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("bulk", (int)i, (float)i, &gpa);
+        *dyn_non_pods_d_emplace_back(&list) = non_pod_init("bulk", (int)i, (float)i, &gpa);
         size_t cap = dyn_non_pods_d_capacity(&list);
         assert(cap >= dyn_non_pods_d_size(&list));
         // Implementation doubles, so as size crosses the boundary, capacity increases
@@ -2382,7 +2382,7 @@ void test_arraylist_dyn_get_allocator_value(void) {
         // Store the allocator to use consistently
         struct Allocator *current_alloc = dyn_non_pods_d_get_allocator(&list3);
         struct non_pod np = non_pod_init("z", 42, 123.0f + i, current_alloc);
-        *dyn_non_pods_d_emplace_back_slot(&list3) = np;
+        *dyn_non_pods_d_emplace_back(&list3) = np;
     }
     assert(list3.size == 8);
 
@@ -2416,7 +2416,7 @@ void test_arraylist_dyn_get_allocator_value(void) {
     // After pop_back, allocator unchanged
     // Add one element first so we can pop it
     struct non_pod np = non_pod_init("popme", 1, 1.0f, dyn_non_pods_d_get_allocator(&list3));
-    *dyn_non_pods_d_emplace_back_slot(&list3) = np;
+    *dyn_non_pods_d_emplace_back(&list3) = np;
     dyn_non_pods_d_pop_back(&list3);
     assert(dyn_non_pods_d_get_allocator(&list3) == &list3.alloc);
 
@@ -2445,7 +2445,7 @@ void test_arraylist_dyn_swap_value(void) {
     // Add a few entries to 'a'
     for (int i = 0; i < 5; ++i) {
         char buf[16]; snprintf(buf, sizeof buf, "A_%d", i);
-        *dyn_non_pods_d_emplace_back_slot(&a) = non_pod_init(buf, i, 1.1f * i, &gpa);
+        *dyn_non_pods_d_emplace_back(&a) = non_pod_init(buf, i, 1.1f * i, &gpa);
     }
     assert(a.size == 5 && b.size == 0);
     // Record a's original buffer properties
@@ -2480,7 +2480,7 @@ void test_arraylist_dyn_swap_value(void) {
     // b: three items
     for (int i = 0; i < 3; ++i) {
         char buf[16]; snprintf(buf, sizeof buf, "B_%d", i);
-        *dyn_non_pods_d_emplace_back_slot(&b) = non_pod_init(buf, i + 10, i + 20, &gpa);
+        *dyn_non_pods_d_emplace_back(&b) = non_pod_init(buf, i + 10, i + 20, &gpa);
     }
     size_t a_size = a.size, b_size = b.size;
     void *a_data = a.data, *b_data = b.data;
@@ -2535,10 +2535,10 @@ void test_arraylist_dyn_swap_value(void) {
     // swap two very large lists
     struct arraylist_dyn_non_pods_d x = dyn_non_pods_d_init(gpa, non_pod_deinit), y = dyn_non_pods_d_init(gpa, non_pod_deinit);
     for (size_t i = 0; i < 100; ++i) {
-        *dyn_non_pods_d_emplace_back_slot(&x) = non_pod_init("XLIST", (int)i, (float)i, &gpa);
+        *dyn_non_pods_d_emplace_back(&x) = non_pod_init("XLIST", (int)i, (float)i, &gpa);
     }
     for (size_t i = 0; i < 55; ++i) {
-        *dyn_non_pods_d_emplace_back_slot(&y) = non_pod_init("YLIST", (int)i, (float)i, &gpa);
+        *dyn_non_pods_d_emplace_back(&y) = non_pod_init("YLIST", (int)i, (float)i, &gpa);
     }
     // Save snapshots
     size_t xsize = x.size, ysize = y.size;
@@ -2573,7 +2573,7 @@ void test_arraylist_dyn_qsort_value(void) {
     assert(list.size == 0);
 
     // Sort single-item list (no change, works)
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("z", 1, 3.0, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("z", 1, 3.0, &gpa);
     err = dyn_non_pods_d_qsort(&list, non_pod_sort_val);
     assert(err == ARRAYLIST_OK);
     assert(list.size == 1);
@@ -2581,8 +2581,8 @@ void test_arraylist_dyn_qsort_value(void) {
 
     // Sort two-item: reverse, should swap
     dyn_non_pods_d_clear(&list);
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("b", 2, 9.0, &gpa);
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("a", -1, 1.1, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("b", 2, 9.0, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("a", -1, 1.1, &gpa);
     assert(strcmp(list.data[0].objname, "b") == 0);
     assert(strcmp(list.data[1].objname, "a") == 0);
 
@@ -2605,7 +2605,7 @@ void test_arraylist_dyn_qsort_value(void) {
     for (size_t i = 0; i < N; ++i) {
         char buf[32];
         snprintf(buf, sizeof(buf), "%s", names[i]);
-        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init(buf, (int)i, 42.42, &gpa);
+        *dyn_non_pods_d_emplace_back(&list) = non_pod_init(buf, (int)i, 42.42, &gpa);
     }
     // Confirm not sorted
     for (size_t i = 1; i < N; ++i) {
@@ -2628,11 +2628,11 @@ void test_arraylist_dyn_qsort_value(void) {
 
     // List with duplicates: check order is sorted, not necessarily stable
     dyn_non_pods_d_clear(&list);
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("x", 0, 0.0, &gpa);
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("a", 99, 1.0, &gpa);
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("x", 11, 2.2, &gpa);
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("b", 12, 3.3, &gpa);
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("x", -1, 4.4, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("x", 0, 0.0, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("a", 99, 1.0, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("x", 11, 2.2, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("b", 12, 3.3, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("x", -1, 4.4, &gpa);
 
     err = dyn_non_pods_d_qsort(&list, non_pod_sort_val);
     assert(err == ARRAYLIST_OK);
@@ -2648,7 +2648,7 @@ void test_arraylist_dyn_qsort_value(void) {
     dyn_non_pods_d_clear(&list);
     const char *revnames[] = { "gamma", "foxtrot", "echo", "delta", "charlie", "bravo", "alpha" };
     for (size_t i = 0; i < 7; ++i) {
-        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init(revnames[i], (int)i, 3.14f, &gpa);
+        *dyn_non_pods_d_emplace_back(&list) = non_pod_init(revnames[i], (int)i, 3.14f, &gpa);
     }
     err = dyn_non_pods_d_qsort(&list, non_pod_sort_val);
     assert(err == ARRAYLIST_OK);
@@ -2688,7 +2688,7 @@ void test_arraylist_dyn_qsort_value(void) {
     for (size_t i = 0; i < bigN; ++i) {
         char buf[32];
         snprintf(buf, sizeof buf, "%.3u", (unsigned)(bigN-i));
-        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init(buf, (int)i, 1.0+i, &gpa);
+        *dyn_non_pods_d_emplace_back(&list) = non_pod_init(buf, (int)i, 1.0+i, &gpa);
     }
     err = dyn_non_pods_d_qsort(&list, non_pod_sort_val);
     assert(err == ARRAYLIST_OK);
@@ -2719,9 +2719,9 @@ void test_arraylist_dyn_deep_clone_value(void) {
     struct arraylist_dyn_non_pods_d list = dyn_non_pods_d_init(gpa, non_pod_deinit);
 
     // Adding some values
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("a1", 1, 1.1, &gpa);
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("a2", 2, 2.2, &gpa);
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("a3", 3, 3.3, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("a1", 1, 1.1, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("a2", 2, 2.2, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("a3", 3, 3.3, &gpa);
     assert(list.size == 3);
 
     // Cloning
@@ -2772,9 +2772,9 @@ void test_arraylist_dyn_shallow_copy_value(void) {
     struct arraylist_dyn_non_pods_d list = dyn_non_pods_d_init(gpa, non_pod_deinit);
 
     // Adding some values
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("a1", 1, 1.1, &gpa);
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("a2", 2, 2.2, &gpa);
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("a3", 3, 3.3, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("a1", 1, 1.1, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("a2", 2, 2.2, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("a3", 3, 3.3, &gpa);
     assert(list.size == 3);
 
     // Shallow copying a non-pod, they are linked through addresses now
@@ -2826,9 +2826,9 @@ void test_arraylist_dyn_steal_value(void) {
     struct arraylist_dyn_non_pods_d list = dyn_non_pods_d_init(gpa, non_pod_deinit);
 
     // Adding some values
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("a1", 1, 1.1, &gpa);
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("a2", 2, 2.2, &gpa);
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("a3", 3, 3.3, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("a1", 1, 1.1, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("a2", 2, 2.2, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("a3", 3, 3.3, &gpa);
     assert(list.data != NULL);
     assert(list.size == 3);
     assert(list.capacity == 4);
@@ -2846,7 +2846,7 @@ void test_arraylist_dyn_steal_value(void) {
     assert(list.alloc.malloc == NULL);
 
     // Trying to insert new values on a moved list will result in a segfault crash
-    // *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("a3", 3, 3.3, &gpa);
+    // *dyn_non_pods_d_emplace_back(&list) = non_pod_init("a3", 3, 3.3, &gpa);
 
     assert(strcmp(new_arraylist.data[0].objname, "a1") == 0);
     assert(*new_arraylist.data[0].a == 1);
@@ -2881,7 +2881,7 @@ void test_arraylist_dyn_clear_value(void) {
     assert(dyn_non_pods_d_clear(NULL) == ARRAYLIST_OK);
 
     // After adding a single element, then clearing
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("A", 1, 2.0, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("A", 1, 2.0, &gpa);
     assert(list.size == 1 && global_destructor_counter_arraylist == 1);
     err = dyn_non_pods_d_clear(&list);
     assert(err == ARRAYLIST_OK);
@@ -2892,7 +2892,7 @@ void test_arraylist_dyn_clear_value(void) {
 
     // Multiple elements, all destructors called, buffer not shrunk
     for (size_t i = 0; i < N; ++i) {
-        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("B", (int)i, (float)i, &gpa);
+        *dyn_non_pods_d_emplace_back(&list) = non_pod_init("B", (int)i, (float)i, &gpa);
     }
     assert(list.size == N);
     assert(global_destructor_counter_arraylist == N);
@@ -2906,7 +2906,7 @@ void test_arraylist_dyn_clear_value(void) {
     assert(global_destructor_counter_arraylist == 0);
 
     // After clear, can add again
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("C", 3, 4.0, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("C", 3, 4.0, &gpa);
     assert(list.size == 1);
     assert(global_destructor_counter_arraylist == 1);
 
@@ -2926,7 +2926,7 @@ void test_arraylist_dyn_clear_value(void) {
     // List still usable after clear
     for (size_t i = 0; i < 5; ++i) {
         char buf[5]; snprintf(buf, sizeof buf, "X%lu", i);
-        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init(buf, (int)i, (float)i, &gpa);
+        *dyn_non_pods_d_emplace_back(&list) = non_pod_init(buf, (int)i, (float)i, &gpa);
     }
     assert(list.size == 5);
     assert(global_destructor_counter_arraylist == 5);
@@ -2954,7 +2954,7 @@ void test_arraylist_dyn_clear_value(void) {
 
     // Re-init, add, clear
     list = dyn_non_pods_d_init(gpa, non_pod_deinit);
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("ZZ", 9, 9.9, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("ZZ", 9, 9.9, &gpa);
     assert(list.size == 1);
     assert(global_destructor_counter_arraylist == 1);
     err = dyn_non_pods_d_clear(&list);
@@ -2963,7 +2963,7 @@ void test_arraylist_dyn_clear_value(void) {
 
     // Large list, destructor call count and buffer preserved
     for (size_t i = 0; i < 40; ++i) {
-        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("bulk", (int)i, (float)i, &gpa);
+        *dyn_non_pods_d_emplace_back(&list) = non_pod_init("bulk", (int)i, (float)i, &gpa);
     }
     assert(list.size == 40 && global_destructor_counter_arraylist == 40);
     prev_cap = list.capacity; prev_data = list.data;
@@ -2973,7 +2973,7 @@ void test_arraylist_dyn_clear_value(void) {
     assert(global_destructor_counter_arraylist == 0);
 
     // After clear, insert and then deinit: destructor is called for new element
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("L", 1, 2.2, &gpa); // +1
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("L", 1, 2.2, &gpa); // +1
     dyn_non_pods_d_deinit(&list);
     assert(global_destructor_counter_arraylist == 0);
 
@@ -2994,7 +2994,7 @@ void test_arraylist_dyn_deinit_value(void) {
     for (size_t i = 0; i < N; ++i) {
         char name[16];
         snprintf(name, sizeof(name), "np%lu", i);
-        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init(name, (int)i, (float)i, &gpa);
+        *dyn_non_pods_d_emplace_back(&list) = non_pod_init(name, (int)i, (float)i, &gpa);
     }
     assert(list.size == N);
     assert(global_destructor_counter_arraylist == N);
@@ -3034,7 +3034,7 @@ void test_arraylist_dyn_deinit_value(void) {
         struct arraylist_dyn_non_pods_d cyc = dyn_non_pods_d_init(gpa, non_pod_deinit);
         for (size_t j = 0; j < 3 + cycle; ++j) {
             char nm[8]; snprintf(nm, sizeof nm, "cyc%lu_%lu", cycle, j);
-            *dyn_non_pods_d_emplace_back_slot(&cyc) = non_pod_init(nm, (int)j, (float)j, &gpa);
+            *dyn_non_pods_d_emplace_back(&cyc) = non_pod_init(nm, (int)j, (float)j, &gpa);
         }
         assert(global_destructor_counter_arraylist > 0);
         dyn_non_pods_d_deinit(&cyc);
@@ -3043,7 +3043,7 @@ void test_arraylist_dyn_deinit_value(void) {
 
     // Can safely re-init after deinit, as per API doc
     list = dyn_non_pods_d_init(gpa, non_pod_deinit);
-    *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("AFTER", 123, 4.56, &gpa);
+    *dyn_non_pods_d_emplace_back(&list) = non_pod_init("AFTER", 123, 4.56, &gpa);
     assert(list.size == 1);
     assert(global_destructor_counter_arraylist == 1);
 
@@ -3054,7 +3054,7 @@ void test_arraylist_dyn_deinit_value(void) {
     // We'll count dtors, then forcibly clear without dtor (dirty trick: bypass it)
     list = dyn_non_pods_d_init(gpa, non_pod_deinit);
     for (size_t i = 0; i < 5; ++i) {
-        *dyn_non_pods_d_emplace_back_slot(&list) = non_pod_init("count", 17, 3.14, &gpa);
+        *dyn_non_pods_d_emplace_back(&list) = non_pod_init("count", 17, 3.14, &gpa);
     }
     assert(global_destructor_counter_arraylist == 5);
     // Remove three elements (to cover partial clear)
@@ -3112,7 +3112,7 @@ void test_arraylist_dyn_reserve_ptr(void) {
 
     // Fill up to 4
     for (size_t i = 0; i < 4; ++i) {
-        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("a", i, i, &gpa);
+        *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("a", i, i, &gpa);
     }
     //struct non_pod **olddata = list.data;
     err = dyn_non_pods_d_ptr_reserve(&list, 32);
@@ -3131,7 +3131,7 @@ void test_arraylist_dyn_reserve_ptr(void) {
     // Emplace more after reserve: no further realloc until cap hit
     size_t prevcap = list.capacity;
     for (size_t i = 4; i < 32; ++i) {
-        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("b", (int)i, (float)i, &gpa);
+        *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("b", (int)i, (float)i, &gpa);
     }
     assert(list.size == 32);
     assert(list.capacity == prevcap);
@@ -3168,7 +3168,7 @@ void test_arraylist_dyn_reserve_ptr(void) {
     // Fill a normal list to known good state
     struct arraylist_dyn_non_pods_d_ptr small = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
     for (size_t i = 0; i < 2; ++i) {
-        *dyn_non_pods_d_ptr_emplace_back_slot(&small) = non_pod_init_ptr("QQ", 2, 3, &gpa);
+        *dyn_non_pods_d_ptr_emplace_back(&small) = non_pod_init_ptr("QQ", 2, 3, &gpa);
     }
     dyn_non_pods_d_ptr_shrink_to_fit(&small);
     // Now try to reserve with failing allocator change
@@ -3209,9 +3209,9 @@ void test_arraylist_dyn_shrink_size_ptr(void) {
     struct non_pod *a = non_pod_init_ptr("a", 1, 1.1, &gpa);
     struct non_pod *b = non_pod_init_ptr("b", 2, 2.2, &gpa);
     struct non_pod *c = non_pod_init_ptr("c", 3, 3.3, &gpa);
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = a;
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = b;
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = c;
+    *dyn_non_pods_d_ptr_emplace_back(&list) = a;
+    *dyn_non_pods_d_ptr_emplace_back(&list) = b;
+    *dyn_non_pods_d_ptr_emplace_back(&list) = c;
     assert(list.size == 3);
 
     // Shrink to 2: calls dtor for c only
@@ -3268,7 +3268,7 @@ void test_arraylist_dyn_shrink_to_fit_ptr(void) {
 
     // Grow to larger capacity
     for (size_t i = 0; i < 8; ++i) {
-        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("z", i, i, &gpa);
+        *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("z", i, i, &gpa);
     }
 
     size_t orig_cap = list.capacity;
@@ -3323,7 +3323,7 @@ void test_arraylist_dyn_shrink_to_fit_ptr(void) {
     dyn_non_pods_d_ptr_reserve(&failalloc, 100);
 
     for (size_t i = 0; i < 8; ++i) {
-        *dyn_non_pods_d_ptr_emplace_back_slot(&failalloc) = non_pod_init_ptr("z", i, i, &gpa);
+        *dyn_non_pods_d_ptr_emplace_back(&failalloc) = non_pod_init_ptr("z", i, i, &gpa);
     }
 
     // Change allocator mid operations just to test the return value
@@ -3452,12 +3452,12 @@ void test_arraylist_dyn_push_back_ptr(void) {
     printf("test arraylist dyn push_back pointer-type passed\n");
 }
 
-void test_arraylist_dyn_emplace_back_slot_ptr(void) {
+void test_arraylist_dyn_emplace_back_ptr(void) {
     struct Allocator gpa = allocator_get_default();
     struct arraylist_dyn_non_pods_d_ptr list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
 
     // Emplace one element; returned pointer is valid and modifiable
-    struct non_pod **slot1 = dyn_non_pods_d_ptr_emplace_back_slot(&list);
+    struct non_pod **slot1 = dyn_non_pods_d_ptr_emplace_back(&list);
     assert(slot1 != NULL);
     // Can write individually through the slots:
     // (*slot1)->objname = gpa.malloc(5, gpa.ctx);
@@ -3482,7 +3482,7 @@ void test_arraylist_dyn_emplace_back_slot_ptr(void) {
 
     // Emplace multiple: Each pointer is unique, order preserved
     for (size_t i = 0; i < 5; ++i) {
-        struct non_pod **slot = dyn_non_pods_d_ptr_emplace_back_slot(&list);
+        struct non_pod **slot = dyn_non_pods_d_ptr_emplace_back(&list);
         assert(slot != NULL);
         char name[6];
         snprintf(name, sizeof name, "item%lu", i);
@@ -3495,7 +3495,7 @@ void test_arraylist_dyn_emplace_back_slot_ptr(void) {
     size_t old_capacity = list.capacity;
     struct non_pod **old_first = &list.data[0];
     for (size_t i = 0; i < 20; ++i) {
-        struct non_pod **slot_grow = dyn_non_pods_d_ptr_emplace_back_slot(&list);
+        struct non_pod **slot_grow = dyn_non_pods_d_ptr_emplace_back(&list);
         char name[8];
         snprintf(name, sizeof name, "slot%lu", i);
         *slot_grow = non_pod_init_ptr(name, i + 1, 200.2f + i, &gpa);
@@ -3512,34 +3512,34 @@ void test_arraylist_dyn_emplace_back_slot_ptr(void) {
     dyn_non_pods_d_ptr_deinit(&list);
     list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
 
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("testing1", 1, 1.1, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("testing1", 1, 1.1, &gpa);
     assert(list.size == 1);
     assert(list.capacity == 1);
 
     // Testing doubling capacity
     // Do not need to create temp values to insert, however, there is way to check for failure this way
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("testing2", 2, 2.2, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("testing2", 2, 2.2, &gpa);
     assert(list.size == 2);
     assert(list.capacity == 2);
 
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("testing3", 3, 3.3, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("testing3", 3, 3.3, &gpa);
     assert(list.size == 3);
     assert(list.capacity == 4);
 
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("testing4", 4, 4.4, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("testing4", 4, 4.4, &gpa);
     assert(list.size == 4);
     assert(list.capacity == 4);
 
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("testing5", 5, 5.5, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("testing5", 5, 5.5, &gpa);
     assert(list.size == 5);
     assert(list.capacity == 8);
 
     // Testing null parameter
-    assert(dyn_non_pods_d_ptr_emplace_back_slot(NULL) == NULL);
+    assert(dyn_non_pods_d_ptr_emplace_back(NULL) == NULL);
 
     // Testing alloc failure
     struct arraylist_dyn_non_pods_d_ptr allocfail = dyn_non_pods_d_ptr_init(allocator_get_failling_alloc(), non_pod_deinit_ptr);
-    assert(dyn_non_pods_d_ptr_emplace_back_slot(&allocfail) == NULL);
+    assert(dyn_non_pods_d_ptr_emplace_back(&allocfail) == NULL);
 
     // Testing buffer overflow
     struct arraylist_dyn_non_pods_d_ptr arraylistoveralloc = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
@@ -3547,13 +3547,13 @@ void test_arraylist_dyn_emplace_back_slot_ptr(void) {
     // Buffer overflow error is only triggered when the arraylist WOULD overflow, so we need to get a bit less
     arraylistoveralloc.capacity = SIZE_MAX / (2 * sizeof(struct non_pod *)) + 1;
     arraylistoveralloc.size = arraylistoveralloc.capacity;
-    assert(dyn_non_pods_d_ptr_emplace_back_slot(&arraylistoveralloc) == NULL);
+    assert(dyn_non_pods_d_ptr_emplace_back(&arraylistoveralloc) == NULL);
 
     dyn_non_pods_d_ptr_deinit(&arraylistoveralloc);
     dyn_non_pods_d_ptr_deinit(&allocfail);
     dyn_non_pods_d_ptr_deinit(&list);
     assert(global_destructor_counter_arraylist == 0);
-    printf("test arraylist dyn emplace_back_slot pointer-type passed\n");
+    printf("test arraylist dyn emplace_back pointer-type passed\n");
 }
 
 void test_arraylist_dyn_insert_at_pointer(void) {
@@ -3716,7 +3716,7 @@ void test_arraylist_dyn_pop_back_ptr(void) {
     // Push several, then pop all
     for (size_t i = 0; i < 5; ++i) {
         char name[16]; snprintf(name, sizeof name, "item%lu", i);
-        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr(name, 10+i, 10+i, &gpa);
+        *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr(name, 10+i, 10+i, &gpa);
     }
     assert(list.size == 5);
     size_t alive = global_destructor_counter_arraylist;
@@ -3729,9 +3729,9 @@ void test_arraylist_dyn_pop_back_ptr(void) {
     assert(list.size == 0);
 
     // Interleave push/pop (LIFO)
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("foo", 1, 1, &gpa);
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("bar", 2, 2, &gpa);
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("baz", 3, 3, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("foo", 1, 1, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("bar", 2, 2, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("baz", 3, 3, &gpa);
 
     const char* expect_names[] = {"foo", "bar", "baz"};
     for (size_t i = 0; i < 3; ++i)
@@ -3751,7 +3751,7 @@ void test_arraylist_dyn_pop_back_ptr(void) {
 
     // Push many to grow capacity, then pop many
     for (size_t i = 0; i < 16; ++i)
-        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("grow", i, i, &gpa);
+        *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("grow", i, i, &gpa);
     size_t cap = list.capacity;
     for (size_t i = 0; i < 16; ++i)
         dyn_non_pods_d_ptr_pop_back(&list);
@@ -3760,7 +3760,7 @@ void test_arraylist_dyn_pop_back_ptr(void) {
     assert(global_destructor_counter_arraylist == 0);
 
     // Push, clear, pop_back is no-op
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("after", 123, 1, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("after", 123, 1, &gpa);
     dyn_non_pods_d_ptr_clear(&list);
     before = global_destructor_counter_arraylist;
     err = dyn_non_pods_d_ptr_pop_back(&list);
@@ -3791,7 +3791,7 @@ void test_arraylist_dyn_remove_at_ptr(void) {
 
     // One element, remove at 0
     struct non_pod *a = non_pod_init_ptr("A", 1, 1.1, &gpa);
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = a;
+    *dyn_non_pods_d_ptr_emplace_back(&list) = a;
     assert(list.size == 1);
     before = global_destructor_counter_arraylist;
     err = dyn_non_pods_d_ptr_remove_at(&list, 0);
@@ -3804,10 +3804,10 @@ void test_arraylist_dyn_remove_at_ptr(void) {
     struct non_pod *c = non_pod_init_ptr("C", 3, 3.3, &gpa);
     struct non_pod *d = non_pod_init_ptr("D", 4, 4.4, &gpa);
     struct non_pod *e = non_pod_init_ptr("E", 5, 5.5, &gpa);
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = b;  // 0
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = c;  // 1
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = d;  // 2
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = e;  // 3
+    *dyn_non_pods_d_ptr_emplace_back(&list) = b;  // 0
+    *dyn_non_pods_d_ptr_emplace_back(&list) = c;  // 1
+    *dyn_non_pods_d_ptr_emplace_back(&list) = d;  // 2
+    *dyn_non_pods_d_ptr_emplace_back(&list) = e;  // 3
     assert(list.size == 4);
 
     // Remove head (index 0)
@@ -3847,7 +3847,7 @@ void test_arraylist_dyn_remove_at_ptr(void) {
     for (int i = 0; i < 5; ++i) {
         char buf[8];
         snprintf(buf, sizeof buf, "X%d", i);
-        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr(buf, i, i+0.1, &gpa);
+        *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr(buf, i, i+0.1, &gpa);
     }
     size_t sz = list.size;
     before = global_destructor_counter_arraylist;
@@ -3894,7 +3894,7 @@ void test_arraylist_dyn_remove_at_ptr(void) {
     for (int i = 0; i < 4; ++i) {
         char buf[8];
         snprintf(buf, sizeof buf, "YY%d", i);
-        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr(buf, 100+i, 500.5+i, &gpa);
+        *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr(buf, 100+i, 500.5+i, &gpa);
     }
     // [YY0, YY1, YY2, YY3]
     // Remove 1 (YY1)
@@ -3943,7 +3943,7 @@ void test_arraylist_dyn_remove_from_to_ptr(void)
     // Fill with 6 named objects: A, B, C, D, E, F
     const char *names[] = {"A", "B", "C", "D", "E", "F"};
     for (size_t i = 0; i < 6; ++i) {
-        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr(names[i], 100 + i, 1.0+i, &gpa);
+        *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr(names[i], 100 + i, 1.0+i, &gpa);
     }
 
     assert(list.size == 6);
@@ -3993,7 +3993,7 @@ void test_arraylist_dyn_remove_from_to_ptr(void)
 
     // Fill again for more tests
     for (size_t i = 0; i < 6; ++i) {
-        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr(names[i], 200 + i, 2.0+i, &gpa);
+        *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr(names[i], 200 + i, 2.0+i, &gpa);
     }
     assert(list.size == 6);
 
@@ -4006,7 +4006,7 @@ void test_arraylist_dyn_remove_from_to_ptr(void)
 
     // Fill again for edge cases
     for (size_t i = 0; i < 6; ++i) {
-        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr(names[i], 400 + i, 4.0+i, &gpa);
+        *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr(names[i], 400 + i, 4.0+i, &gpa);
     }
     assert(list.size == 6);
 
@@ -4084,9 +4084,9 @@ void test_arraylist_dyn_at_ptr(void) {
     assert(dyn_non_pods_d_ptr_at(&list, 123) == NULL);
 
     // Add some values
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("A", 10, 1.1, &gpa);
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("B", 20, 2.2, &gpa);
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("C", 30, 3.3, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("A", 10, 1.1, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("B", 20, 2.2, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("C", 30, 3.3, &gpa);
 
     // Valid indices (0,1,2) return address in data, not NULL
     for (size_t i = 0; i < list.size; ++i) {
@@ -4149,7 +4149,7 @@ void test_arraylist_dyn_at_ptr(void) {
     for (size_t i = 0; i < bigN; ++i) {
         char name[20];
         snprintf(name, sizeof name, "item%lu", i);
-        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr(name, (int)i, (float)i, &gpa);
+        *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr(name, (int)i, (float)i, &gpa);
     }
     for (size_t i = 0; i < bigN; ++i) {
         struct non_pod **p = dyn_non_pods_d_ptr_at(&list, i);
@@ -4514,9 +4514,9 @@ void test_arraylist_dyn_find_ptr(void) {
     assert(res == dyn_non_pods_d_ptr_end(&list) || res == NULL);
 
     // Insert some non_pods
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("A", 1, 1.1, &gpa);
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("B", 2, 2.2, &gpa);
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("C", 3, 3.3, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("A", 1, 1.1, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("B", 2, 2.2, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("C", 3, 3.3, &gpa);
 
     // Find value for actual key; should point to that object
     // The predicate must match the type: struct non_pod*
@@ -4556,7 +4556,7 @@ void test_arraylist_dyn_find_ptr(void) {
     assert(strcmp((*nz)->objname, "Zmaybe") == 0);
 
     // List with duplicates: find returns the first matching by search order
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("C", 5, 10.1, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("C", 5, 10.1, &gpa);
     struct non_pod **dup1 = dyn_non_pods_d_ptr_find(&list, non_pod_find_ptr, "C");
     assert(dup1 && strcmp((*dup1)->objname, "C") == 0);
     assert(dup1 == &list.data[2]);
@@ -4586,10 +4586,10 @@ void test_arraylist_dyn_find_ptr(void) {
     const char *key = "BIGMATCH";
     for (size_t i = 0; i < big; ++i) {
         if (i == 50) {
-            *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr(key, 99, 101, &gpa);
+            *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr(key, 99, 101, &gpa);
         } else {
             char nm[16]; snprintf(nm, sizeof nm, "num%02u", (unsigned)i);
-            *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr(nm, (int)i, (float)i, &gpa);
+            *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr(nm, (int)i, (float)i, &gpa);
         }
     }
     struct non_pod **bigfound = dyn_non_pods_d_ptr_find(&list, non_pod_find_ptr, (void*)key);
@@ -4612,9 +4612,9 @@ void test_arraylist_dyn_contains_ptr(void) {
     assert(outidx == 12345);
 
     // Add some objects and check positive and negative cases
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("A", 1, 1.1, &gpa);
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("B", 2, 2.2, &gpa);
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("C", 3, 3.3, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("A", 1, 1.1, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("B", 2, 2.2, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("C", 3, 3.3, &gpa);
 
     // Positive: present
     outidx = 9999;
@@ -4638,7 +4638,7 @@ void test_arraylist_dyn_contains_ptr(void) {
     assert(dyn_non_pods_d_ptr_contains(&list, non_pod_find_ptr, "NO", NULL) == false);
 
     // Duplicate entries: first match wins, correct index
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("B", 12, 2.22, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("B", 12, 2.22, &gpa);
     outidx = 999;
     bool founddup = dyn_non_pods_d_ptr_contains(&list, non_pod_find_ptr, "B", &outidx);
     assert(founddup == true);
@@ -4682,7 +4682,7 @@ void test_arraylist_dyn_contains_ptr(void) {
     int N = 40;
     for (int i = 0; i < N; ++i) {
         char nm[10]; snprintf(nm, sizeof nm, "v%02d", i);
-        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr(nm, i*i, i*2, &gpa);
+        *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr(nm, i*i, i*2, &gpa);
     }
     outidx = 0;
     bool hasv15 = dyn_non_pods_d_ptr_contains(&list, non_pod_find_ptr, "v15", &outidx);
@@ -4713,8 +4713,8 @@ void test_arraylist_dyn_size_ptr(void) {
     dyn_non_pods_d_ptr_remove_at(&list, 0);
     assert(dyn_non_pods_d_ptr_size(&list) == sz);
 
-    // Add with push_back, emplace_back_slot.
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("a", 1, 1.0, &gpa);
+    // Add with push_back, emplace_back.
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("a", 1, 1.0, &gpa);
     assert(dyn_non_pods_d_ptr_size(&list) == 1);
     struct non_pod *b = non_pod_init_ptr("b", 2, 2.0, &gpa);
     dyn_non_pods_d_ptr_push_back(&list, b);
@@ -4739,14 +4739,14 @@ void test_arraylist_dyn_size_ptr(void) {
     assert(dyn_non_pods_d_ptr_size(&list) == 0);
 
     // At this point, can insert again.
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("x", 77, 7.7, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("x", 77, 7.7, &gpa);
     assert(dyn_non_pods_d_ptr_size(&list) == 1);
 
     // push_back until size > 1
     for (size_t i = 0; i < 5; ++i) {
         char name[10];
         snprintf(name, sizeof name, "item%lu", i);
-        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr(name, (int)i, (float)i, &gpa);
+        *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr(name, (int)i, (float)i, &gpa);
         assert(dyn_non_pods_d_ptr_size(&list) == 2 + i);
     }
 
@@ -4769,7 +4769,7 @@ void test_arraylist_dyn_size_ptr(void) {
     for (size_t i = 0; i < 16; ++i) {
         char name[10];
         snprintf(name, sizeof name, "bulk%lu", i);
-        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr(name, 0, 0, &gpa);
+        *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr(name, 0, 0, &gpa);
     }
     assert(dyn_non_pods_d_ptr_size(&list) == 16);
     dyn_non_pods_d_ptr_remove_from_to(&list, 3, 8); // removes 6
@@ -4796,7 +4796,7 @@ void test_arraylist_dyn_size_ptr(void) {
 
     // after deinit, must be initialized again
     list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("q", 2, 2.2, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("q", 2, 2.2, &gpa);
     assert(dyn_non_pods_d_ptr_size(&list) == 1);
 
     // Shrink_to_fit doesn't change size
@@ -4849,8 +4849,8 @@ void test_arraylist_dyn_is_empty_ptr(void) {
     assert(dyn_non_pods_d_ptr_is_empty(&list) == true);
     assert(list.size == 0);
 
-    // Emplace_back_slot, non-empty
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("two", 2, 2.2, &gpa);
+    // emplace_back, non-empty
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("two", 2, 2.2, &gpa);
     assert(dyn_non_pods_d_ptr_is_empty(&list) == false);
     assert(list.size == 1);
 
@@ -4917,7 +4917,7 @@ void test_arraylist_dyn_is_empty_ptr(void) {
 
     // Empty after many growths/reallocs
     for (size_t i = 0; i < 128; ++i) {
-        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("bulk", i, i, &gpa);
+        *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("bulk", i, i, &gpa);
     }
 
     assert(dyn_non_pods_d_ptr_is_empty(&list) == false);
@@ -4939,7 +4939,7 @@ void test_arraylist_dyn_is_empty_ptr(void) {
 
     // needs to be init again to be used
     list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("after", 7, 7.7, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("after", 7, 7.7, &gpa);
     assert(dyn_non_pods_d_ptr_is_empty(&list) == false);
     dyn_non_pods_d_ptr_clear(&list);
 
@@ -5054,7 +5054,7 @@ void test_arraylist_dyn_capacity_ptr(void) {
     // Add many, check grows as powers of two (OPTIONAL: for your implementation)
     size_t last_cap = 0;
     for (size_t i = 0; i < 40; ++i) {
-        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("bulk", (int)i, (float)i, &gpa);
+        *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("bulk", (int)i, (float)i, &gpa);
         size_t cap = dyn_non_pods_d_ptr_capacity(&list);
         assert(cap >= dyn_non_pods_d_ptr_size(&list));
         // Implementation doubles, so as size crosses the boundary, capacity increases
@@ -5167,7 +5167,7 @@ void test_arraylist_dyn_get_allocator_ptr(void) {
         // Store the allocator to use consistently
         struct Allocator *current_alloc = dyn_non_pods_d_ptr_get_allocator(&list3);
         struct non_pod *np = non_pod_init_ptr("z", 42, 123.0f + i, current_alloc);
-        *dyn_non_pods_d_ptr_emplace_back_slot(&list3) = np;
+        *dyn_non_pods_d_ptr_emplace_back(&list3) = np;
     }
     assert(list3.size == 8);
 
@@ -5201,7 +5201,7 @@ void test_arraylist_dyn_get_allocator_ptr(void) {
     // After pop_back, allocator unchanged
     // Add one element first so we can pop it
     struct non_pod *np = non_pod_init_ptr("popme", 1, 1.0f, dyn_non_pods_d_ptr_get_allocator(&list3));
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list3) = np;
+    *dyn_non_pods_d_ptr_emplace_back(&list3) = np;
     dyn_non_pods_d_ptr_pop_back(&list3);
     assert(dyn_non_pods_d_ptr_get_allocator(&list3) == &list3.alloc);
 
@@ -5230,7 +5230,7 @@ void test_arraylist_dyn_swap_ptr(void) {
     // Add a few entries to 'a'
     for (int i = 0; i < 5; ++i) {
         char buf[16]; snprintf(buf, sizeof buf, "A_%d", i);
-        *dyn_non_pods_d_ptr_emplace_back_slot(&a) = non_pod_init_ptr(buf, i, 1.1f * i, &gpa);
+        *dyn_non_pods_d_ptr_emplace_back(&a) = non_pod_init_ptr(buf, i, 1.1f * i, &gpa);
     }
     assert(a.size == 5 && b.size == 0);
     // Record a's original buffer properties
@@ -5265,7 +5265,7 @@ void test_arraylist_dyn_swap_ptr(void) {
     // b: three items
     for (int i = 0; i < 3; ++i) {
         char buf[16]; snprintf(buf, sizeof buf, "B_%d", i);
-        *dyn_non_pods_d_ptr_emplace_back_slot(&b) = non_pod_init_ptr(buf, i + 10, i + 20, &gpa);
+        *dyn_non_pods_d_ptr_emplace_back(&b) = non_pod_init_ptr(buf, i + 10, i + 20, &gpa);
     }
     size_t a_size = a.size, b_size = b.size;
     void *a_data = a.data, *b_data = b.data;
@@ -5320,10 +5320,10 @@ void test_arraylist_dyn_swap_ptr(void) {
     // swap two very large lists
     struct arraylist_dyn_non_pods_d_ptr x = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr), y = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
     for (size_t i = 0; i < 100; ++i) {
-        *dyn_non_pods_d_ptr_emplace_back_slot(&x) = non_pod_init_ptr("XLIST", (int)i, (float)i, &gpa);
+        *dyn_non_pods_d_ptr_emplace_back(&x) = non_pod_init_ptr("XLIST", (int)i, (float)i, &gpa);
     }
     for (size_t i = 0; i < 55; ++i) {
-        *dyn_non_pods_d_ptr_emplace_back_slot(&y) = non_pod_init_ptr("YLIST", (int)i, (float)i, &gpa);
+        *dyn_non_pods_d_ptr_emplace_back(&y) = non_pod_init_ptr("YLIST", (int)i, (float)i, &gpa);
     }
     // Save snapshots
     size_t xsize = x.size, ysize = y.size;
@@ -5358,7 +5358,7 @@ void test_arraylist_dyn_qsort_ptr(void) {
     assert(list.size == 0);
 
     // Sort single-item list (no change, works)
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("z", 1, 3.0, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("z", 1, 3.0, &gpa);
     err = dyn_non_pods_d_ptr_qsort(&list, non_pod_sort_ptr);
     assert(err == ARRAYLIST_OK);
     assert(list.size == 1);
@@ -5366,8 +5366,8 @@ void test_arraylist_dyn_qsort_ptr(void) {
 
     // Sort two-item: reverse, should swap
     dyn_non_pods_d_ptr_clear(&list);
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("b", 2, 9.0, &gpa);
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("a", -1, 1.1, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("b", 2, 9.0, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("a", -1, 1.1, &gpa);
     assert(strcmp(list.data[0]->objname, "b") == 0);
     assert(strcmp(list.data[1]->objname, "a") == 0);
 
@@ -5390,7 +5390,7 @@ void test_arraylist_dyn_qsort_ptr(void) {
     for (size_t i = 0; i < N; ++i) {
         char buf[32];
         snprintf(buf, sizeof(buf), "%s", names[i]);
-        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr(buf, (int)i, 42.42, &gpa);
+        *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr(buf, (int)i, 42.42, &gpa);
     }
     // Confirm not sorted
     for (size_t i = 1; i < N; ++i) {
@@ -5413,11 +5413,11 @@ void test_arraylist_dyn_qsort_ptr(void) {
 
     // List with duplicates: check order is sorted, not necessarily stable
     dyn_non_pods_d_ptr_clear(&list);
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("x", 0, 0.0, &gpa);
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("a", 99, 1.0, &gpa);
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("x", 11, 2.2, &gpa);
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("b", 12, 3.3, &gpa);
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("x", -1, 4.4, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("x", 0, 0.0, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("a", 99, 1.0, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("x", 11, 2.2, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("b", 12, 3.3, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("x", -1, 4.4, &gpa);
 
     err = dyn_non_pods_d_ptr_qsort(&list, non_pod_sort_ptr);
     assert(err == ARRAYLIST_OK);
@@ -5433,7 +5433,7 @@ void test_arraylist_dyn_qsort_ptr(void) {
     dyn_non_pods_d_ptr_clear(&list);
     const char *revnames[] = { "gamma", "foxtrot", "echo", "delta", "charlie", "bravo", "alpha" };
     for (size_t i = 0; i < 7; ++i) {
-        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr(revnames[i], (int)i, 3.14f, &gpa);
+        *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr(revnames[i], (int)i, 3.14f, &gpa);
     }
     err = dyn_non_pods_d_ptr_qsort(&list, non_pod_sort_ptr);
     assert(err == ARRAYLIST_OK);
@@ -5473,7 +5473,7 @@ void test_arraylist_dyn_qsort_ptr(void) {
     for (size_t i = 0; i < bigN; ++i) {
         char buf[32];
         snprintf(buf, sizeof buf, "%.3u", (unsigned)(bigN-i));
-        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr(buf, (int)i, 1.0+i, &gpa);
+        *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr(buf, (int)i, 1.0+i, &gpa);
     }
     err = dyn_non_pods_d_ptr_qsort(&list, non_pod_sort_ptr);
     assert(err == ARRAYLIST_OK);
@@ -5504,9 +5504,9 @@ void test_arraylist_dyn_deep_clone_ptr(void) {
     struct arraylist_dyn_non_pods_d_ptr list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
 
     // Adding some values
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("a1", 1, 1.1, &gpa);
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("a2", 2, 2.2, &gpa);
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("a3", 3, 3.3, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("a1", 1, 1.1, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("a2", 2, 2.2, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("a3", 3, 3.3, &gpa);
     assert(list.size == 3);
 
     // Cloning
@@ -5557,9 +5557,9 @@ void test_arraylist_dyn_shallow_copy_ptr(void) {
     struct arraylist_dyn_non_pods_d_ptr list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
 
     // Adding some values
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("a1", 1, 1.1, &gpa);
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("a2", 2, 2.2, &gpa);
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("a3", 3, 3.3, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("a1", 1, 1.1, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("a2", 2, 2.2, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("a3", 3, 3.3, &gpa);
     assert(list.size == 3);
 
     // Shallow copying a non-pod, they are linked through addresses now
@@ -5611,9 +5611,9 @@ void test_arraylist_dyn_steal_ptr(void) {
     struct arraylist_dyn_non_pods_d_ptr list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
 
     // Adding some values
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("a1", 1, 1.1, &gpa);
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("a2", 2, 2.2, &gpa);
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("a3", 3, 3.3, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("a1", 1, 1.1, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("a2", 2, 2.2, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("a3", 3, 3.3, &gpa);
     assert(list.data != NULL);
     assert(list.size == 3);
     assert(list.capacity == 4);
@@ -5631,7 +5631,7 @@ void test_arraylist_dyn_steal_ptr(void) {
     assert(list.alloc.malloc == NULL);
 
     // Trying to insert new values on a moved list will result in a segfault crash
-    // *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("a3", 3, 3.3, &gpa);
+    // *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("a3", 3, 3.3, &gpa);
 
     assert(strcmp(new_arraylist.data[0]->objname, "a1") == 0);
     assert(*new_arraylist.data[0]->a == 1);
@@ -5666,7 +5666,7 @@ void test_arraylist_dyn_clear_ptr(void) {
     assert(dyn_non_pods_d_ptr_clear(NULL) == ARRAYLIST_OK);
 
     // After adding a single element, then clearing
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("A", 1, 2.0, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("A", 1, 2.0, &gpa);
     assert(list.size == 1 && global_destructor_counter_arraylist == 1);
     err = dyn_non_pods_d_ptr_clear(&list);
     assert(err == ARRAYLIST_OK);
@@ -5677,7 +5677,7 @@ void test_arraylist_dyn_clear_ptr(void) {
 
     // Multiple elements, all destructors called, buffer not shrunk
     for (size_t i = 0; i < N; ++i) {
-        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("B", (int)i, (float)i, &gpa);
+        *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("B", (int)i, (float)i, &gpa);
     }
     assert(list.size == N);
     assert(global_destructor_counter_arraylist == N);
@@ -5691,7 +5691,7 @@ void test_arraylist_dyn_clear_ptr(void) {
     assert(global_destructor_counter_arraylist == 0);
 
     // After clear, can add again
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("C", 3, 4.0, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("C", 3, 4.0, &gpa);
     assert(list.size == 1);
     assert(global_destructor_counter_arraylist == 1);
 
@@ -5711,7 +5711,7 @@ void test_arraylist_dyn_clear_ptr(void) {
     // List still usable after clear
     for (size_t i = 0; i < 5; ++i) {
         char buf[5]; snprintf(buf, sizeof buf, "X%lu", i);
-        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr(buf, (int)i, (float)i, &gpa);
+        *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr(buf, (int)i, (float)i, &gpa);
     }
     assert(list.size == 5);
     assert(global_destructor_counter_arraylist == 5);
@@ -5739,7 +5739,7 @@ void test_arraylist_dyn_clear_ptr(void) {
 
     // Re-init, add, clear
     list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("ZZ", 9, 9.9, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("ZZ", 9, 9.9, &gpa);
     assert(list.size == 1);
     assert(global_destructor_counter_arraylist == 1);
     err = dyn_non_pods_d_ptr_clear(&list);
@@ -5748,7 +5748,7 @@ void test_arraylist_dyn_clear_ptr(void) {
 
     // Large list, destructor call count and buffer preserved
     for (size_t i = 0; i < 40; ++i) {
-        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("bulk", (int)i, (float)i, &gpa);
+        *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("bulk", (int)i, (float)i, &gpa);
     }
     assert(list.size == 40 && global_destructor_counter_arraylist == 40);
     prev_cap = list.capacity; prev_data = list.data;
@@ -5758,7 +5758,7 @@ void test_arraylist_dyn_clear_ptr(void) {
     assert(global_destructor_counter_arraylist == 0);
 
     // After clear, insert and then deinit: destructor is called for new element
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("L", 1, 2.2, &gpa); // +1
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("L", 1, 2.2, &gpa); // +1
     dyn_non_pods_d_ptr_deinit(&list);
     assert(global_destructor_counter_arraylist == 0);
 
@@ -5779,7 +5779,7 @@ void test_arraylist_dyn_deinit_ptr(void) {
     for (size_t i = 0; i < N; ++i) {
         char name[16];
         snprintf(name, sizeof(name), "np%lu", i);
-        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr(name, (int)i, (float)i, &gpa);
+        *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr(name, (int)i, (float)i, &gpa);
     }
     assert(list.size == N);
     assert(global_destructor_counter_arraylist == N);
@@ -5819,7 +5819,7 @@ void test_arraylist_dyn_deinit_ptr(void) {
         struct arraylist_dyn_non_pods_d_ptr cyc = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
         for (size_t j = 0; j < 3 + cycle; ++j) {
             char nm[8]; snprintf(nm, sizeof nm, "cyc%lu_%lu", cycle, j);
-            *dyn_non_pods_d_ptr_emplace_back_slot(&cyc) = non_pod_init_ptr(nm, (int)j, (float)j, &gpa);
+            *dyn_non_pods_d_ptr_emplace_back(&cyc) = non_pod_init_ptr(nm, (int)j, (float)j, &gpa);
         }
         assert(global_destructor_counter_arraylist > 0);
         dyn_non_pods_d_ptr_deinit(&cyc);
@@ -5828,7 +5828,7 @@ void test_arraylist_dyn_deinit_ptr(void) {
 
     // Can safely re-init after deinit, as per API doc
     list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
-    *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("AFTER", 123, 4.56, &gpa);
+    *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("AFTER", 123, 4.56, &gpa);
     assert(list.size == 1);
     assert(global_destructor_counter_arraylist == 1);
 
@@ -5839,7 +5839,7 @@ void test_arraylist_dyn_deinit_ptr(void) {
     // We'll count dtors, then forcibly clear without dtor (dirty trick: bypass it)
     list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
     for (size_t i = 0; i < 5; ++i) {
-        *dyn_non_pods_d_ptr_emplace_back_slot(&list) = non_pod_init_ptr("count", 17, 3.14, &gpa);
+        *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("count", 17, 3.14, &gpa);
     }
     assert(global_destructor_counter_arraylist == 5);
     // Remove three elements (to cover partial clear)
@@ -5876,9 +5876,9 @@ void test_arraylist_dyn_shallow_copy_scalar_type(void) {
     struct arraylist_dyn_intlist list = dyn_intlist_init(gpa, NULL);
 
     // Adding some values
-    *dyn_intlist_emplace_back_slot(&list) = 10;
-    *dyn_intlist_emplace_back_slot(&list) = 20;
-    *dyn_intlist_emplace_back_slot(&list) = 30;
+    *dyn_intlist_emplace_back(&list) = 10;
+    *dyn_intlist_emplace_back(&list) = 20;
+    *dyn_intlist_emplace_back(&list) = 30;
     assert(list.size == 3);
 
     // Shallow copying a scalar type, they are essentially their own independent copies
@@ -5926,9 +5926,9 @@ void test_arraylist_dyn_deep_clone_scalar_type(void) {
     struct arraylist_dyn_intlist list = dyn_intlist_init(gpa, NULL);
 
     // Adding some values
-    *dyn_intlist_emplace_back_slot(&list) = 10;
-    *dyn_intlist_emplace_back_slot(&list) = 20;
-    *dyn_intlist_emplace_back_slot(&list) = 30;
+    *dyn_intlist_emplace_back(&list) = 10;
+    *dyn_intlist_emplace_back(&list) = 20;
+    *dyn_intlist_emplace_back(&list) = 30;
     assert(list.size == 3);
 
     // Shallow copying a scalar type, they are essentially their own independent copies
@@ -5975,7 +5975,7 @@ int main(void) {
     test_arraylist_dyn_shrink_size_value();
     test_arraylist_dyn_shrink_to_fit_value();
     test_arraylist_dyn_push_back_value();
-    test_arraylist_dyn_emplace_back_slot_value();
+    test_arraylist_dyn_emplace_back_value();
     test_arraylist_dyn_insert_at_value();
     test_arraylist_dyn_pop_back_value();
     test_arraylist_dyn_remove_at_value();
@@ -6003,7 +6003,7 @@ int main(void) {
     test_arraylist_dyn_shrink_size_ptr();
     test_arraylist_dyn_shrink_to_fit_ptr();
     test_arraylist_dyn_push_back_ptr();
-    test_arraylist_dyn_emplace_back_slot_ptr();
+    test_arraylist_dyn_emplace_back_ptr();
     test_arraylist_dyn_insert_at_pointer();
     test_arraylist_dyn_pop_back_ptr();
     test_arraylist_dyn_remove_at_ptr();

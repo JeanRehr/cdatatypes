@@ -89,7 +89,7 @@ int main(void) {
 
     // Inserting into it with emplace back slot
     // Note, slot given back must always be checked in real scenarios
-    struct non_pod **slot1 = dyn_np_emplace_back_slot(&vec_np);
+    struct non_pod **slot1 = dyn_np_emplace_back(&vec_np);
     if (!slot1) {
         fprintf(stderr, "Failed to get the slot\n");
         return -1;
@@ -102,7 +102,7 @@ int main(void) {
     }
 
     // One liner not testing slot or allocation
-    *dyn_np_emplace_back_slot(&vec_np) = non_pod_init_alloc(&gpa, 940, 820, 710);
+    *dyn_np_emplace_back(&vec_np) = non_pod_init_alloc(&gpa, 940, 820, 710);
 
     // Inserting into it with emplace back slot with a constructor that does not
     // return an allocated struct itself
@@ -116,7 +116,7 @@ int main(void) {
     *non_pod1 = non_pod_init(&gpa, 999, 987, 781);
 
     // Warning: Not checking slot here
-    *dyn_np_emplace_back_slot(&vec_np) = non_pod1;
+    *dyn_np_emplace_back(&vec_np) = non_pod1;
 
     // Inserting into it with push_back one liner, not checking for allocation failure here
     dyn_np_push_back(&vec_np, non_pod_init_alloc(&gpa, 464, 422, 180));
@@ -135,7 +135,7 @@ int main(void) {
 
     // inserting some values
     for (size_t i = 0; i < 100; ++i) {
-        *dyn_np_emplace_back_slot(&vec_np) = non_pod_init_alloc(&gpa, i, i * 3, i / 2);
+        *dyn_np_emplace_back(&vec_np) = non_pod_init_alloc(&gpa, i, i * 3, i / 2);
     }
 
     // Rest of the functions are essentially the same thing

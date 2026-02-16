@@ -134,7 +134,7 @@ int main(void) {
 
     // Inserting into it with emplace back slot
     // Note, slot given back must always be checked in real scenarios
-    struct non_pod **slot1 = np_emplace_back_slot(&vec_np);
+    struct non_pod **slot1 = np_emplace_back(&vec_np);
     if (!slot1) {
         fprintf(stderr, "Failed to get the slot\n");
         return -1;
@@ -151,7 +151,7 @@ int main(void) {
     // non_pod_init_alloc(&vec_np.alloc, 90, 80, 70);
 
     // One liner not testing slot or allocation
-    *np_emplace_back_slot(&vec_np) = non_pod_init_alloc(&gpa, 940, 820, 710);
+    *np_emplace_back(&vec_np) = non_pod_init_alloc(&gpa, 940, 820, 710);
 
     // Inserting into it with emplace back slot with a constructor that does not
     // return an allocated struct itself
@@ -165,7 +165,7 @@ int main(void) {
     *non_pod1 = non_pod_init(&gpa, 999, 987, 781);
 
     // Warning: Not checking slot here
-    *np_emplace_back_slot(&vec_np) = non_pod1;
+    *np_emplace_back(&vec_np) = non_pod1;
 
     // Inserting into it with push_back one liner, not checking for allocation failure here
     np_push_back(&vec_np, non_pod_init_alloc(&gpa, 464, 422, 180));
@@ -184,7 +184,7 @@ int main(void) {
 
     // inserting some values
     for (size_t i = 0; i < 100; ++i) {
-        *np_emplace_back_slot(&vec_np) = non_pod_init_alloc(&gpa, i, i * 3, i / 2);
+        *np_emplace_back(&vec_np) = non_pod_init_alloc(&gpa, i, i * 3, i / 2);
     }
 
     // Rest of the functions are essentially the same thing
@@ -286,8 +286,8 @@ int main(void) {
     // Swaps arraylists
 
     struct arraylist_np other = np_init(gpa);
-    *np_emplace_back_slot(&other) = non_pod_init_alloc(&gpa, 10000, -80, -70);
-    *np_emplace_back_slot(&other) = non_pod_init_alloc(&gpa, 11992, -1000, 101010);
+    *np_emplace_back(&other) = non_pod_init_alloc(&gpa, 10000, -80, -70);
+    *np_emplace_back(&other) = non_pod_init_alloc(&gpa, 11992, -1000, 101010);
 
     // Other size before swap:
     printf("Other arraylist size before swap(): %lu\n", np_size(&other));
@@ -327,11 +327,11 @@ int main(void) {
     np_clear(&vec_np);
     np_reserve(&vec_np, 5);
 
-    *np_emplace_back_slot(&vec_np) = non_pod_init_alloc(&gpa, 1, 80, 70);
-    *np_emplace_back_slot(&vec_np) = non_pod_init_alloc(&gpa, 2, 80, 70);
-    *np_emplace_back_slot(&vec_np) = non_pod_init_alloc(&gpa, -0, 80, 70);
-    *np_emplace_back_slot(&vec_np) = non_pod_init_alloc(&gpa, -10, 80, 70);
-    *np_emplace_back_slot(&vec_np) = non_pod_init_alloc(&gpa, 10, 80, 70);
+    *np_emplace_back(&vec_np) = non_pod_init_alloc(&gpa, 1, 80, 70);
+    *np_emplace_back(&vec_np) = non_pod_init_alloc(&gpa, 2, 80, 70);
+    *np_emplace_back(&vec_np) = non_pod_init_alloc(&gpa, -0, 80, 70);
+    *np_emplace_back(&vec_np) = non_pod_init_alloc(&gpa, -10, 80, 70);
+    *np_emplace_back(&vec_np) = non_pod_init_alloc(&gpa, 10, 80, 70);
 
     for (size_t i = 0; i < vec_np.size; i++) {
         printf("index %lu value %d\n", i, *vec_np.data[i]->_number);

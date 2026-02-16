@@ -123,7 +123,7 @@ size_t names_read_lines(struct arraylist_dyn_names_arr *names_arr, FILE *stream,
         printf("Enter the strings> ");
         // emplace_back or push_back could only fail during reallocation of internal buffer
         // ownership of line allocated by read_line is passed onto the arraylist
-        *arraylist_dyn_names_arr_emplace_back_slot(names_arr) = line;
+        *arraylist_dyn_names_arr_emplace_back(names_arr) = line;
         num_lines++;
     }
     printf("\n");
@@ -148,7 +148,7 @@ int main(void) {
     // Inseting inside the arraylist of strings:
 
     // The following cannot be done, it needs to be allocated on heap
-    // *arraylist_dyn_names_arr_emplace_back_slot(&names) = "Testing";
+    // *arraylist_dyn_names_arr_emplace_back(&names) = "Testing";
 
     // manually constructing and allocating a string
     size_t len;
@@ -161,10 +161,10 @@ int main(void) {
     }
 
     // Once str is passed onto the arraylist, if it is provided a destructor, there is no need to worry about freeing the str
-    *arraylist_dyn_names_arr_emplace_back_slot(&names_arr) = str;
+    *arraylist_dyn_names_arr_emplace_back(&names_arr) = str;
 
     // Using a constructor
-    *arraylist_dyn_names_arr_emplace_back_slot(&names_arr) = heap_alloc_from_str_lit("Full Name", &gpa);
+    *arraylist_dyn_names_arr_emplace_back(&names_arr) = heap_alloc_from_str_lit("Full Name", &gpa);
 
     printf("UNSORTED:\n");
     names_print(&names_arr);

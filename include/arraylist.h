@@ -22,7 +22,7 @@
  * - The arraylist owns and manages its internal storage
  * - Elements are copied when added (shallow copy by default)
  * - For deep copy semantics, use deep_clone() with appropriate copy functions
- * - For move semantics, use steal() or construct in-place with emplace_back_slot()
+ * - For move semantics, use steal() or construct in-place with emplace_back()
  *
  * Comparison to c++ std::vector:
  * - Similar functionality but with explicit C semantics
@@ -36,7 +36,7 @@
  * |------------------------------------|-----------------------------------------------------------------------|
  * | vector<T> list;                    | ARRAYLIST(T, list, dtor); struct arraylist_list v = list_init(alloc); |
  * | list.push_back(x)                  | list_push_back(&v, x)                                                 |
- * | list.emplace_back()                | list_emplace_back_slot(&v)                                            |
+ * | list.emplace_back()                | list_emplace_back(&v)                                                 |
  * | list[i]                            | *list_at(&v, i)                                                       |
  * | list.size()                        | list_size(&v)                                                         |
  * | list.capacity()                    | list_capacity(&v)                                                     |
@@ -96,7 +96,7 @@
  *
  * Performance:
  * - Use reserve() when you know the approximate final size
- * - Prefer emplace_back_slot() over push_back() for complex types
+ * - Prefer emplace_back() over push_back() for complex types
  * - Use ARRAYLIST (not DYN) when destructor flexibility isn't needed
  * - Pass the arraylist_noop_deinit macro for types that don't need cleanup
  * - Enable LTO for maximum optimization
@@ -120,7 +120,7 @@
  *
  * Supported Operations:
  * - Initialization: init
- * - Insertion: emplace_back_slot, push_back, insert_at
+ * - Insertion: emplace_back, push_back, insert_at
  * - Removal: pop_back, remove_at
  * - Access: at, begin, end, back
  * - Capacity: reserve, shrink_to_fit, size, capacity
@@ -407,7 +407,7 @@ struct arraylist_##name {                                                       
  * Modifiers
  * - enum arraylist_error ARRAYLIST_FN(name, clear)(struct arraylist_##name *self);
  * - enum arraylist_error ARRAYLIST_FN(name, push_back)(struct arraylist_##name *self, T value);
- * - T* ARRAYLIST_FN(name, emplace_back_slot)(struct arraylist_##name *self);
+ * - T* ARRAYLIST_FN(name, emplace_back)(struct arraylist_##name *self);
  * - enum arraylist_error ARRAYLIST_FN(name, pop_back)(struct arraylist_##name *self);
  * - enum arraylist_error ARRAYLIST_FN(name, insert_at)(struct arraylist_##name *self, T value, const size_t index);
  * - enum arraylist_error ARRAYLIST_FN(name, remove_at)(struct arraylist_##name *self, const size_t index);
@@ -660,7 +660,7 @@ ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, push_back
 );                                                                                                                     \
                                                                                                                        \
 /**                                                                                                                    \
- * @brief emplace_back_slot: Returns a slot at the end of the arraylist for an object to be constructed                \
+ * @brief emplace_back: Returns a slot at the end of the arraylist for an object to be constructed                     \
  * @param self Pointer to the arraylist                                                                                \
  * @return Pointer of type T to the slot for a type T to be constructed in place, NULL if self is                      \
  *         null or on any re/alloc failure or buffer overflow possibility                                              \
@@ -670,7 +670,7 @@ ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, push_back
  * @code{.c}                                                                                                           \
  * struct Foo { int a; };                                                                                              \
  * // Initialize ...                                                                                                   \
- * struct Foo *slot = Foo_emplace_back_slot(&mylist);                                                                  \
+ * struct Foo *slot = Foo_emplace_back(&mylist);                                                                       \
  * // Now slot is a valid pointer for writing into a new element. For example:                                         \
  * slot->a = 42; // or call a constructor on slot                                                                      \
  * @endcode                                                                                                            \
@@ -679,7 +679,7 @@ ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, push_back
  *                                                                                                                     \
  * @warning Return should be checked for null before usage                                                             \
  */                                                                                                                    \
-ARRAYLIST_UNUSED static inline T *ARRAYLIST_FN(name, emplace_back_slot)(struct arraylist_##name *self);                \
+ARRAYLIST_UNUSED static inline T *ARRAYLIST_FN(name, emplace_back)(struct arraylist_##name *self);                     \
                                                                                                                        \
 /**                                                                                                                    \
  * @brief pop_back: Removes the last added element                                                                     \
@@ -1123,8 +1123,8 @@ static inline enum arraylist_error ARRAYLIST_FN(name, push_back)(struct arraylis
     return ARRAYLIST_OK;                                                                                               \
 }                                                                                                                      \
                                                                                                                        \
-static inline T *ARRAYLIST_FN(name, emplace_back_slot)(struct arraylist_##name *self) {                                \
-    ARRAYLIST_ENSURE_PTR(self != NULL, "emplace_back_slot(): arraylist is null.");                                     \
+static inline T *ARRAYLIST_FN(name, emplace_back)(struct arraylist_##name *self) {                                     \
+    ARRAYLIST_ENSURE_PTR(self != NULL, "emplace_back(): arraylist is null.");                                          \
     if (self->size >= self->capacity) {                                                                                \
         enum arraylist_error err = ARRAYLIST_FN(name, double_capacity)(self);                                          \
         if (err != ARRAYLIST_OK) {                                                                                     \
@@ -1392,7 +1392,7 @@ struct arraylist_dyn_##name {                                                   
  * Modifiers
  * - enum arraylist_error ARRAYLIST_FN_DYN(name, clear)(struct arraylist_dyn_##name *self);
  * - enum arraylist_error ARRAYLIST_FN_DYN(name, push_back)(struct arraylist_dyn_##name *self, T value);
- * - T* ARRAYLIST_FN_DYN(name, emplace_back_slot)(struct arraylist_dyn_##name *self);
+ * - T* ARRAYLIST_FN_DYN(name, emplace_back)(struct arraylist_dyn_##name *self);
  * - enum arraylist_error ARRAYLIST_FN_DYN(name, pop_back)(struct arraylist_dyn_##name *self);
  * - enum arraylist_error ARRAYLIST_FN_DYN(name, insert_at)(struct arraylist_dyn_##name *self, T value, const size_t index);
  * - enum arraylist_error ARRAYLIST_FN_DYN(name, remove_at)(struct arraylist_dyn_##name *self, const size_t index);
@@ -1655,7 +1655,7 @@ ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN_DYN(name, push_
 );                                                                                                                     \
                                                                                                                        \
 /**                                                                                                                    \
- * @brief emplace_back_slot: Returns a slot at the end of the arraylist for an object to be constructed                \
+ * @brief emplace_back: Returns a slot at the end of the arraylist for an object to be constructed                     \
  * @param self Pointer to the arraylist                                                                                \
  * @return Pointer of type T to the slot for a type T to be constructed in place, NULL if self is                      \
  *         null or on any re/alloc failure or buffer overflow possibility                                              \
@@ -1665,7 +1665,7 @@ ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN_DYN(name, push_
  * @code{.c}                                                                                                           \
  * struct Foo { int a; };                                                                                              \
  * // Initialize ...                                                                                                   \
- * struct Foo *slot = Foo_emplace_back_slot(&mylist);                                                                  \
+ * struct Foo *slot = Foo_emplace_back(&mylist);                                                                       \
  * // Now slot is a valid pointer for writing into a new element. For example:                                         \
  * slot->a = 42; // or call a constructor on slot                                                                      \
  * @endcode                                                                                                            \
@@ -1674,7 +1674,7 @@ ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN_DYN(name, push_
  *                                                                                                                     \
  * @warning Return should be checked for null before usage                                                             \
  */                                                                                                                    \
-ARRAYLIST_UNUSED static inline T *ARRAYLIST_FN_DYN(name, emplace_back_slot)(struct arraylist_dyn_##name *self);        \
+ARRAYLIST_UNUSED static inline T *ARRAYLIST_FN_DYN(name, emplace_back)(struct arraylist_dyn_##name *self);             \
                                                                                                                        \
 /**                                                                                                                    \
  * @brief pop_back: Removes the last added element                                                                     \
@@ -2131,8 +2131,8 @@ static inline enum arraylist_error ARRAYLIST_FN_DYN(name, push_back)(           
     return ARRAYLIST_OK;                                                                                               \
 }                                                                                                                      \
                                                                                                                        \
-static inline T *ARRAYLIST_FN_DYN(name, emplace_back_slot)(struct arraylist_dyn_##name *self) {                        \
-    ARRAYLIST_ENSURE_PTR(self != NULL, "emplace_back_slot(): arraylist is null.");                                     \
+static inline T *ARRAYLIST_FN_DYN(name, emplace_back)(struct arraylist_dyn_##name *self) {                             \
+    ARRAYLIST_ENSURE_PTR(self != NULL, "emplace_back(): arraylist is null.");                                          \
     if (self->size >= self->capacity) {                                                                                \
         enum arraylist_error err = ARRAYLIST_FN_DYN(name, double_capacity)(self);                                      \
         if (err != ARRAYLIST_OK) {                                                                                     \

@@ -106,7 +106,7 @@ int main(void) {
     struct arraylist_np vec_np = np_init(alloc);
     np_reserve(&vec_np, 1000000);
     for (volatile size_t i = 0; i < 1000000; i++) {
-        *np_emplace_back_slot(&vec_np) = non_pod_init_alloc(&alloc, i, i * 3, i / 2);
+        *np_emplace_back(&vec_np) = non_pod_init_alloc(&alloc, i, i * 3, i / 2);
     }
 
     for (volatile size_t i = 0; i < 1000000; i++) {
@@ -193,7 +193,7 @@ int main(void) {
     struct arraylist_dyn_np vec_np = dyn_np_init(alloc, non_pod_deinit_ptr);
     dyn_np_reserve(&vec_np, 1000000);
     for (volatile size_t i = 0; i < 1000000; i++) {
-        *dyn_np_emplace_back_slot(&vec_np) = non_pod_init_alloc(&alloc, i, i * 3, i / 2);
+        *dyn_np_emplace_back(&vec_np) = non_pod_init_alloc(&alloc, i, i * 3, i / 2);
     }
 
     for (volatile size_t i = 0; i < 1000000; i++) {
@@ -460,7 +460,7 @@ int main(void) {
     struct arraylist_np vec_np = np_init(jemalloc_allocator);
     np_reserve(&vec_np, 1000000);
     for (volatile size_t i = 0; i < 1000000; i++) {
-        *np_emplace_back_slot(&vec_np) = non_pod_init_alloc(&jemalloc_allocator, i, i * 3, i / 2);
+        *np_emplace_back(&vec_np) = non_pod_init_alloc(&jemalloc_allocator, i, i * 3, i / 2);
     }
 
     // -- snip --

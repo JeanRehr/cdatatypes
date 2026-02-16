@@ -76,20 +76,20 @@ int main(void) {
     dyn_ints_push_back(&int_vec, 2);
     dyn_ints_push_back(&int_vec, 3);
 
-    // Prefer using emplace_back_slot to construct the object directly into the arraylist
+    // Prefer using emplace_back to construct the object directly into the arraylist
     // It returns a pointer slot to the end of it, must be dereferenced to assign a value
-    *dyn_ints_emplace_back_slot(&int_vec) = 10;
-    *dyn_ints_emplace_back_slot(&int_vec) = 20;
+    *dyn_ints_emplace_back(&int_vec) = 10;
+    *dyn_ints_emplace_back(&int_vec) = 20;
 
     // Insert at an index, this will insert 1 to 10 from index 0 to 9
     for (size_t i = 0; i < 10; ++i) {
         dyn_ints_insert_at(&int_vec, i + 1, i);
     }
 
-    *dyn_ints_emplace_back_slot(&int_vec) = 20;
+    *dyn_ints_emplace_back(&int_vec) = 20;
 
     // may use an additional variable for testing before usage
-    int *slot = dyn_ints_emplace_back_slot(&int_vec);
+    int *slot = dyn_ints_emplace_back(&int_vec);
     assert(slot != NULL);
 
     *slot = 30;
@@ -187,8 +187,8 @@ int main(void) {
     // Swaps arraylists
 
     struct arraylist_dyn_ints other = dyn_ints_init(gpa, NULL);
-    *dyn_ints_emplace_back_slot(&other) = 1000;
-    *dyn_ints_emplace_back_slot(&other) = 2000;
+    *dyn_ints_emplace_back(&other) = 1000;
+    *dyn_ints_emplace_back(&other) = 2000;
 
     // Other size before swap:
     printf("Other arraylist size before swap(): %lu\n", dyn_ints_size(&other));
@@ -228,11 +228,11 @@ int main(void) {
     dyn_ints_clear(&int_vec);
     dyn_ints_reserve(&int_vec, 5);
 
-    *dyn_ints_emplace_back_slot(&int_vec) = 3;
-    *dyn_ints_emplace_back_slot(&int_vec) = 5;
-    *dyn_ints_emplace_back_slot(&int_vec) = 1;
-    *dyn_ints_emplace_back_slot(&int_vec) = -2;
-    *dyn_ints_emplace_back_slot(&int_vec) = 6;
+    *dyn_ints_emplace_back(&int_vec) = 3;
+    *dyn_ints_emplace_back(&int_vec) = 5;
+    *dyn_ints_emplace_back(&int_vec) = 1;
+    *dyn_ints_emplace_back(&int_vec) = -2;
+    *dyn_ints_emplace_back(&int_vec) = 6;
 
     for (size_t i = 0; i < int_vec.size; i++) {
         printf("index %lu value %d\n", i, int_vec.data[i]);

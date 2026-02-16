@@ -81,20 +81,20 @@ int main(void) {
     ints_push_back(&int_vec, 2);
     ints_push_back(&int_vec, 3);
 
-    // Prefer using emplace_back_slot to construct the object directly into the arraylist
+    // Prefer using emplace_back to construct the object directly into the arraylist
     // It returns a pointer slot to the end of it, must be dereferenced to assign a value
-    *ints_emplace_back_slot(&int_vec) = 10;
-    *ints_emplace_back_slot(&int_vec) = 20;
+    *ints_emplace_back(&int_vec) = 10;
+    *ints_emplace_back(&int_vec) = 20;
 
     // Insert at an index, this will insert 1 to 10 from index 0 to 9
     for (size_t i = 0; i < 10; ++i) {
         ints_insert_at(&int_vec, i + 1, i);
     }
 
-    *ints_emplace_back_slot(&int_vec) = 20;
+    *ints_emplace_back(&int_vec) = 20;
 
     // may use an additional variable for testing before usage
-    int *slot = ints_emplace_back_slot(&int_vec);
+    int *slot = ints_emplace_back(&int_vec);
     assert(slot != NULL);
 
     *slot = 30;
@@ -192,8 +192,8 @@ int main(void) {
     // Swaps arraylists
 
     struct arraylist_ints other = ints_init(gpa);
-    *ints_emplace_back_slot(&other) = 1000;
-    *ints_emplace_back_slot(&other) = 2000;
+    *ints_emplace_back(&other) = 1000;
+    *ints_emplace_back(&other) = 2000;
 
     // Other size before swap:
     printf("Other arraylist size before swap(): %lu\n", ints_size(&other));
@@ -233,11 +233,11 @@ int main(void) {
     ints_clear(&int_vec);
     ints_reserve(&int_vec, 5);
 
-    *ints_emplace_back_slot(&int_vec) = 3;
-    *ints_emplace_back_slot(&int_vec) = 5;
-    *ints_emplace_back_slot(&int_vec) = 1;
-    *ints_emplace_back_slot(&int_vec) = -2;
-    *ints_emplace_back_slot(&int_vec) = 6;
+    *ints_emplace_back(&int_vec) = 3;
+    *ints_emplace_back(&int_vec) = 5;
+    *ints_emplace_back(&int_vec) = 1;
+    *ints_emplace_back(&int_vec) = -2;
+    *ints_emplace_back(&int_vec) = 6;
 
     for (size_t i = 0; i < int_vec.size; i++) {
         printf("index %lu value %d\n", i, int_vec.data[i]);
@@ -265,7 +265,7 @@ int main(void) {
     printf("Size of the copied list %lu\n", copied.size);
 
     // Copied is an independent copy and may be changed independently
-    *ints_emplace_back_slot(&copied) = 10000;
+    *ints_emplace_back(&copied) = 10000;
     printf("Size of the copied list after inserting 1 element %lu\n", copied.size);
     printf("Size of the original list again %lu\n", int_vec.size);
 
