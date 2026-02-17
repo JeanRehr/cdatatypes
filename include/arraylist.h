@@ -409,6 +409,7 @@ struct arraylist_##name {                                                       
  * - enum arraylist_error ARRAYLIST_FN(name, push_back)(struct arraylist_##name *self, T value);
  * - T* ARRAYLIST_FN(name, emplace_back)(struct arraylist_##name *self);
  * - enum arraylist_error ARRAYLIST_FN(name, pop_back)(struct arraylist_##name *self);
+ * - T* ARRAYLIST_FN(name, emplace_at)(struct arraylist_##name *self);
  * - enum arraylist_error ARRAYLIST_FN(name, insert_at)(struct arraylist_##name *self, T value, const size_t index);
  * - enum arraylist_error ARRAYLIST_FN(name, remove_at)(struct arraylist_##name *self, const size_t index);
  * - enum arraylist_error ARRAYLIST_FN(name, remove_from_to)(struct arraylist_##name *self, size_t from, size_t to);
@@ -691,6 +692,29 @@ ARRAYLIST_UNUSED static inline T *ARRAYLIST_FN(name, emplace_back)(struct arrayl
  * @note The object will be destructed if a destructor is provided during arraylist init                               \
  */                                                                                                                    \
 ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, pop_back)(struct arraylist_##name *self);       \
+                                                                                                                       \
+/**                                                                                                                    \
+ * @brief emplace_at: Returns a slot at the given index in the arraylist for an object to be constructed               \
+ * @param self Pointer to the arraylist                                                                                \
+ * @param index Index to insert                                                                                        \
+ * @return Pointer of type T to the slot for a type T to be constructed in place, NULL if self is                      \
+ *         null or on any re/alloc failure or buffer overflow possibility                                              \
+ *                                                                                                                     \
+ * Will automatically resize and reallocate capacity, doubling it                                                      \
+ *                                                                                                                     \
+ * @code{.c}                                                                                                           \
+ * struct Foo { int a; };                                                                                              \
+ * // Initialize ...                                                                                                   \
+ * struct Foo *slot = Foo_emplace_at(&mylist, 1);                                                                      \
+ * // Now slot is a valid pointer for writing into a new element. For example:                                         \
+ * slot->a = 42; // or call a constructor on slot                                                                      \
+ * @endcode                                                                                                            \
+ *                                                                                                                     \
+ * For pointer types (T*), returns T** pointing to uninitialized pointer.                                              \
+ *                                                                                                                     \
+ * @warning Return should be checked for null before usage                                                             \
+ */                                                                                                                    \
+ARRAYLIST_UNUSED static inline T *ARRAYLIST_FN(name, emplace_at)(struct arraylist_##name *self, const size_t index);   \
                                                                                                                        \
 /**                                                                                                                    \
  * @brief insert_at: Inserts an element in the given index                                                             \
@@ -1144,6 +1168,25 @@ static inline enum arraylist_error ARRAYLIST_FN(name, pop_back)(struct arraylist
     return ARRAYLIST_OK;                                                                                               \
 }                                                                                                                      \
                                                                                                                        \
+static inline T *ARRAYLIST_FN(name, emplace_at)(struct arraylist_##name *self, const size_t index) {                   \
+    ARRAYLIST_ENSURE(self != NULL, NULL, "emplace_at(): arraylist is null.");                                          \
+    ARRAYLIST_ENSURE(index <= self->size, NULL, "emplace_at(): out-of-bounds access.");                                \
+    if (index == self->size) {                                                                                         \
+        return ARRAYLIST_FN(name, emplace_back)(self);                                                                 \
+    }                                                                                                                  \
+    if (self->size >= self->capacity) {                                                                                \
+        enum arraylist_error err = ARRAYLIST_FN(name, double_capacity)(self);                                          \
+        if (err != ARRAYLIST_OK) {                                                                                     \
+            return NULL;                                                                                               \
+        }                                                                                                              \
+    }                                                                                                                  \
+    for (size_t i = self->size; i > index; --i) {                                                                      \
+        self->data[i] = self->data[i - 1];                                                                             \
+    }                                                                                                                  \
+    ++self->size;                                                                                                      \
+    return &self->data[index];                                                                                         \
+}                                                                                                                      \
+                                                                                                                       \
 static inline enum arraylist_error ARRAYLIST_FN(name, insert_at)(                                                      \
     struct arraylist_##name *self,                                                                                     \
     T value,                                                                                                           \
@@ -1395,6 +1438,7 @@ struct arraylist_dyn_##name {                                                   
  * - T* ARRAYLIST_FN_DYN(name, emplace_back)(struct arraylist_dyn_##name *self);
  * - enum arraylist_error ARRAYLIST_FN_DYN(name, pop_back)(struct arraylist_dyn_##name *self);
  * - enum arraylist_error ARRAYLIST_FN_DYN(name, insert_at)(struct arraylist_dyn_##name *self, T value, const size_t index);
+ * - T* ARRAYLIST_FN_DYN(name, emplace_at)(struct arraylist_dyn_##name *self);
  * - enum arraylist_error ARRAYLIST_FN_DYN(name, remove_at)(struct arraylist_dyn_##name *self, const size_t index);
  * - enum arraylist_error ARRAYLIST_FN_DYN(name, remove_from_to)(struct arraylist_dyn_##name *self, size_t from, size_t to);
  * - enum arraylist_error ARRAYLIST_FN_DYN(name, swap)(struct arraylist_dyn_##name *self, struct arraylist_dyn_##name *other);
@@ -1687,6 +1731,32 @@ ARRAYLIST_UNUSED static inline T *ARRAYLIST_FN_DYN(name, emplace_back)(struct ar
  */                                                                                                                    \
 ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN_DYN(name, pop_back)(                                  \
     struct arraylist_dyn_##name *self                                                                                  \
+);                                                                                                                     \
+                                                                                                                       \
+/**                                                                                                                    \
+ * @brief emplace_at: Returns a slot at the given index in the arraylist for an object to be constructed               \
+ * @param self Pointer to the arraylist                                                                                \
+ * @param index Index to insert                                                                                        \
+ * @return Pointer of type T to the slot for a type T to be constructed in place, NULL if self is                      \
+ *         null or on any re/alloc failure or buffer overflow possibility                                              \
+ *                                                                                                                     \
+ * Will automatically resize and reallocate capacity, doubling it                                                      \
+ *                                                                                                                     \
+ * @code{.c}                                                                                                           \
+ * struct Foo { int a; };                                                                                              \
+ * // Initialize ...                                                                                                   \
+ * struct Foo *slot = Foo_emplace_at(&mylist, 1);                                                                      \
+ * // Now slot is a valid pointer for writing into a new element. For example:                                         \
+ * slot->a = 42; // or call a constructor on slot                                                                      \
+ * @endcode                                                                                                            \
+ *                                                                                                                     \
+ * For pointer types (T*), returns T** pointing to uninitialized pointer.                                              \
+ *                                                                                                                     \
+ * @warning Return should be checked for null before usage                                                             \
+ */                                                                                                                    \
+ARRAYLIST_UNUSED static inline T *ARRAYLIST_FN_DYN(name, emplace_at)(                                                  \
+    struct arraylist_dyn_##name *self,                                                                                 \
+    const size_t index                                                                                                 \
 );                                                                                                                     \
                                                                                                                        \
 /**                                                                                                                    \
@@ -2152,6 +2222,25 @@ static inline enum arraylist_error ARRAYLIST_FN_DYN(name, pop_back)(struct array
     }                                                                                                                  \
     --self->size;                                                                                                      \
     return ARRAYLIST_OK;                                                                                               \
+}                                                                                                                      \
+                                                                                                                       \
+static inline T *ARRAYLIST_FN_DYN(name, emplace_at)(struct arraylist_dyn_##name *self, const size_t index) {           \
+    ARRAYLIST_ENSURE(self != NULL, NULL, "emplace_at(): arraylist is null.");                                          \
+    ARRAYLIST_ENSURE(index <= self->size, NULL, "emplace_at(): out-of-bounds access.");                                \
+    if (index == self->size) {                                                                                         \
+        return ARRAYLIST_FN_DYN(name, emplace_back)(self);                                                             \
+    }                                                                                                                  \
+    if (self->size >= self->capacity) {                                                                                \
+        enum arraylist_error err = ARRAYLIST_FN_DYN(name, double_capacity)(self);                                      \
+        if (err != ARRAYLIST_OK) {                                                                                     \
+            return NULL;                                                                                               \
+        }                                                                                                              \
+    }                                                                                                                  \
+    for (size_t i = self->size; i > index; --i) {                                                                      \
+        self->data[i] = self->data[i - 1];                                                                             \
+    }                                                                                                                  \
+    ++self->size;                                                                                                      \
+    return &self->data[index];                                                                                         \
 }                                                                                                                      \
                                                                                                                        \
 static inline enum arraylist_error ARRAYLIST_FN_DYN(name, insert_at)(                                                  \
