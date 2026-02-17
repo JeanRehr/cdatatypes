@@ -136,10 +136,10 @@ extern "C" {
  * @brief Error codes for the avltree
  */
 enum avltree_error {
-    AVLTREE_OK = 0,            ///< No error
-    AVLTREE_ERR_NULL = -1,     ///< Null pointer
-    AVLTREE_ERR_OVERFLOW = -2, ///< Buffer will overflow
-    AVLTREE_ERR_ALLOC = -3,    ///< Allocation failure
+    AVLTREE_OK = 0,             ///< No error
+    AVLTREE_ERR_NULL = -1,      ///< Null pointer
+    AVLTREE_ERR_DUPLICATE = -2, ///< An attempt to insert a duplicate was made
+    AVLTREE_ERR_ALLOC = -3,     ///< Allocation failure
 };
 
 // clang-format off
