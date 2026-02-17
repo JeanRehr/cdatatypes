@@ -9,6 +9,7 @@
 #define AVLTREE_H
 
 #include <stdbool.h> // For bool, true, false
+#include <string.h>  // For memset()
 
 #include "allocator.h" // For a custom Allocator interface
 
@@ -250,8 +251,17 @@ struct avltree_##name {                                                         
  */                                                                                                                    \
 AVLTREE_UNUSED static inline struct avltree_##name AVLTREE_FN(name, init)(                                             \
     const struct Allocator alloc,                                                                                      \
-    int (*comparator_fn)(const T *a, const T *b)                                                                       \
+    int (*comparator_fn)(T *a, T *b)                                                                                   \
 );                                                                                                                     \
+                                                                                                                       \
+/**                                                                                                                    \
+ * @brief insert: Inserts a new value in the tree                                                                      \
+ * @param self Pointer to the avltree                                                                                  \
+ * @param value Value to be inserted                                                                                   \
+ * @return AVLTREE_OK if insertion was okay, AVLTREE_ERR_NULL if avltree passed was null, or                           \
+ *         AVLTREE_ERR_ALLOC if allocation failure happened                                                            \
+ */                                                                                                                    \
+AVLTREE_UNUSED static inline enum avltree_error AVLTREE_FN(name, insert)(struct avltree_##name *self, T value);        \
 
 /**
  * @def AVLTREE_IMPL(T, name, deinit_fn)
@@ -316,6 +326,19 @@ static inline int AVLTREE_FN(name, node_get_balance_factor)(struct avltree_node_
         return 0;                                                                                                      \
     }                                                                                                                  \
     return AVLTREE_FN(name, node_get_height)(node->left) - AVLTREE_FN(name, node_get_height)(node->right);             \
+}                                                                                                                      \
+                                                                                                                       \
+/**                                                                                                                    \
+ * @private                                                                                                            \
+ * @brief node_allocate: Allocates a new node with the given allocator                                                 \
+ * @param alloc Pointer to the Allocator interface                                                                     \
+ * @return A new zeroed allocated node                                                                                 \
+ * Assumes allocator is never null, as the avltree gets it by value, it's impossible to be null                        \
+ */                                                                                                                    \
+static inline struct avltree_node_##name *AVLTREE_FN(name, node_allocate)(struct Allocator *alloc) {                   \
+    struct avltree_node_##name *new_node = alloc->malloc(sizeof(struct avltree_node_##name), alloc->ctx);              \
+    memset(new_node, 0, sizeof(*new_node));                                                                            \
+    return new_node;                                                                                                   \
 }                                                                                                                      \
                                                                                                                        \
 static inline struct avltree_##name AVLTREE_FN(name, init)(                                                            \
