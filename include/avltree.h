@@ -217,7 +217,7 @@ struct avltree_node_##name {                                                    
 struct avltree_##name {                                                                                                \
     struct Allocator alloc;                                                                                            \
     struct avltree_node_##name *root;                                                                                  \
-    int (*comparator_fn)(const T *a, const T *b);                                                                      \
+    int (*comparator_fn)(T *a, T *b);                                                                                  \
     size_t size;                                                                                                       \
 };
 
@@ -239,7 +239,7 @@ struct avltree_##name {                                                         
  * @param alloc Custom allocator instance, if null, default alloc will be used                                         \
  * @param comparator_fn Custom compare function that knows how to compare two types T                                  \
  *                      Must have the following prototype:                                                             \
- *                      int (*comparator_fn)(const T *a, const T *b);                                                  \
+ *                      int (*comparator_fn)(T *a, T *b);                                                              \
  * @return A zero initialized avltree structure                                                                        \
  *                                                                                                                     \
  * @note It does not allocate                                                                                          \
@@ -320,7 +320,7 @@ static inline int AVLTREE_FN(name, node_get_balance_factor)(struct avltree_node_
                                                                                                                        \
 static inline struct avltree_##name AVLTREE_FN(name, init)(                                                            \
     const struct Allocator alloc,                                                                                      \
-    int (*comparator_fn)(const T *a, const T *b)                                                                       \
+    int (*comparator_fn)(T *a, T *b)                                                                                   \
 ) {                                                                                                                    \
     struct avltree_##name avltree = { 0 };                                                                             \
     avltree.alloc = alloc;                                                                                             \
