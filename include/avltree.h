@@ -284,6 +284,19 @@ AVLTREE_UNUSED static inline enum avltree_error AVLTREE_FN(name, insert)(struct 
 #define AVLTREE_IMPL(T, name, deinit_fn)                                                                               \
 /**                                                                                                                    \
  * @private                                                                                                            \
+ * @brief node_allocate: Allocates a new node with the given allocator                                                 \
+ * @param alloc Pointer to the Allocator interface                                                                     \
+ * @return A new zeroed allocated node                                                                                 \
+ * Assumes allocator is never null, as the avltree gets it by value, it's impossible to be null                        \
+ */                                                                                                                    \
+static inline struct avltree_node_##name *AVLTREE_FN(name, node_allocate)(struct Allocator *alloc) {                   \
+    struct avltree_node_##name *new_node = alloc->malloc(sizeof(struct avltree_node_##name), alloc->ctx);              \
+    memset(new_node, 0, sizeof(*new_node));                                                                            \
+    return new_node;                                                                                                   \
+}                                                                                                                      \
+                                                                                                                       \
+/**                                                                                                                    \
+ * @private                                                                                                            \
  * @brief node_get_height: Gets the height of a node                                                                   \
  * @param node Pointer to the node                                                                                     \
  * @return The height of the node, or zero if node is null                                                             \
@@ -330,15 +343,107 @@ static inline int AVLTREE_FN(name, node_get_balance_factor)(struct avltree_node_
                                                                                                                        \
 /**                                                                                                                    \
  * @private                                                                                                            \
- * @brief node_allocate: Allocates a new node with the given allocator                                                 \
- * @param alloc Pointer to the Allocator interface                                                                     \
- * @return A new zeroed allocated node                                                                                 \
- * Assumes allocator is never null, as the avltree gets it by value, it's impossible to be null                        \
+ * @brief right_rotation: Rotates a node to the right                                                                  \
+ * @param node Pointer to the node                                                                                     \
+ * @return The node that got into the place of the node parameter, the new root of the subtree                         \
+ * Demonstration of the rotation:                                                                                      \
+ *             4                            2                                                                          \
+ *            / \                          / \                                                                         \
+ *           2   6                        1   4                                                                        \
+ *          / \                 =>       /   / \                                                                       \
+ *         1   3                       -1   3   6                                                                      \
+ *        /                                                                                                            \
+ *      -1                                                                                                             \
+ * 4 = node                     | 2 = left_of_node                                                                     \
+ * 6 = node.right (unchanged)   | 4 = left_of_node.right (node)                                                        \
+ * 2 = node.left (left_of_node) | 1 = leftOfNode.left                                                                  \
+ * 1 = left_of_node.left        | 3 = node.left                                                                        \
+ * 3 = left_of_node.right       | 6 = node.right                                                                       \
  */                                                                                                                    \
-static inline struct avltree_node_##name *AVLTREE_FN(name, node_allocate)(struct Allocator *alloc) {                   \
-    struct avltree_node_##name *new_node = alloc->malloc(sizeof(struct avltree_node_##name), alloc->ctx);              \
-    memset(new_node, 0, sizeof(*new_node));                                                                            \
-    return new_node;                                                                                                   \
+static inline struct avltree_node_##name *AVLTREE_FN(name, right_rotation)(struct avltree_node_##name *node) {         \
+    struct avltree_node_##name *left_of_node = node->left; /* 2 the new root of subtree */                             \
+    struct avltree_node_##name *right_of_left_node  = left_of_node->right; /* 3 right of the left of node */           \
+    left_of_node->right = node; /* 4 goes to the right of 2 */                                                         \
+    node->left = right_of_left_node; /* 3 goes to the left of 4 */                                                     \
+    /* Update parents */                                                                                               \
+    if (right_of_left_node != NULL) {                                                                                  \
+        right_of_left_node->parent = node; /* 4 is now parent of 3 */                                                  \
+    }                                                                                                                  \
+    left_of_node->parent = node->parent; /* the parent of 4 is now the parent of 2 */                                  \
+    node->parent = left_of_node; /* 2 is now parent of 4 */                                                            \
+    /* Set heights */                                                                                                  \
+    AVLTREE_FN(name, node_set_height)(node);                                                                           \
+    AVLTREE_FN(name, node_set_height)(left_of_node);                                                                   \
+    return left_of_node; /* return the new root */                                                                     \
+}                                                                                                                      \
+                                                                                                                       \
+/**                                                                                                                    \
+ * @private                                                                                                            \
+ * @brief left_rotation: Rotates a node to the left                                                                    \
+ * @param node Pointer to the node                                                                                     \
+ * @return The node that got into the place of the node parameter, the new root of the subtree                         \
+ * Demonstration of the rotation:                                                                                      \
+ *             4                          6                                                                            \
+ *            / \                        / \                                                                           \
+ *           2   6                      4   8                                                                          \
+ *              / \           =>       / \   \                                                                         \
+ *             5   8                  2   5   9                                                                        \
+ *                  \                                                                                                  \
+ *                   9                                                                                                 \
+ * 4 = node                     | 6 = rightOfNode                                                                      \
+ * 6 = node.right (rightOfNode) | 4 = leftOfNode.right (node)                                                          \
+ * 2 = node.left (unchanged)    | 8 = leftOfNode.left                                                                  \
+ * 5 = rightOfNode.left         | 2 = node.left                                                                        \
+ * 8 = rightOfNode.right        | 5 = node.right                                                                       \
+ */                                                                                                                    \
+static inline struct avltree_node_##name *AVLTREE_FN(name, left_rotation)(struct avltree_node_##name *node) {          \
+    struct avltree_node_##name *right_of_node = node->right; /* 6 the new root of subtree */                           \
+    struct avltree_node_##name *left_of_right_node  = right_of_node->left; /* 5 left of the right of node */           \
+    right_of_node->left = node; /* 4 goes to the right of 6 */                                                         \
+    node->right = left_of_right_node; /* 5 goes to the right of 4 */                                                   \
+    /* Update parents */                                                                                               \
+    if (left_of_right_node != NULL) {                                                                                  \
+        left_of_right_node->parent = node; /* 4 is now parent of 5 */                                                  \
+    }                                                                                                                  \
+    right_of_node->parent = node->parent; /* the parent of 4 is now the parent of 6 */                                 \
+    node->parent = right_of_node; /* 6 is now parent of 4 */                                                           \
+    /* Set heights */                                                                                                  \
+    AVLTREE_FN(name, node_set_height)(node);                                                                           \
+    AVLTREE_FN(name, node_set_height)(right_of_node);                                                                  \
+    return right_of_node; /* return the new root */                                                                    \
+}                                                                                                                      \
+                                                                                                                       \
+/**                                                                                                                    \
+ * @private                                                                                                            \
+ * @brief rebalance: balances a node                                                                                   \
+ * @param node Pointer to the node                                                                                     \
+ * @return The balanced node, may be different than the original parameter                                             \
+ */                                                                                                                    \
+static inline struct avltree_node_##name *AVLTREE_FN(name, rebalance)(struct avltree_node_##name *node) {              \
+    int balance_factor = AVLTREE_FN(name, node_get_balance_factor)(node);                                              \
+    /* Left Left case */                                                                                               \
+    if (balance_factor > 1 && AVLTREE_FN(name, node_get_balance_factor)(node->left) >= 0) {                            \
+        /* Perform a right rotation on node */                                                                         \
+        return AVLTREE_FN(name, right_rotation)(node);                                                                 \
+    }                                                                                                                  \
+    /* Right Right case */                                                                                             \
+    if (balance_factor < -1 && AVLTREE_FN(name, node_get_balance_factor)(node->right) <= 0) {                          \
+        /* Perform a left rotation on node */                                                                          \
+        return AVLTREE_FN(name, left_rotation)(node);                                                                  \
+    }                                                                                                                  \
+    /* Left Right case */                                                                                              \
+    if (balance_factor > 1 && AVLTREE_FN(name, node_get_balance_factor)(node->left) < 0) {                             \
+        /* Perform a left rotation on node->left and then right rotation on node */                                    \
+        node->left = AVLTREE_FN(name, left_rotation)(node->left);                                                      \
+        return AVLTREE_FN(name, right_rotation)(node);                                                                 \
+    }                                                                                                                  \
+    /* Right Left case */                                                                                              \
+    if (balance_factor < -1 && AVLTREE_FN(name, node_get_balance_factor)(node->right) > 0) {                           \
+        /* Perform a right rotation on node->right and then left rotation on node */                                   \
+        node->right = AVLTREE_FN(name, right_rotation)(node->right);                                                   \
+        return AVLTREE_FN(name, left_rotation)(node);                                                                  \
+    }                                                                                                                  \
+    return node;                                                                                                       \
 }                                                                                                                      \
                                                                                                                        \
 static inline struct avltree_##name AVLTREE_FN(name, init)(                                                            \
@@ -361,7 +466,7 @@ static inline enum avltree_error AVLTREE_FN(name, insert)(struct avltree_##name 
         insert_pos = current;                                                                                          \
         if (self->comparator_fn(&value, &current->data) < 0) {                                                         \
             current = current->left;                                                                                   \
-        } else if (self->comparator_fn(&value, &insert_pos->data) > 0) {                                               \
+        } else if (self->comparator_fn(&value, &current->data) > 0) {                                                  \
             current = current->right;                                                                                  \
         } else {                                                                                                       \
             return AVLTREE_ERR_DUPLICATE;                                                                              \
@@ -377,13 +482,13 @@ static inline enum avltree_error AVLTREE_FN(name, insert)(struct avltree_##name 
     } else {                                                                                                           \
         if (self->comparator_fn(&value, &insert_pos->data) < 0) {                                                      \
             insert_pos->left = new_node;                                                                               \
-            insert_pos->left->parent = insert_pos;                                                                     \
+            new_node->parent = insert_pos;                                                                             \
         } else {                                                                                                       \
             insert_pos->right = new_node;                                                                              \
-            insert_pos->right->parent = insert_pos;                                                                    \
+            new_node->parent = insert_pos;                                                                             \
         }                                                                                                              \
     }                                                                                                                  \
-    /* Update height, going up through parent pointer */                                                               \
+    /* Update height and rebalance, going up through parent pointer */                                                 \
     struct avltree_node_##name *current_insert_pos = new_node;                                                         \
     while (current_insert_pos != NULL) {                                                                               \
         AVLTREE_FN(name, node_set_height)(current_insert_pos);                                                         \
