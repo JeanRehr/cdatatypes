@@ -1294,6 +1294,118 @@ void test_arraylist_dyn_remove_from_to_value(void)
     printf("test arraylist dyn remove_from_to value-type passed\n");
 }
 
+void test_arraylist_dyn_emplace_at_value(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d list = dyn_non_pods_d_init(gpa, non_pod_deinit);
+
+    // Insert at end when list is empty (index == size): behaves like emplace_back
+    size_t s0 = list.size;
+    struct non_pod *slot_end0 = dyn_non_pods_d_emplace_at(&list, s0);
+    assert(slot_end0 != NULL);
+    *slot_end0 = non_pod_init("foo", 1, 1.1f, &gpa);
+
+    assert(list.size == 1);
+    assert(list.capacity == 1);
+    assert(strcmp(list.data[0].objname, "foo") == 0);
+    assert(list.data[0].a && *list.data[0].a == 1);
+
+    // Insert at end again, capacity doubling
+    size_t s1 = list.size;
+    struct non_pod *slot_end1 = dyn_non_pods_d_emplace_at(&list, s1);
+    assert(slot_end1 != NULL);
+    *slot_end1 = non_pod_init("bar", 2, 2.2f, &gpa);
+
+    assert(list.size == 2);
+    assert(list.capacity == 2);
+    assert(strcmp(list.data[1].objname, "bar") == 0);
+    assert(list.data[1].a && *list.data[1].a == 2);
+
+    // Insert at end again to trigger capacity growth to 4
+    struct non_pod *slot_end2 = dyn_non_pods_d_emplace_at(&list, list.size);
+    assert(slot_end2 != NULL);
+    *slot_end2 = non_pod_init("baz", 3, 3.3f, &gpa);
+    assert(list.size == 3);
+    assert(list.capacity == 4);
+
+    // Insert at beginning (index 0): shifts existing elements right
+    struct non_pod *slot_begin = dyn_non_pods_d_emplace_at(&list, 0);
+    assert(slot_begin != NULL);
+    *slot_begin = non_pod_init("begin", 100, 100.0f, &gpa);
+
+    assert(list.size == 4);
+    assert(strcmp(list.data[0].objname, "begin") == 0);
+    assert(strcmp(list.data[1].objname, "foo") == 0);
+    assert(strcmp(list.data[2].objname, "bar") == 0);
+    assert(strcmp(list.data[3].objname, "baz") == 0);
+
+    // Insert in the middle (index 2): shifts tail elements right
+    struct non_pod *slot_mid = dyn_non_pods_d_emplace_at(&list, 2);
+    assert(slot_mid != NULL);
+    *slot_mid = non_pod_init("mid", 777, 7.77f, &gpa);
+
+    assert(list.size == 5);
+    assert(strcmp(list.data[0].objname, "begin") == 0);
+    assert(strcmp(list.data[1].objname, "foo") == 0);
+    assert(strcmp(list.data[2].objname, "mid") == 0);
+    assert(strcmp(list.data[3].objname, "bar") == 0);
+    assert(strcmp(list.data[4].objname, "baz") == 0);
+
+    // Writing through returned slot is reflected in the data array
+    *slot_mid->a = 123;
+    assert(*list.data[2].a == 123);
+
+    // Capacity growth and note about pointer stability: do not hold element pointers across growth
+    size_t old_capacity = list.capacity;
+    struct non_pod *old_first = &list.data[0];
+    for (size_t i = 0; i < 20; ++i) {
+        struct non_pod *slot_grow = dyn_non_pods_d_emplace_at(&list, list.size); // append via emplace_at
+        assert(slot_grow != NULL);
+        char name[16];
+        snprintf(name, sizeof name, "slot%lu", i);
+        *slot_grow = non_pod_init(name, (int)(1000 + i), 500.5f + (float)i, &gpa);
+    }
+    assert(list.capacity > old_capacity);
+    // After potential realloc, previous element pointers may be invalid or relocated
+    assert(old_first != &list.data[0]);
+
+    // Verify earlier values are preserved
+    assert(strcmp(list.data[0].objname, "begin") == 0);
+    assert(strcmp(list.data[1].objname, "foo") == 0);
+    assert(strcmp(list.data[3].objname, "bar") == 0);
+    assert(strcmp(list.data[4].objname, "baz") == 0);
+
+    // Null list
+    assert(dyn_non_pods_d_emplace_at(NULL, 0) == NULL);
+
+    // Out-of-bounds index (index > size)
+    struct arraylist_dyn_non_pods_d list_oob = dyn_non_pods_d_init(gpa, non_pod_deinit);
+    assert(list_oob.size == 0);
+    assert(dyn_non_pods_d_emplace_at(&list_oob, 1) == NULL);
+    assert(list_oob.size == 0);
+    dyn_non_pods_d_deinit(&list_oob);
+
+    // Allocation failure
+    struct arraylist_dyn_non_pods_d allocfail = dyn_non_pods_d_init(allocator_get_failling_alloc(), non_pod_deinit);
+    // Attempt insert at end of empty list; should fail and return NULL
+    assert(dyn_non_pods_d_emplace_at(&allocfail, 0) == NULL);
+    dyn_non_pods_d_deinit(&allocfail);
+
+    // Buffer overflow scenario
+    struct arraylist_dyn_non_pods_d over = dyn_non_pods_d_init(gpa, non_pod_deinit);
+    // Simulate near-overflow capacity; doubling would exceed SIZE_MAX
+    over.capacity = SIZE_MAX / (2 * sizeof(struct non_pod)) + 1;
+    over.size = over.capacity;
+    assert(dyn_non_pods_d_emplace_at(&over, over.size) == NULL); // insert at end triggers growth check
+    // Also test inserting not at end (still triggers growth due to size >= capacity)
+    assert(dyn_non_pods_d_emplace_at(&over, 0) == NULL);
+
+    // Clean up
+    dyn_non_pods_d_deinit(&list);
+    dyn_non_pods_d_deinit(&over);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn emplace_at value-type passed\n");
+}
+
 void test_arraylist_dyn_at_value(void) {
     struct Allocator gpa = allocator_get_default();
     struct arraylist_dyn_non_pods_d list = dyn_non_pods_d_init(gpa, non_pod_deinit);
@@ -3556,7 +3668,119 @@ void test_arraylist_dyn_emplace_back_ptr(void) {
     printf("test arraylist dyn emplace_back pointer-type passed\n");
 }
 
-void test_arraylist_dyn_insert_at_pointer(void) {
+void test_arraylist_dyn_emplace_at_ptr(void) {
+    struct Allocator gpa = allocator_get_default();
+    struct arraylist_dyn_non_pods_d_ptr list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+
+    // Insert at end when list is empty (index == size): behaves like emplace_back
+    size_t s0 = list.size;
+    struct non_pod **slot_end0 = dyn_non_pods_d_ptr_emplace_at(&list, s0);
+    assert(slot_end0 != NULL);
+    *slot_end0 = non_pod_init_ptr("foo", 1, 1.1f, &gpa);
+
+    assert(list.size == 1);
+    assert(list.capacity == 1);
+    assert(strcmp(list.data[0]->objname, "foo") == 0);
+    assert(list.data[0]->a && *list.data[0]->a == 1);
+
+    // Insert at end again, capacity doubling
+    size_t s1 = list.size;
+    struct non_pod **slot_end1 = dyn_non_pods_d_ptr_emplace_at(&list, s1);
+    assert(slot_end1 != NULL);
+    *slot_end1 = non_pod_init_ptr("bar", 2, 2.2f, &gpa);
+
+    assert(list.size == 2);
+    assert(list.capacity == 2);
+    assert(strcmp(list.data[1]->objname, "bar") == 0);
+    assert(list.data[1]->a && *list.data[1]->a == 2);
+
+    // Insert at end again to trigger capacity growth to 4
+    struct non_pod **slot_end2 = dyn_non_pods_d_ptr_emplace_at(&list, list.size);
+    assert(slot_end2 != NULL);
+    *slot_end2 = non_pod_init_ptr("baz", 3, 3.3f, &gpa);
+    assert(list.size == 3);
+    assert(list.capacity == 4);
+
+    // Insert at beginning (index 0): shifts existing elements right
+    struct non_pod **slot_begin = dyn_non_pods_d_ptr_emplace_at(&list, 0);
+    assert(slot_begin != NULL);
+    *slot_begin = non_pod_init_ptr("begin", 100, 100.0f, &gpa);
+
+    assert(list.size == 4);
+    assert(strcmp(list.data[0]->objname, "begin") == 0);
+    assert(strcmp(list.data[1]->objname, "foo") == 0);
+    assert(strcmp(list.data[2]->objname, "bar") == 0);
+    assert(strcmp(list.data[3]->objname, "baz") == 0);
+
+    // Insert in the middle (index 2): shifts tail elements right
+    struct non_pod **slot_mid = dyn_non_pods_d_ptr_emplace_at(&list, 2);
+    assert(slot_mid != NULL);
+    *slot_mid = non_pod_init_ptr("mid", 777, 7.77f, &gpa);
+
+    assert(list.size == 5);
+    assert(strcmp(list.data[0]->objname, "begin") == 0);
+    assert(strcmp(list.data[1]->objname, "foo") == 0);
+    assert(strcmp(list.data[2]->objname, "mid") == 0);
+    assert(strcmp(list.data[3]->objname, "bar") == 0);
+    assert(strcmp(list.data[4]->objname, "baz") == 0);
+
+    // Writing through returned slot is reflected in the data array
+    *(*slot_mid)->a = 123;
+    assert(*list.data[2]->a == 123);
+
+    // Capacity growth and note about pointer stability: do not hold element pointers across growth
+    size_t old_capacity = list.capacity;
+    struct non_pod **old_first = &list.data[0];
+    for (size_t i = 0; i < 20; ++i) {
+        struct non_pod **slot_grow = dyn_non_pods_d_ptr_emplace_at(&list, list.size); // append via emplace_at
+        assert(slot_grow != NULL);
+        char name[16];
+        snprintf(name, sizeof name, "slot%lu", i);
+        *slot_grow = non_pod_init_ptr(name, (int)(1000 + i), 500.5f + (float)i, &gpa);
+    }
+    assert(list.capacity > old_capacity);
+    // After potential realloc, previous element pointers may be invalid or relocated
+    assert(old_first != &list.data[0]);
+
+    // Verify earlier values are preserved
+    assert(strcmp(list.data[0]->objname, "begin") == 0);
+    assert(strcmp(list.data[1]->objname, "foo") == 0);
+    assert(strcmp(list.data[3]->objname, "bar") == 0);
+    assert(strcmp(list.data[4]->objname, "baz") == 0);
+
+    // Null list
+    assert(dyn_non_pods_d_ptr_emplace_at(NULL, 0) == NULL);
+
+    // Out-of-bounds index (index > size)
+    struct arraylist_dyn_non_pods_d_ptr list_oob = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+    assert(list_oob.size == 0);
+    assert(dyn_non_pods_d_ptr_emplace_at(&list_oob, 1) == NULL);
+    assert(list_oob.size == 0);
+    dyn_non_pods_d_ptr_deinit(&list_oob);
+
+    // Allocation failure
+    struct arraylist_dyn_non_pods_d_ptr allocfail = dyn_non_pods_d_ptr_init(allocator_get_failling_alloc(), non_pod_deinit_ptr);
+    // Attempt insert at end of empty list; should fail and return NULL
+    assert(dyn_non_pods_d_ptr_emplace_at(&allocfail, 0) == NULL);
+    dyn_non_pods_d_ptr_deinit(&allocfail);
+
+    // Buffer overflow scenario
+    struct arraylist_dyn_non_pods_d_ptr over = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
+    // Simulate near-overflow capacity; doubling would exceed SIZE_MAX
+    over.capacity = SIZE_MAX / (2 * sizeof(struct non_pod *)) + 1;
+    over.size = over.capacity;
+    assert(dyn_non_pods_d_ptr_emplace_at(&over, over.size) == NULL); // insert at end triggers growth check
+    // Also test inserting not at end (still triggers growth due to size >= capacity)
+    assert(dyn_non_pods_d_ptr_emplace_at(&over, 0) == NULL);
+
+    // Clean up
+    dyn_non_pods_d_ptr_deinit(&list);
+    dyn_non_pods_d_ptr_deinit(&over);
+    assert(global_destructor_counter_arraylist == 0);
+    printf("test arraylist dyn emplace_at pointer-type passed\n");
+}
+
+void test_arraylist_dyn_insert_at_ptr(void) {
     struct Allocator gpa = allocator_get_default();
     struct arraylist_dyn_non_pods_d_ptr list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
 
@@ -5976,6 +6200,7 @@ int main(void) {
     test_arraylist_dyn_shrink_to_fit_value();
     test_arraylist_dyn_push_back_value();
     test_arraylist_dyn_emplace_back_value();
+    test_arraylist_dyn_emplace_at_value();
     test_arraylist_dyn_insert_at_value();
     test_arraylist_dyn_pop_back_value();
     test_arraylist_dyn_remove_at_value();
@@ -6004,7 +6229,8 @@ int main(void) {
     test_arraylist_dyn_shrink_to_fit_ptr();
     test_arraylist_dyn_push_back_ptr();
     test_arraylist_dyn_emplace_back_ptr();
-    test_arraylist_dyn_insert_at_pointer();
+    test_arraylist_dyn_emplace_at_ptr();
+    test_arraylist_dyn_insert_at_ptr();
     test_arraylist_dyn_pop_back_ptr();
     test_arraylist_dyn_remove_at_ptr();
     test_arraylist_dyn_remove_from_to_ptr();
