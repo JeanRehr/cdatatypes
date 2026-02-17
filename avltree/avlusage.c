@@ -35,11 +35,5 @@ int main(void) {
     assert(ints_tree_insert(&tree, 13) == AVLTREE_ERR_DUPLICATE);
     inorder(tree.root);
 
-    printf("height of 10 = %ld\n", tree.root->height);
-    printf("height of 9 = %ld\n", tree.root->left->height);
-    printf("height of 8 = %ld\n", tree.root->left->left->height);
-    printf("height of 11 = %ld\n", tree.root->right->height);
-    printf("height of 12 = %ld\n", tree.root->right->right->height);
-    printf("height of 13 = %ld\n", tree.root->right->right->right->height);
     return 0;
 }
