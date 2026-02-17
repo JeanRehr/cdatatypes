@@ -351,6 +351,46 @@ static inline struct avltree_##name AVLTREE_FN(name, init)(                     
     avltree.comparator_fn = comparator_fn;                                                                             \
     return avltree;                                                                                                    \
 }                                                                                                                      \
+                                                                                                                       \
+static inline enum avltree_error AVLTREE_FN(name, insert)(struct avltree_##name *self, T value) {                      \
+    AVLTREE_ENSURE(self != NULL, AVLTREE_ERR_NULL, "insert(): self is null.");                                         \
+    /* Search valid position */                                                                                        \
+    struct avltree_node_##name *current = self->root;                                                                  \
+    struct avltree_node_##name *insert_pos = NULL;                                                                     \
+    while (current != NULL) {                                                                                          \
+        insert_pos = current;                                                                                          \
+        if (self->comparator_fn(&value, &current->data) < 0) {                                                         \
+            current = current->left;                                                                                   \
+        } else if (self->comparator_fn(&value, &insert_pos->data) > 0) {                                               \
+            current = current->right;                                                                                  \
+        } else {                                                                                                       \
+            return AVLTREE_ERR_DUPLICATE;                                                                              \
+        }                                                                                                              \
+    }                                                                                                                  \
+    /* Allocate new node */                                                                                            \
+    struct avltree_node_##name *new_node = AVLTREE_FN(name, node_allocate)(&self->alloc);                              \
+    AVLTREE_ENSURE(new_node != NULL, AVLTREE_ERR_ALLOC, "insert(): allocation of new node failed.");                   \
+    new_node->data = value;                                                                                            \
+    /* Insert into position */                                                                                         \
+    if (insert_pos == NULL) {                                                                                          \
+        self->root = new_node;                                                                                         \
+    } else {                                                                                                           \
+        if (self->comparator_fn(&value, &insert_pos->data) < 0) {                                                      \
+            insert_pos->left = new_node;                                                                               \
+            insert_pos->left->parent = insert_pos;                                                                     \
+        } else {                                                                                                       \
+            insert_pos->right = new_node;                                                                              \
+            insert_pos->right->parent = insert_pos;                                                                    \
+        }                                                                                                              \
+    }                                                                                                                  \
+    /* Update height, going up through parent pointer */                                                               \
+    struct avltree_node_##name *current_insert_pos = new_node;                                                         \
+    while (current_insert_pos != NULL) {                                                                               \
+        AVLTREE_FN(name, node_set_height)(current_insert_pos);                                                         \
+        current_insert_pos = current_insert_pos->parent;                                                               \
+    }                                                                                                                  \
+    return AVLTREE_OK;                                                                                                 \
+}                                                                                                                      \
 
 // clang-format on
 
