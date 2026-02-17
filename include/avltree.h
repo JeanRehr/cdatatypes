@@ -491,8 +491,23 @@ static inline enum avltree_error AVLTREE_FN(name, insert)(struct avltree_##name 
     /* Update height and rebalance, going up through parent pointer */                                                 \
     struct avltree_node_##name *current_insert_pos = new_node;                                                         \
     while (current_insert_pos != NULL) {                                                                               \
-        AVLTREE_FN(name, node_set_height)(current_insert_pos);                                                         \
-        current_insert_pos = current_insert_pos->parent;                                                               \
+        struct avltree_node_##name *old_parent = current_insert_pos->parent;                                           \
+        struct avltree_node_##name *new_subroot = AVLTREE_FN(name, rebalance)(current_insert_pos);                     \
+        /* If subtree root changed, update the parent pointer or the tree root */                                      \
+        if (new_subroot != current_insert_pos) {                                                                       \
+            if (old_parent == NULL) {                                                                                  \
+                /* current_insert_pos was the tree root, new root of the tree is then new_subroot */                   \
+                self->root = new_subroot;                                                                              \
+            } else if (old_parent->left == current_insert_pos) {                                                       \
+                /* the old node was the left child of its parent, set old_parent->left to the new root */              \
+                old_parent->left = new_subroot;                                                                        \
+            } else {                                                                                                   \
+                /* the old node was the right child of its parent, set old_parent->right to the new root */            \
+                old_parent->right = new_subroot;                                                                       \
+            }                                                                                                          \
+        }                                                                                                              \
+        /* move up */                                                                                                  \
+        current_insert_pos = old_parent;                                                                               \
     }                                                                                                                  \
     return AVLTREE_OK;                                                                                                 \
 }                                                                                                                      \
