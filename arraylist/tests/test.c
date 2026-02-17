@@ -844,7 +844,9 @@ void test_arraylist_emplace_at_value(void) {
     }
     assert(list.capacity > old_capacity);
     // After potential realloc, previous element pointers may be invalid or relocated
-    assert(old_first != &list.data[0]);
+    // Sometimes this may pass sometimes may not
+    (void)old_first;
+    // assert(old_first != &list.data[0]);
 
     // Verify earlier values are preserved
     assert(strcmp(list.data[0].objname, "begin") == 0);
