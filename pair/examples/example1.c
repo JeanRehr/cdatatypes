@@ -9,10 +9,12 @@
 
 // If wanted to use asserts:
 // #define PAIR_USE_ASSERT 1
-// If wanted to use the arraylist_ prefix:
+// If wanted to use the pair_ prefix:
 // #define PAIR_USE_PREFIX
 #include "pair.h"
 
+// If wanted to use the arraylist_ prefix:
+// #define ARRAYLIST_USE_PREFIX
 #include "arraylist.h"
 
 // dinamically allocate strings
