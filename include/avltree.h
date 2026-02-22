@@ -270,6 +270,27 @@ AVLTREE_UNUSED static inline enum avltree_error AVLTREE_FN(name, insert)(struct 
  * @return                                                                                                             \
  */                                                                                                                    \
 AVLTREE_UNUSED static inline enum avltree_error AVLTREE_FN(name, remove)(struct avltree_##name *self, T value);        \
+                                                                                                                       \
+/**                                                                                                                    \
+ * @brief emplace: Inserts in-place a new value in the tree                                                            \
+ * @param self Pointer to the avltree                                                                                  \
+ * @param construct_fn Function that knows how to construct type T                                                     \
+ *                     Must have the following prototype:                                                              \
+ *                     int (*construct_fn)(T *location, void *args, struct Allocator *alloc);                          \
+ *                     It must return 0 for success, < 0 or > 0 is treated as a failure.                               \
+ *                     The constructor used will and must be the same as the tree allocator                            \
+ * @param args Pointer to the arguments used in the constructor function                                               \
+ * @return Pointer of type T to the already constructed node value inplace, or NULL on failure                         \
+ *         (self is null, constructor_fn is null, duplicate, allocation failure or constructor failure)                \
+ *                                                                                                                     \
+ * @warning construct_fn function must return 0 for success, < 0 or > 0 for failure,                                   \
+ *          and the allocator must be the same as the tree allocator                                                   \
+ */                                                                                                                    \
+AVLTREE_UNUSED static inline T *AVLTREE_FN(name, emplace)(                                                             \
+    struct avltree_##name *self,                                                                                       \
+    int (*construct_fn)(T *location, void *args, struct Allocator *alloc),                                             \
+    void *args                                                                                                         \
+);                                                                                                                     \
 
 /**
  * @def AVLTREE_IMPL(T, name, deinit_fn)
@@ -618,6 +639,72 @@ static inline enum avltree_error AVLTREE_FN(name, remove)(struct avltree_##name 
     }                                                                                                                  \
     self->size -= 1;                                                                                                   \
     return AVLTREE_OK;                                                                                                 \
+}                                                                                                                      \
+                                                                                                                       \
+static inline T *AVLTREE_FN(name, emplace)(                                                                            \
+    struct avltree_##name *self,                                                                                       \
+    int (*construct_fn)(T *location, void *args, struct Allocator *alloc),                                             \
+    void *args                                                                                                         \
+) {                                                                                                                    \
+    AVLTREE_ENSURE_PTR(self != NULL, "emplace(): self is null.");                                                      \
+    AVLTREE_ENSURE_PTR(construct_fn != NULL, "emplace(): constructor function is null.");                              \
+    /* Allocate new node */                                                                                            \
+    struct avltree_node_##name *new_node = AVLTREE_FN(name, node_allocate)(&self->alloc);                              \
+    AVLTREE_ENSURE_PTR(new_node != NULL, "emplace(): allocation of new node failed.");                                 \
+    /* Construct new node inplace */                                                                                   \
+    if (construct_fn(&new_node->data, args, &self->alloc) != 0) {                                                      \
+        return NULL;                                                                                                   \
+    }                                                                                                                  \
+    /* Search valid position using the constructed value */                                                            \
+    struct avltree_node_##name *current = self->root;                                                                  \
+    struct avltree_node_##name *insert_pos = NULL;                                                                     \
+    while (current != NULL) {                                                                                          \
+        int cmp = self->comparator_fn(&new_node->data, &current->data);                                                \
+        insert_pos = current;                                                                                          \
+        if (cmp < 0) {                                                                                                 \
+            current = current->left;                                                                                   \
+        } else if (cmp > 0) {                                                                                          \
+            current = current->right;                                                                                  \
+        } else {                                                                                                       \
+            deinit_fn(&new_node->data, &self->alloc);                                                                  \
+            self->alloc.free(new_node, sizeof(*new_node), self->alloc.ctx);                                            \
+            return NULL;                                                                                               \
+        }                                                                                                              \
+    }                                                                                                                  \
+    /* Insert node into position */                                                                                    \
+    if (insert_pos == NULL) {                                                                                          \
+        self->root = new_node;                                                                                         \
+    } else {                                                                                                           \
+        if (self->comparator_fn(&new_node->data, &insert_pos->data) < 0) {                                             \
+            insert_pos->left = new_node;                                                                               \
+        } else {                                                                                                       \
+            insert_pos->right = new_node;                                                                              \
+        }                                                                                                              \
+        new_node->parent = insert_pos;                                                                                 \
+    }                                                                                                                  \
+    /* Update height and rebalance, going up through parent pointer */                                                 \
+    struct avltree_node_##name *current_insert_pos = new_node;                                                         \
+    while (current_insert_pos != NULL) {                                                                               \
+        struct avltree_node_##name *old_parent = current_insert_pos->parent;                                           \
+        struct avltree_node_##name *new_subroot = AVLTREE_FN(name, rebalance)(current_insert_pos);                     \
+        /* If subtree root changed, update the parent pointer or the tree root */                                      \
+        if (new_subroot != current_insert_pos) {                                                                       \
+            if (old_parent == NULL) {                                                                                  \
+                /* current_insert_pos was the tree root, new root of the tree is then new_subroot */                   \
+                self->root = new_subroot;                                                                              \
+            } else if (old_parent->left == current_insert_pos) {                                                       \
+                /* the old node was the left child of its parent, set old_parent->left to the new root */              \
+                old_parent->left = new_subroot;                                                                        \
+            } else {                                                                                                   \
+                /* the old node was the right child of its parent, set old_parent->right to the new root */            \
+                old_parent->right = new_subroot;                                                                       \
+            }                                                                                                          \
+        }                                                                                                              \
+        /* move up */                                                                                                  \
+        current_insert_pos = old_parent;                                                                               \
+    }                                                                                                                  \
+    self->size += 1;                                                                                                   \
+    return &new_node->data;                                                                                            \
 }                                                                                                                      \
 
 // clang-format on
