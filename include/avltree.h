@@ -534,6 +534,7 @@ static inline enum avltree_error AVLTREE_FN(name, insert)(struct avltree_##name 
         /* move up */                                                                                                  \
         current_insert_pos = old_parent;                                                                               \
     }                                                                                                                  \
+    self->size += 1;                                                                                                   \
     return AVLTREE_OK;                                                                                                 \
 }                                                                                                                      \
                                                                                                                        \
@@ -586,6 +587,7 @@ static inline enum avltree_error AVLTREE_FN(name, remove)(struct avltree_##name 
             successor->parent->right = child;                                                                          \
         }                                                                                                              \
         start = successor->parent;                                                                                     \
+        deinit_fn(&successor->data, &self->alloc);                                                                     \
         self->alloc.free(successor, sizeof(*successor), self->alloc.ctx);                                              \
     }                                                                                                                  \
     /* rebalance, going up through the first ancestor */                                                               \
