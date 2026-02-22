@@ -1357,6 +1357,7 @@ void test_arraylist_dyn_emplace_at_value(void) {
     // Capacity growth and note about pointer stability: do not hold element pointers across growth
     size_t old_capacity = list.capacity;
     struct non_pod *old_first = &list.data[0];
+    (void)old_first;
     for (size_t i = 0; i < 20; ++i) {
         struct non_pod *slot_grow = dyn_non_pods_d_emplace_at(&list, list.size); // append via emplace_at
         assert(slot_grow != NULL);
