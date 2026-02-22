@@ -37,6 +37,15 @@ static inline struct non_pod non_pod_init(int data, struct Allocator *alloc) {
     return np;
 }
 
+static inline int non_pod_construct(struct non_pod *self, void *args, struct Allocator *alloc) {
+    self->data = alloc->malloc(sizeof(*self->data), alloc->ctx);
+    if (self->data) {
+        *self->data = *(int*)args;
+        return 0;
+    }
+    return -1;
+}
+
 static inline void non_pod_deinit(struct non_pod *np, struct Allocator *alloc) {
     if (!np) {
         return;
@@ -108,6 +117,27 @@ int main(void) {
     np_remove(&nptree, key);
 
     k = 13;
+    key.data = &k;
+    np_remove(&nptree, key);
+
+    puts("");
+
+    int value = 10;
+    np_emplace(&nptree, non_pod_construct, &value);
+    value = 20;
+    np_emplace(&nptree, non_pod_construct, &value);
+    value = 50;
+    np_emplace(&nptree, non_pod_construct, &value);
+
+    inorder_np(nptree.root);
+
+    k = 10;
+    key.data = &k;
+    np_remove(&nptree, key);
+    k = 20;
+    key.data = &k;
+    np_remove(&nptree, key);
+    k = 50;
     key.data = &k;
     np_remove(&nptree, key);
 
