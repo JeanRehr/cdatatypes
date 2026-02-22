@@ -15,6 +15,8 @@
 
 // If wanted to use the arraylist_ prefix:
 // #define ARRAYLIST_USE_PREFIX
+// If wanted to use asserts:
+// #define ARRAYLIST_USE_ASSERT 1
 #include "arraylist.h"
 
 // dinamically allocate strings
