@@ -26,13 +26,14 @@ int main(void) {
     struct Allocator alloc = allocator_get_default();
     struct avltree_ints_tree tree = ints_tree_init(alloc, comparator_ints);
 
-    ints_tree_insert(&tree, 10);
-    ints_tree_insert(&tree, 9);
-    ints_tree_insert(&tree, 8);
-    ints_tree_insert(&tree, 11);
     ints_tree_insert(&tree, 12);
     ints_tree_insert(&tree, 13);
-    assert(ints_tree_insert(&tree, 13) == AVLTREE_ERR_DUPLICATE);
+    ints_tree_insert(&tree, 9);
+    ints_tree_insert(&tree, 10);
+    inorder(tree.root);
+    puts("");
+    ints_tree_remove(&tree, 10);
+    ints_tree_remove(&tree, 9);
     inorder(tree.root);
 
     return 0;
