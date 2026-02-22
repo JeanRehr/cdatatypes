@@ -479,10 +479,11 @@ static inline enum avltree_error AVLTREE_FN(name, insert)(struct avltree_##name 
     struct avltree_node_##name *current = self->root;                                                                  \
     struct avltree_node_##name *insert_pos = NULL;                                                                     \
     while (current != NULL) {                                                                                          \
+        int cmp = self->comparator_fn(&value, &current->data);                                                         \
         insert_pos = current;                                                                                          \
-        if (self->comparator_fn(&value, &current->data) < 0) {                                                         \
+        if (cmp < 0) {                                                                                                 \
             current = current->left;                                                                                   \
-        } else if (self->comparator_fn(&value, &current->data) > 0) {                                                  \
+        } else if (cmp > 0) {                                                                                          \
             current = current->right;                                                                                  \
         } else {                                                                                                       \
             return AVLTREE_ERR_DUPLICATE;                                                                              \
