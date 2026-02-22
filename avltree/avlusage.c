@@ -13,13 +13,58 @@ int comparator_ints(int *a, int *b) {
     return 1;
 }
 
-void inorder(struct avltree_node_ints_tree *root) {
+void inorder_ints(struct avltree_node_ints_tree *root) {
     if (root == NULL) {
         return;
     }
-    inorder(root->left);
+    inorder_ints(root->left);
     printf("%d\n", root->data);
-    inorder(root->right);
+    inorder_ints(root->right);
+}
+
+struct non_pod {
+    int *data;
+};
+
+static inline struct non_pod non_pod_init(int data, struct Allocator *alloc) {
+    struct non_pod np = { 0 };
+
+    np.data = alloc->malloc(sizeof(int), alloc->ctx);
+    if (np.data) {
+        *np.data = data;
+    }
+
+    return np;
+}
+
+static inline void non_pod_deinit(struct non_pod *np, struct Allocator *alloc) {
+    if (!np) {
+        return;
+    }
+
+    if (np->data) {
+        alloc->free(np->data, sizeof(*np->data), alloc->ctx);
+        np->data = NULL;
+    }
+}
+
+int comparator_non_pod(struct non_pod *a, struct non_pod *b) {
+    if (*a->data == *b->data) return 0;
+    if (*a->data < *b->data) return -1;
+    return 1;
+}
+
+AVLTREE_TYPE(struct non_pod, np)
+AVLTREE_DECL(struct non_pod, np)
+AVLTREE_IMPL(struct non_pod, np, non_pod_deinit)
+
+void inorder_np(struct avltree_node_np *root) {
+    if (root == NULL) {
+        return;
+    }
+    inorder_np(root->left);
+    printf("%d\n", *root->data.data);
+    inorder_np(root->right);
 }
 
 int main(void) {
@@ -30,11 +75,41 @@ int main(void) {
     ints_tree_insert(&tree, 13);
     ints_tree_insert(&tree, 9);
     ints_tree_insert(&tree, 10);
-    inorder(tree.root);
+    inorder_ints(tree.root);
     puts("");
     ints_tree_remove(&tree, 10);
     ints_tree_remove(&tree, 9);
-    inorder(tree.root);
+    ints_tree_remove(&tree, 13);
+    ints_tree_remove(&tree, 12);
+    inorder_ints(tree.root);
+
+    struct avltree_np nptree = np_init(alloc, comparator_non_pod);
+
+    np_insert(&nptree, non_pod_init(10, &nptree.alloc));
+
+    struct non_pod tmp2 = non_pod_init(11, &nptree.alloc);
+    np_insert(&nptree, tmp2);
+
+    np_insert(&nptree, non_pod_init(12, &nptree.alloc));
+    np_insert(&nptree, non_pod_init(13, &nptree.alloc));
+
+    inorder_np(nptree.root);
+
+    // Temporary key to remove here, as there was no intermediate variable to insert there
+    int k = 10;
+    struct non_pod key = { .data = &k };
+    np_remove(&nptree, key);
+
+    // most of the times in real world usage, tmp2 here would be out of scope, so using a temp struct to remove is better
+    np_remove(&nptree, tmp2);
+
+    k = 12;
+    key.data = &k;
+    np_remove(&nptree, key);
+
+    k = 13;
+    key.data = &k;
+    np_remove(&nptree, key);
 
     return 0;
 }
