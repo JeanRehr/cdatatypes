@@ -446,6 +446,22 @@ static inline struct avltree_node_##name *AVLTREE_FN(name, rebalance)(struct avl
     return node;                                                                                                       \
 }                                                                                                                      \
                                                                                                                        \
+/**                                                                                                                    \
+ * @private                                                                                                            \
+ * @brief minimum: gets the minimum of a subtree from the given node                                                   \
+ * @param node Pointer to the node                                                                                     \
+ * @return The minimum of the subtree or NULL if node is null                                                          \
+ */                                                                                                                    \
+static inline struct avltree_node_##name *AVLTREE_FN(name, minimum)(struct avltree_node_##name *node) {                \
+    if (node == NULL) {                                                                                                \
+        return NULL;                                                                                                   \
+    }                                                                                                                  \
+    while (node->left != NULL) {                                                                                       \
+        node = node->left;                                                                                             \
+    }                                                                                                                  \
+    return node;                                                                                                       \
+}                                                                                                                      \
+                                                                                                                       \
 static inline struct avltree_##name AVLTREE_FN(name, init)(                                                            \
     const struct Allocator alloc,                                                                                      \
     int (*comparator_fn)(T *a, T *b)                                                                                   \
