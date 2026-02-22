@@ -262,6 +262,14 @@ AVLTREE_UNUSED static inline struct avltree_##name AVLTREE_FN(name, init)(      
  *         AVLTREE_ERR_ALLOC if allocation failure happened                                                            \
  */                                                                                                                    \
 AVLTREE_UNUSED static inline enum avltree_error AVLTREE_FN(name, insert)(struct avltree_##name *self, T value);        \
+                                                                                                                       \
+/**                                                                                                                    \
+ * @brief remove: Removes a value from the tree                                                                        \
+ * @param self Pointer to the avltree                                                                                  \
+ * @param value Value to be removed                                                                                    \
+ * @return                                                                                                             \
+ */                                                                                                                    \
+AVLTREE_UNUSED static inline enum avltree_error AVLTREE_FN(name, remove)(struct avltree_##name *self, T value);        \
 
 /**
  * @def AVLTREE_IMPL(T, name, deinit_fn)
@@ -525,6 +533,82 @@ static inline enum avltree_error AVLTREE_FN(name, insert)(struct avltree_##name 
         }                                                                                                              \
         /* move up */                                                                                                  \
         current_insert_pos = old_parent;                                                                               \
+    }                                                                                                                  \
+    return AVLTREE_OK;                                                                                                 \
+}                                                                                                                      \
+                                                                                                                       \
+static inline enum avltree_error AVLTREE_FN(name, remove)(struct avltree_##name *self, T value) {                      \
+    AVLTREE_ENSURE(self != NULL, AVLTREE_ERR_NULL, "remove(): self is null.");                                         \
+    /* Search value to remove position */                                                                              \
+    struct avltree_node_##name *del_pos = self->root;                                                                  \
+    while (del_pos != NULL) {                                                                                          \
+        int cmp = self->comparator_fn(&value, &del_pos->data);                                                         \
+        if (cmp < 0) {                                                                                                 \
+            del_pos = del_pos->left;                                                                                   \
+        } else if (cmp > 0) {                                                                                          \
+            del_pos = del_pos->right;                                                                                  \
+        } else {                                                                                                       \
+            break;                                                                                                     \
+        }                                                                                                              \
+    }                                                                                                                  \
+    /* Not found */                                                                                                    \
+    if (del_pos == NULL) {                                                                                             \
+        return AVLTREE_OK;                                                                                             \
+    }                                                                                                                  \
+    struct avltree_node_##name *start = NULL; /* ancestor to begin rebalancing from */                                 \
+    if (del_pos->left == NULL || del_pos->right == NULL) { /* node with only 1 or no child */                          \
+        struct avltree_node_##name *child = (del_pos->left != NULL) ? del_pos->left : del_pos->right;                  \
+        /* relink parent or root to child */                                                                           \
+        if (del_pos->parent == NULL) {                                                                                 \
+            /* deletion position is root */                                                                            \
+            self->root = child;                                                                                        \
+        } else if (del_pos->parent->left == del_pos) {                                                                 \
+            /* if del_pos->parent->left is equal to deletion position, move child to it */                             \
+            del_pos->parent->left = child;                                                                             \
+        } else {                                                                                                       \
+            del_pos->parent->right = child;                                                                            \
+        }                                                                                                              \
+        if (child != NULL) {                                                                                           \
+            child->parent = del_pos->parent;                                                                           \
+        }                                                                                                              \
+        start = del_pos->parent;                                                                                       \
+        self->alloc.free(del_pos, sizeof(*del_pos), self->alloc.ctx);                                                  \
+    } else { /* two children node, remove successor */                                                                 \
+        struct avltree_node_##name *successor = AVLTREE_FN(name, minimum)(del_pos->right);                             \
+        /* just swap the data, do not need to free the del_pos node itself */                                          \
+        del_pos->data = successor->data;                                                                               \
+        /* successor has no left child, but may have a right child */                                                  \
+        struct avltree_node_##name *child = successor->right;                                                          \
+        /* relink successor parents to child */                                                                        \
+        if (successor->parent->left == successor) {                                                                    \
+            successor->parent->left = child;                                                                           \
+        } else {                                                                                                       \
+            successor->parent->right = child;                                                                          \
+        }                                                                                                              \
+        start = successor->parent;                                                                                     \
+        self->alloc.free(successor, sizeof(*successor), self->alloc.ctx);                                              \
+    }                                                                                                                  \
+    /* rebalance, going up through the first ancestor */                                                               \
+    struct avltree_node_##name *node = start;                                                                          \
+    while (node != NULL) {                                                                                             \
+        struct avltree_node_##name *old_parent = node->parent;                                                         \
+        struct avltree_node_##name *new_subroot = AVLTREE_FN(name, rebalance)(node);                                   \
+        /* If subtree root changed, update the parent pointer or the tree root */                                      \
+        if (new_subroot != node) {                                                                                     \
+            if (old_parent == NULL) {                                                                                  \
+                new_subroot->parent = old_parent; /* ensure parent pointer on the new root */                          \
+                /* node was the tree root, new root of the tree is then new_subroot */                                 \
+                self->root = new_subroot;                                                                              \
+            } else if (old_parent->left == node) {                                                                     \
+                /* the old node was the left child of its parent, set old_parent->left to the new root */              \
+                old_parent->left = new_subroot;                                                                        \
+            } else {                                                                                                   \
+                /* the old node was the right child of its parent, set old_parent->right to the new root */            \
+                old_parent->right = new_subroot;                                                                       \
+            }                                                                                                          \
+        }                                                                                                              \
+        /* move up */                                                                                                  \
+        node = old_parent;                                                                                             \
     }                                                                                                                  \
     return AVLTREE_OK;                                                                                                 \
 }                                                                                                                      \
