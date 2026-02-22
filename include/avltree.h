@@ -573,11 +573,14 @@ static inline enum avltree_error AVLTREE_FN(name, remove)(struct avltree_##name 
             child->parent = del_pos->parent;                                                                           \
         }                                                                                                              \
         start = del_pos->parent;                                                                                       \
+        deinit_fn(&del_pos->data, &self->alloc);                                                                       \
         self->alloc.free(del_pos, sizeof(*del_pos), self->alloc.ctx);                                                  \
     } else { /* two children node, remove successor */                                                                 \
         struct avltree_node_##name *successor = AVLTREE_FN(name, minimum)(del_pos->right);                             \
         /* just swap the data, do not need to free the del_pos node itself */                                          \
+        T tmp = del_pos->data;                                                                                         \
         del_pos->data = successor->data;                                                                               \
+        successor->data = tmp;                                                                                         \
         /* successor has no left child, but may have a right child */                                                  \
         struct avltree_node_##name *child = successor->right;                                                          \
         /* relink successor parents to child */                                                                        \
@@ -612,6 +615,7 @@ static inline enum avltree_error AVLTREE_FN(name, remove)(struct avltree_##name 
         /* move up */                                                                                                  \
         node = old_parent;                                                                                             \
     }                                                                                                                  \
+    self->size -= 1;                                                                                                   \
     return AVLTREE_OK;                                                                                                 \
 }                                                                                                                      \
 
