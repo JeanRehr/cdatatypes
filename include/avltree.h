@@ -509,11 +509,10 @@ static inline enum avltree_error AVLTREE_FN(name, insert)(struct avltree_##name 
     } else {                                                                                                           \
         if (self->comparator_fn(&value, &insert_pos->data) < 0) {                                                      \
             insert_pos->left = new_node;                                                                               \
-            new_node->parent = insert_pos;                                                                             \
         } else {                                                                                                       \
             insert_pos->right = new_node;                                                                              \
-            new_node->parent = insert_pos;                                                                             \
         }                                                                                                              \
+        new_node->parent = insert_pos;                                                                                 \
     }                                                                                                                  \
     /* Update height and rebalance, going up through parent pointer */                                                 \
     struct avltree_node_##name *current_insert_pos = new_node;                                                         \
