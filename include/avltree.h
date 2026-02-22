@@ -299,7 +299,9 @@ AVLTREE_UNUSED static inline enum avltree_error AVLTREE_FN(name, remove)(struct 
  */                                                                                                                    \
 static inline struct avltree_node_##name *AVLTREE_FN(name, node_allocate)(struct Allocator *alloc) {                   \
     struct avltree_node_##name *new_node = alloc->malloc(sizeof(struct avltree_node_##name), alloc->ctx);              \
-    memset(new_node, 0, sizeof(*new_node));                                                                            \
+    if (new_node) {                                                                                                    \
+        memset(new_node, 0, sizeof(*new_node));                                                                        \
+    }                                                                                                                  \
     return new_node;                                                                                                   \
 }                                                                                                                      \
                                                                                                                        \
