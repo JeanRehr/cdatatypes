@@ -456,7 +456,7 @@ ARRAYLIST_UNUSED static inline struct arraylist_##name ARRAYLIST_FN(name, init)(
  *       these fields as needed, if using arraylist of pointers to T, deep_clone_fn must allocate                      \
  *       a new T and, if it contains member to pointers, allocate/copy as needed                                       \
  *                                                                                                                     \
- * @warning If self is NULL or deep_clone_fn if NULL then it returns a zero-initialized struct,                        \
+ * @warning If self is NULL or deep_clone_fn is NULL then it returns a zero-initialized struct,                        \
  *          if asserts are enabled then it crashes                                                                     \
  * @warning If an error happens during reserve capacity, then a zero-initialized struct is returned,                   \
             asserts will crash on reserve                                                                              \
