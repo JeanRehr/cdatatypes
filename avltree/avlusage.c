@@ -134,12 +134,8 @@ int main(void) {
     k = 10;
     key.data = &k;
     np_remove(&nptree, key);
-    k = 20;
-    key.data = &k;
-    np_remove(&nptree, key);
-    k = 50;
-    key.data = &k;
-    np_remove(&nptree, key);
+
+    np_deinit(&nptree);
 
     return 0;
 }
