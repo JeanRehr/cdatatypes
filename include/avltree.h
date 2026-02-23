@@ -356,7 +356,7 @@ AVLTREE_UNUSED static inline T *AVLTREE_FN(name, emplace)(                      
  * Assumes allocator is never null, as the avltree gets it by value, it's impossible to be null                        \
  */                                                                                                                    \
 static inline struct avltree_node_##name *AVLTREE_FN(name, node_allocate)(struct Allocator *alloc) {                   \
-    struct avltree_node_##name *new_node = alloc->malloc(sizeof(struct avltree_node_##name), alloc->ctx);              \
+    struct avltree_node_##name *new_node = AVLTREE_CAST(T)alloc->malloc(sizeof(*new_node), alloc->ctx);                \
     if (new_node) {                                                                                                    \
         memset(new_node, 0, sizeof(*new_node));                                                                        \
     }                                                                                                                  \
