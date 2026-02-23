@@ -246,7 +246,6 @@ struct avltree_##name {                                                         
  * @note It does not allocate                                                                                          \
  *                                                                                                                     \
  * @warning The comparator function must not be null, otherwise this data structure will not work.                     \
- *          An assert happens regardless.                                                                              \
  * @warning Call name##deinit() when done.                                                                             \
  */                                                                                                                    \
 AVLTREE_UNUSED static inline struct avltree_##name AVLTREE_FN(name, init)(                                             \
