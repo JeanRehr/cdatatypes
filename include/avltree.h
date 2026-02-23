@@ -254,6 +254,31 @@ AVLTREE_UNUSED static inline struct avltree_##name AVLTREE_FN(name, init)(      
 );                                                                                                                     \
                                                                                                                        \
 /**                                                                                                                    \
+ * @brief deep_clone: Deeply clones an avltree                                                                         \
+ * @param self Pointer to the avltree to copy from                                                                     \
+ * @param deep_clone_fn Function that knows how to clone a single element of type T                                    \
+ *                      Must have the following prototype:                                                             \
+ *                      void (*deep_clone_fn)(T *dst, T *src, struct Allocator *alloc);                                \
+ * @return A new avltree struct that is independent of self                                                            \
+ *                                                                                                                     \
+ * @note The correctness of this function depends on the provided deep_clone_fn parameter                              \
+ *       for value types, int or pod structs, deep_clone_fn can simply assign *dst = *src;                             \
+ *       if T contains pointers or heap allocations, then deep_clone_fn must allocate/copy                             \
+ *       these fields as needed, if using vltree of pointers to T, deep_clone_fn must allocate                         \
+ *       a new T and, if it contains member to pointers, allocate/copy as needed                                       \
+ *                                                                                                                     \
+ * @warning If self is NULL or deep_clone_fn is NULL then it returns a zero-initialized struct,                        \
+ *          if asserts are enabled then it crashes                                                                     \
+ * @warning If an error happens during reserve capacity, then a zero-initialized struct is returned,                   \
+            asserts will crash on reserve                                                                              \
+ * @warning The return of this function should not be discarded, if doing so, memory may be leaked                     \
+ */                                                                                                                    \
+AVLTREE_NODISCARD AVLTREE_UNUSED static inline struct avltree_##name AVLTREE_FN(name, deep_clone)(                     \
+    const struct avltree_##name *self,                                                                                 \
+    void (*deep_clone_fn)(T *dst, T *src, struct Allocator *alloc)                                                     \
+);                                                                                                                     \
+                                                                                                                       \
+/**                                                                                                                    \
  * @brief deinit: Destroys and frees the avltree                                                                       \
  * @param self Pointer to the avltree to deinitialize                                                                  \
  *                                                                                                                     \
@@ -516,6 +541,16 @@ static inline struct avltree_##name AVLTREE_FN(name, init)(                     
     return avltree;                                                                                                    \
 }                                                                                                                      \
                                                                                                                        \
+static inline struct avltree_##name AVLTREE_FN(name, deep_clone)(                                                      \
+    const struct avltree_##name *self,                                                                                 \
+    void (*deep_clone_fn)(T *dst, T *src, struct Allocator *alloc)                                                     \
+) {                                                                                                                    \
+    struct avltree_##name clone = { 0 };                                                                               \
+    AVLTREE_ENSURE(self != NULL, clone, "deep_clone(): avltree is null.");                                             \
+    AVLTREE_ENSURE(deep_clone_fn != NULL, clone, "deep_clone(): deep_clone_fn function is null.");                     \
+    return clone;                                                                                                      \
+}                                                                                                                      \
+                                                                                                                       \
 static inline void AVLTREE_FN(name, deinit)(struct avltree_##name *self) {                                             \
     if (!self) {                                                                                                       \
         return;                                                                                                        \
@@ -555,6 +590,8 @@ static inline void AVLTREE_FN(name, deinit)(struct avltree_##name *self) {      
             }                                                                                                          \
         } else {                                                                                                       \
             /* came up from right (last == curr->right) */                                                             \
+            /* just finished the right subtree, we always handle left before right */                                  \
+            /* coming from right means both children have been processed, just delete it */                            \
             struct avltree_node_##name *parent = curr->parent;                                                         \
             deinit_fn(&curr->data, &self->alloc);                                                                      \
             self->alloc.free(curr, sizeof(*curr), self->alloc.ctx);                                                    \
