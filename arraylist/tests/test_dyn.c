@@ -2357,7 +2357,7 @@ void test_arraylist_dyn_capacity_value(void) {
     assert(dyn_non_pods_d_capacity(&list) == prev_size);
 
     // After clear: capacity unchanged, but size is zero
-    err = dyn_non_pods_d_clear(&list);
+    dyn_non_pods_d_clear(&list);
     assert(dyn_non_pods_d_capacity(&list) == prev_size);
 
     // After shrink_to_fit on empty (size=0): capacity is 0 and data is NULL
@@ -2985,19 +2985,17 @@ void test_arraylist_dyn_clear_value(void) {
 
     // On a freshly initialized list
     assert(list.size == 0 && list.data == NULL);
-    enum arraylist_error err = dyn_non_pods_d_clear(&list);
-    assert(err == ARRAYLIST_OK); // No crash
+    dyn_non_pods_d_clear(&list);
     assert(list.size == 0);
     assert(list.capacity == 0);
 
-    // On NULL pointer: no crash, returns OK
-    assert(dyn_non_pods_d_clear(NULL) == ARRAYLIST_OK);
+    // On NULL pointer: no crash
+    dyn_non_pods_d_clear(NULL);
 
     // After adding a single element, then clearing
     *dyn_non_pods_d_emplace_back(&list) = non_pod_init("A", 1, 2.0, &gpa);
     assert(list.size == 1 && global_destructor_counter_arraylist == 1);
-    err = dyn_non_pods_d_clear(&list);
-    assert(err == ARRAYLIST_OK);
+    dyn_non_pods_d_clear(&list);
     assert(list.size == 0);
     assert(list.capacity >= 1);
     assert(global_destructor_counter_arraylist == 0);
@@ -3011,8 +3009,7 @@ void test_arraylist_dyn_clear_value(void) {
     assert(global_destructor_counter_arraylist == N);
     size_t prev_cap = list.capacity;
     void *prev_data = list.data;
-    err = dyn_non_pods_d_clear(&list);
-    assert(err == ARRAYLIST_OK);
+    dyn_non_pods_d_clear(&list);
     assert(list.size == 0);
     assert(list.capacity == prev_cap);
     assert(list.data == prev_data);
@@ -3024,15 +3021,13 @@ void test_arraylist_dyn_clear_value(void) {
     assert(global_destructor_counter_arraylist == 1);
 
     // clear again after clear: safe (idempotent)
-    err = dyn_non_pods_d_clear(&list);
-    assert(err == ARRAYLIST_OK);
+    dyn_non_pods_d_clear(&list);
     assert(list.size == 0);
     assert(global_destructor_counter_arraylist == 0);
     assert(list.capacity == prev_cap);
 
     // clear on an already empty but allocated list is a no-op
-    err = dyn_non_pods_d_clear(&list);
-    assert(err == ARRAYLIST_OK);
+    dyn_non_pods_d_clear(&list);
     assert(list.size == 0);
     assert(list.capacity == prev_cap);
 
@@ -3045,33 +3040,28 @@ void test_arraylist_dyn_clear_value(void) {
     assert(global_destructor_counter_arraylist == 5);
 
     // clear, then shrink_to_fit to test buffer freed/compaction after clear
-    err = dyn_non_pods_d_clear(&list);
-    assert(err == ARRAYLIST_OK);
+    dyn_non_pods_d_clear(&list);
     assert(list.size == 0);
     assert(global_destructor_counter_arraylist == 0);
-    err = dyn_non_pods_d_shrink_to_fit(&list);
-    assert(err == ARRAYLIST_OK);
+    dyn_non_pods_d_shrink_to_fit(&list);
     // Now storage should be truly freed
     assert(list.data == NULL || list.capacity == 0);
     // Clear on a totally fresh buffer returns OK
-    err = dyn_non_pods_d_clear(&list);
+    dyn_non_pods_d_clear(&list);
 
     // After deinit, clear is safe (does not crash, acts as no-op)
     dyn_non_pods_d_deinit(&list);
-    err = dyn_non_pods_d_clear(&list); // Shouldn't crash, size should be zero, return OK.
-    assert(err == ARRAYLIST_OK);
+    dyn_non_pods_d_clear(&list); // Shouldn't crash, size should be zero, return OK.
 
     // Multiple calls to clear after deinit: no op
-    err = dyn_non_pods_d_clear(&list);
-    assert(err == ARRAYLIST_OK);
+    dyn_non_pods_d_clear(&list);
 
     // Re-init, add, clear
     list = dyn_non_pods_d_init(gpa, non_pod_deinit);
     *dyn_non_pods_d_emplace_back(&list) = non_pod_init("ZZ", 9, 9.9, &gpa);
     assert(list.size == 1);
     assert(global_destructor_counter_arraylist == 1);
-    err = dyn_non_pods_d_clear(&list);
-    assert(err == ARRAYLIST_OK);
+    dyn_non_pods_d_clear(&list);
     assert(list.size == 0 && global_destructor_counter_arraylist == 0);
 
     // Large list, destructor call count and buffer preserved
@@ -3080,8 +3070,7 @@ void test_arraylist_dyn_clear_value(void) {
     }
     assert(list.size == 40 && global_destructor_counter_arraylist == 40);
     prev_cap = list.capacity; prev_data = list.data;
-    err = dyn_non_pods_d_clear(&list);
-    assert(err == ARRAYLIST_OK);
+    dyn_non_pods_d_clear(&list);
     assert(list.size == 0 && list.capacity == prev_cap && list.data == prev_data);
     assert(global_destructor_counter_arraylist == 0);
 
@@ -5254,7 +5243,7 @@ void test_arraylist_dyn_capacity_ptr(void) {
     assert(dyn_non_pods_d_ptr_capacity(&list) == prev_size);
 
     // After clear: capacity unchanged, but size is zero
-    err = dyn_non_pods_d_ptr_clear(&list);
+    dyn_non_pods_d_ptr_clear(&list);
     assert(dyn_non_pods_d_ptr_capacity(&list) == prev_size);
 
     // After shrink_to_fit on empty (size=0): capacity is 0 and data is NULL
@@ -5882,19 +5871,18 @@ void test_arraylist_dyn_clear_ptr(void) {
 
     // On a freshly initialized list
     assert(list.size == 0 && list.data == NULL);
-    enum arraylist_error err = dyn_non_pods_d_ptr_clear(&list);
-    assert(err == ARRAYLIST_OK); // No crash
+    // No crash
+    dyn_non_pods_d_ptr_clear(&list);
     assert(list.size == 0);
     assert(list.capacity == 0);
 
-    // On NULL pointer: no crash, returns OK
-    assert(dyn_non_pods_d_ptr_clear(NULL) == ARRAYLIST_OK);
+    // On NULL pointer: no crash
+    dyn_non_pods_d_ptr_clear(NULL);
 
     // After adding a single element, then clearing
     *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("A", 1, 2.0, &gpa);
     assert(list.size == 1 && global_destructor_counter_arraylist == 1);
-    err = dyn_non_pods_d_ptr_clear(&list);
-    assert(err == ARRAYLIST_OK);
+    dyn_non_pods_d_ptr_clear(&list);
     assert(list.size == 0);
     assert(list.capacity >= 1);
     assert(global_destructor_counter_arraylist == 0);
@@ -5908,8 +5896,7 @@ void test_arraylist_dyn_clear_ptr(void) {
     assert(global_destructor_counter_arraylist == N);
     size_t prev_cap = list.capacity;
     void *prev_data = list.data;
-    err = dyn_non_pods_d_ptr_clear(&list);
-    assert(err == ARRAYLIST_OK);
+    dyn_non_pods_d_ptr_clear(&list);
     assert(list.size == 0);
     assert(list.capacity == prev_cap);
     assert(list.data == prev_data);
@@ -5921,15 +5908,13 @@ void test_arraylist_dyn_clear_ptr(void) {
     assert(global_destructor_counter_arraylist == 1);
 
     // clear again after clear: safe (idempotent)
-    err = dyn_non_pods_d_ptr_clear(&list);
-    assert(err == ARRAYLIST_OK);
+    dyn_non_pods_d_ptr_clear(&list);
     assert(list.size == 0);
     assert(global_destructor_counter_arraylist == 0);
     assert(list.capacity == prev_cap);
 
     // clear on an already empty but allocated list is a no-op
-    err = dyn_non_pods_d_ptr_clear(&list);
-    assert(err == ARRAYLIST_OK);
+    dyn_non_pods_d_ptr_clear(&list);
     assert(list.size == 0);
     assert(list.capacity == prev_cap);
 
@@ -5942,33 +5927,28 @@ void test_arraylist_dyn_clear_ptr(void) {
     assert(global_destructor_counter_arraylist == 5);
 
     // clear, then shrink_to_fit to test buffer freed/compaction after clear
-    err = dyn_non_pods_d_ptr_clear(&list);
-    assert(err == ARRAYLIST_OK);
+    dyn_non_pods_d_ptr_clear(&list);
     assert(list.size == 0);
     assert(global_destructor_counter_arraylist == 0);
-    err = dyn_non_pods_d_ptr_shrink_to_fit(&list);
-    assert(err == ARRAYLIST_OK);
+    dyn_non_pods_d_ptr_shrink_to_fit(&list);
     // Now storage should be truly freed
     assert(list.data == NULL || list.capacity == 0);
     // Clear on a totally fresh buffer returns OK
-    err = dyn_non_pods_d_ptr_clear(&list);
+    dyn_non_pods_d_ptr_clear(&list);
 
     // After deinit, clear is safe (does not crash, acts as no-op)
     dyn_non_pods_d_ptr_deinit(&list);
-    err = dyn_non_pods_d_ptr_clear(&list); // Shouldn't crash, size should be zero, return OK.
-    assert(err == ARRAYLIST_OK);
+    dyn_non_pods_d_ptr_clear(&list); // Shouldn't crash, size should be zero, return OK.
 
     // Multiple calls to clear after deinit: no op
-    err = dyn_non_pods_d_ptr_clear(&list);
-    assert(err == ARRAYLIST_OK);
+    dyn_non_pods_d_ptr_clear(&list);
 
     // Re-init, add, clear
     list = dyn_non_pods_d_ptr_init(gpa, non_pod_deinit_ptr);
     *dyn_non_pods_d_ptr_emplace_back(&list) = non_pod_init_ptr("ZZ", 9, 9.9, &gpa);
     assert(list.size == 1);
     assert(global_destructor_counter_arraylist == 1);
-    err = dyn_non_pods_d_ptr_clear(&list);
-    assert(err == ARRAYLIST_OK);
+    dyn_non_pods_d_ptr_clear(&list);
     assert(list.size == 0 && global_destructor_counter_arraylist == 0);
 
     // Large list, destructor call count and buffer preserved
@@ -5977,8 +5957,7 @@ void test_arraylist_dyn_clear_ptr(void) {
     }
     assert(list.size == 40 && global_destructor_counter_arraylist == 40);
     prev_cap = list.capacity; prev_data = list.data;
-    err = dyn_non_pods_d_ptr_clear(&list);
-    assert(err == ARRAYLIST_OK);
+    dyn_non_pods_d_ptr_clear(&list);
     assert(list.size == 0 && list.capacity == prev_cap && list.data == prev_data);
     assert(global_destructor_counter_arraylist == 0);
 

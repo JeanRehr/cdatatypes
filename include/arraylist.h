@@ -405,7 +405,7 @@ struct arraylist_##name {                                                       
  * - T* ARRAYLIST_FN(name, end)(const struct arraylist_##name *self);
  *
  * Modifiers
- * - enum arraylist_error ARRAYLIST_FN(name, clear)(struct arraylist_##name *self);
+ * - void ARRAYLIST_FN(name, clear)(struct arraylist_##name *self);
  * - enum arraylist_error ARRAYLIST_FN(name, push_back)(struct arraylist_##name *self, T value);
  * - T* ARRAYLIST_FN(name, emplace_back)(struct arraylist_##name *self);
  * - enum arraylist_error ARRAYLIST_FN(name, pop_back)(struct arraylist_##name *self);
@@ -635,14 +635,13 @@ ARRAYLIST_UNUSED static inline T *ARRAYLIST_FN(name, end)(const struct arraylist
 /**                                                                                                                    \
  * @brief clear: Clears the arraylist's data                                                                           \
  * @param self Pointer to the arraylist                                                                                \
- * @return ARRAYLIST_ERR_NULL in case of NULL being passed, or ARRAYLIST_OK                                            \
  *                                                                                                                     \
  * It does not free the arraylist itself and does not alter the capacity, only sets its size to 0                      \
  * Safe to call on NULL, returns early                                                                                 \
  *                                                                                                                     \
  * @note Will call the object's destructor on objects if available                                                     \
  */                                                                                                                    \
-ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN(name, clear)(struct arraylist_##name *self);          \
+ARRAYLIST_UNUSED static void ARRAYLIST_FN(name, clear)(struct arraylist_##name *self);                                 \
                                                                                                                        \
 /**                                                                                                                    \
  * @brief push_back: Adds a new element by value to the end of the arraylist                                           \
@@ -1124,15 +1123,15 @@ static inline T *ARRAYLIST_FN(name, end)(const struct arraylist_##name *self) { 
     return self->data + self->size;                                                                                    \
 }                                                                                                                      \
                                                                                                                        \
-static inline enum arraylist_error ARRAYLIST_FN(name, clear)(struct arraylist_##name *self) {                          \
+static inline void ARRAYLIST_FN(name, clear)(struct arraylist_##name *self) {                                          \
     if (!self || self->size == 0) {                                                                                    \
-        return ARRAYLIST_OK;                                                                                           \
+        return;                                                                                                        \
     }                                                                                                                  \
     for (size_t i = 0; i < self->size; ++i) {                                                                          \
         deinit_fn(&self->data[i], &self->alloc);                                                                       \
     }                                                                                                                  \
     self->size = 0;                                                                                                    \
-    return ARRAYLIST_OK;                                                                                               \
+    return;                                                                                                            \
 }                                                                                                                      \
                                                                                                                        \
 static inline enum arraylist_error ARRAYLIST_FN(name, push_back)(struct arraylist_##name *self, T value) {             \
@@ -1433,7 +1432,7 @@ struct arraylist_dyn_##name {                                                   
  * - T* ARRAYLIST_FN_DYN(name, end)(const struct arraylist_dyn_##name *self);
  *
  * Modifiers
- * - enum arraylist_error ARRAYLIST_FN_DYN(name, clear)(struct arraylist_dyn_##name *self);
+ * - void ARRAYLIST_FN_DYN(name, clear)(struct arraylist_dyn_##name *self);
  * - enum arraylist_error ARRAYLIST_FN_DYN(name, push_back)(struct arraylist_dyn_##name *self, T value);
  * - T* ARRAYLIST_FN_DYN(name, emplace_back)(struct arraylist_dyn_##name *self);
  * - enum arraylist_error ARRAYLIST_FN_DYN(name, pop_back)(struct arraylist_dyn_##name *self);
@@ -1671,14 +1670,13 @@ ARRAYLIST_UNUSED static inline T *ARRAYLIST_FN_DYN(name, end)(const struct array
 /**                                                                                                                    \
  * @brief clear: Clears the arraylist's data                                                                           \
  * @param self Pointer to the arraylist                                                                                \
- * @return ARRAYLIST_ERR_NULL in case of NULL being passed, or ARRAYLIST_OK                                            \
  *                                                                                                                     \
  * It does not free the arraylist itself and does not alter the capacity, only sets its size to 0                      \
  * Safe to call on NULL, returns early                                                                                 \
  *                                                                                                                     \
  * @note Will call the object's destructor on objects if available                                                     \
  */                                                                                                                    \
-ARRAYLIST_UNUSED static inline enum arraylist_error ARRAYLIST_FN_DYN(name, clear)(                                     \
+ARRAYLIST_UNUSED static void ARRAYLIST_FN_DYN(name, clear)(                                                            \
     struct arraylist_dyn_##name *self                                                                                  \
 );                                                                                                                     \
                                                                                                                        \
@@ -2173,9 +2171,9 @@ static inline T *ARRAYLIST_FN_DYN(name, end)(const struct arraylist_dyn_##name *
     return self->data + self->size;                                                                                    \
 }                                                                                                                      \
                                                                                                                        \
-static inline enum arraylist_error ARRAYLIST_FN_DYN(name, clear)(struct arraylist_dyn_##name *self) {                  \
+static inline void ARRAYLIST_FN_DYN(name, clear)(struct arraylist_dyn_##name *self) {                                  \
     if (!self || self->size == 0) {                                                                                    \
-        return ARRAYLIST_OK;                                                                                           \
+        return;                                                                                                        \
     }                                                                                                                  \
     if (self->destructor) {                                                                                            \
         for (size_t i = 0; i < self->size; ++i) {                                                                      \
@@ -2183,7 +2181,7 @@ static inline enum arraylist_error ARRAYLIST_FN_DYN(name, clear)(struct arraylis
         }                                                                                                              \
     }                                                                                                                  \
     self->size = 0;                                                                                                    \
-    return ARRAYLIST_OK;                                                                                               \
+    return;                                                                                                            \
 }                                                                                                                      \
                                                                                                                        \
 static inline enum arraylist_error ARRAYLIST_FN_DYN(name, push_back)(                                                  \
