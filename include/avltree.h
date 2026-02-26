@@ -292,6 +292,12 @@ AVLTREE_NODISCARD AVLTREE_UNUSED static inline struct avltree_##name AVLTREE_FN(
 AVLTREE_UNUSED static inline void AVLTREE_FN(name, deinit)(struct avltree_##name *self);                               \
                                                                                                                        \
 /**                                                                                                                    \
+ * @brief clear: Cleats the tree, leaving it in an empty but reusable state                                            \
+ * @param self Pointer to the avltree                                                                                  \
+ */                                                                                                                    \
+AVLTREE_UNUSED static inline void AVLTREE_FN(name, clear)(struct avltree_##name *self);                                \
+                                                                                                                       \
+/**                                                                                                                    \
  * @brief insert: Inserts a new value in the tree                                                                      \
  * @param self Pointer to the avltree                                                                                  \
  * @param value Value to be inserted                                                                                   \
@@ -603,6 +609,58 @@ static inline void AVLTREE_FN(name, deinit)(struct avltree_##name *self) {      
     self->size = 0;                                                                                                    \
     self->comparator_fn = NULL;                                                                                        \
     memset(&self->alloc, 0, sizeof(self->alloc));                                                                      \
+}                                                                                                                      \
+                                                                                                                       \
+static inline void AVLTREE_FN(name, clear)(struct avltree_##name *self) {                                              \
+    if (!self || self->size == 0) {                                                                                    \
+        return;                                                                                                        \
+    }                                                                                                                  \
+    struct avltree_node_##name *curr = self->root;                                                                     \
+    struct avltree_node_##name *last = NULL;                                                                           \
+    while (curr) {                                                                                                     \
+        if (last == curr->parent) {                                                                                    \
+            /* descending from parent */                                                                               \
+            if (curr->left) {                                                                                          \
+                last = curr;                                                                                           \
+                curr = curr->left;                                                                                     \
+                continue;                                                                                              \
+            }                                                                                                          \
+            if (curr->right) {                                                                                         \
+                last = curr;                                                                                           \
+                curr = curr->right;                                                                                    \
+                continue;                                                                                              \
+            }                                                                                                          \
+            /* arrived at a leaf, destroy and climb up */                                                              \
+            struct avltree_node_##name *parent = curr->parent;                                                         \
+            deinit_fn(&curr->data, &self->alloc);                                                                      \
+            self->alloc.free(curr, sizeof(*curr), self->alloc.ctx);                                                    \
+            last = curr;                                                                                               \
+            curr = parent;                                                                                             \
+        } else if (last == curr->left) {                                                                               \
+            /* came up from left, go right if exists, else deinitilize */                                              \
+            if (curr->right) {                                                                                         \
+                last = curr;                                                                                           \
+                curr = curr->right;                                                                                    \
+            } else {                                                                                                   \
+                struct avltree_node_##name *parent = curr->parent;                                                     \
+                deinit_fn(&curr->data, &self->alloc);                                                                  \
+                self->alloc.free(curr, sizeof(*curr), self->alloc.ctx);                                                \
+                last = curr;                                                                                           \
+                curr = parent;                                                                                         \
+            }                                                                                                          \
+        } else {                                                                                                       \
+            /* came up from right (last == curr->right) */                                                             \
+            /* just finished the right subtree, we always handle left before right */                                  \
+            /* coming from right means both children have been processed, just delete it */                            \
+            struct avltree_node_##name *parent = curr->parent;                                                         \
+            deinit_fn(&curr->data, &self->alloc);                                                                      \
+            self->alloc.free(curr, sizeof(*curr), self->alloc.ctx);                                                    \
+            last = curr;                                                                                               \
+            curr = parent;                                                                                             \
+        }                                                                                                              \
+    }                                                                                                                  \
+    self->root = NULL;                                                                                                 \
+    self->size = 0;                                                                                                    \
 }                                                                                                                      \
                                                                                                                        \
 static inline enum avltree_error AVLTREE_FN(name, insert)(struct avltree_##name *self, T value) {                      \
