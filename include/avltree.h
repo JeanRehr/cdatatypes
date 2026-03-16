@@ -27,8 +27,39 @@ extern "C" {
 #endif // avltree_noop_deinit
 
 /**
+ * @def AVLTREE_LINKAGE
+ * @brief Defines a macro to switch between static inline or another type of linkage before
+ *        including the header
+ * @details static inline is good for simple tests and quick prototypes, but when you want to define
+ *          an avltree type to be used through multiple TUs, duplicates will have to be created.
+ *          So one can define AVLTREE_LINKAGE to, for example, extern, and then share an
+ *          implementation across multiple TUs, example:
+ * @code
+ * // shared_set.h
+ * #define AVLTREE_LINKAGE extern
+ * #include "avltree.h"
+ * // Declare the type and function prototypes (extern linkage)
+ * AVLTREE_TYPE(int, set)
+ * AVLTREE_DECL(int, set)
+ *
+ * // shared_set.c
+ * #include "shared_set.h"
+ *
+ * // Undefine AVLTREE_LINKAGE so the implementations get normal linkage
+ * // (not extern, not static inline)
+ * #undef AVLTREE_LINKAGE
+ * #define AVLTREE_LINKAGE
+ * #include "avltree.h"
+ * AVLTREE_IMPL(int, set, avltree_noop_deinit)
+ * @endcode
+ */
+#ifndef AVLTREE_LINKAGE
+    #define AVLTREE_LINKAGE static inline
+#endif // AVLTREE_LINKAGE
+
+/**
  * @def AVLTREE_UNUSED
- * @brief Defines a macro to supress the warning for unused function because of static inline
+ * @brief Defines a macro to supress the warning for unused function because of AVLTREE_LINKAGE
  */
 #if defined(__cplusplus) && __cplusplus >= 201703L
     #define AVLTREE_UNUSED [[maybe_unused]]
@@ -248,7 +279,7 @@ struct avltree_##name {                                                         
  * @warning The comparator function must not be null, otherwise this data structure will not work.                     \
  * @warning Call name##deinit() when done.                                                                             \
  */                                                                                                                    \
-AVLTREE_UNUSED static inline struct avltree_##name AVLTREE_FN(name, init)(                                             \
+AVLTREE_UNUSED AVLTREE_LINKAGE struct avltree_##name AVLTREE_FN(name, init)(                                           \
     const struct Allocator alloc,                                                                                      \
     int (*comparator_fn)(T *a, T *b)                                                                                   \
 );                                                                                                                     \
@@ -273,7 +304,7 @@ AVLTREE_UNUSED static inline struct avltree_##name AVLTREE_FN(name, init)(      
             asserts will crash on reserve                                                                              \
  * @warning The return of this function should not be discarded, if doing so, memory may be leaked                     \
  */                                                                                                                    \
-AVLTREE_NODISCARD AVLTREE_UNUSED static inline struct avltree_##name AVLTREE_FN(name, deep_clone)(                     \
+AVLTREE_NODISCARD AVLTREE_UNUSED AVLTREE_LINKAGE struct avltree_##name AVLTREE_FN(name, deep_clone)(                   \
     const struct avltree_##name *self,                                                                                 \
     void (*deep_clone_fn)(T *dst, T *src, struct Allocator *alloc)                                                     \
 );                                                                                                                     \
@@ -289,13 +320,13 @@ AVLTREE_NODISCARD AVLTREE_UNUSED static inline struct avltree_##name AVLTREE_FN(
  * @note The self parameter will be left in an unusable, NULL/uninitialized state and should not be                    \
  *       used, to reuse it, one must call init again and reinitialize it                                               \
  */                                                                                                                    \
-AVLTREE_UNUSED static inline void AVLTREE_FN(name, deinit)(struct avltree_##name *self);                               \
+AVLTREE_UNUSED AVLTREE_LINKAGE void AVLTREE_FN(name, deinit)(struct avltree_##name *self);                             \
                                                                                                                        \
 /**                                                                                                                    \
  * @brief clear: Cleats the tree, leaving it in an empty but reusable state                                            \
  * @param self Pointer to the avltree                                                                                  \
  */                                                                                                                    \
-AVLTREE_UNUSED static inline void AVLTREE_FN(name, clear)(struct avltree_##name *self);                                \
+AVLTREE_UNUSED AVLTREE_LINKAGE void AVLTREE_FN(name, clear)(struct avltree_##name *self);                              \
                                                                                                                        \
 /**                                                                                                                    \
  * @brief insert: Inserts a new value in the tree                                                                      \
@@ -304,7 +335,7 @@ AVLTREE_UNUSED static inline void AVLTREE_FN(name, clear)(struct avltree_##name 
  * @return AVLTREE_OK if insertion was okay, AVLTREE_ERR_NULL if avltree passed was null, or                           \
  *         AVLTREE_ERR_ALLOC if allocation failure happened                                                            \
  */                                                                                                                    \
-AVLTREE_UNUSED static inline enum avltree_error AVLTREE_FN(name, insert)(struct avltree_##name *self, T value);        \
+AVLTREE_UNUSED AVLTREE_LINKAGE enum avltree_error AVLTREE_FN(name, insert)(struct avltree_##name *self, T value);      \
                                                                                                                        \
 /**                                                                                                                    \
  * @brief remove: Removes a value from the tree                                                                        \
@@ -312,7 +343,7 @@ AVLTREE_UNUSED static inline enum avltree_error AVLTREE_FN(name, insert)(struct 
  * @param value Value to be removed                                                                                    \
  * @return                                                                                                             \
  */                                                                                                                    \
-AVLTREE_UNUSED static inline enum avltree_error AVLTREE_FN(name, remove)(struct avltree_##name *self, T value);        \
+AVLTREE_UNUSED AVLTREE_LINKAGE enum avltree_error AVLTREE_FN(name, remove)(struct avltree_##name *self, T value);      \
                                                                                                                        \
 /**                                                                                                                    \
  * @brief emplace: Inserts in-place a new value in the tree                                                            \
@@ -329,7 +360,7 @@ AVLTREE_UNUSED static inline enum avltree_error AVLTREE_FN(name, remove)(struct 
  * @warning construct_fn function must return 0 for success, < 0 or > 0 for failure,                                   \
  *          and the allocator must be the same as the tree allocator                                                   \
  */                                                                                                                    \
-AVLTREE_UNUSED static inline T *AVLTREE_FN(name, emplace)(                                                             \
+AVLTREE_UNUSED AVLTREE_LINKAGE T *AVLTREE_FN(name, emplace)(                                                           \
     struct avltree_##name *self,                                                                                       \
     int (*construct_fn)(T *location, void *args, struct Allocator *alloc),                                             \
     void *args                                                                                                         \
@@ -351,7 +382,7 @@ AVLTREE_UNUSED static inline T *AVLTREE_FN(name, emplace)(                      
  *
  * @warning If the type T doesn't need to have a destructor, or one doesn't want to pass it
  *          and manually free, then a noop must be passed, like the already provided
- *          avltree_noop_deinit nacro, or (void), or a macro/function that does nothing.
+ *          avltree_noop_deinit macro, or (void), or a macro/function that does nothing.
  */
 #define AVLTREE_IMPL(T, name, deinit_fn)                                                                               \
 /**                                                                                                                    \
@@ -361,7 +392,7 @@ AVLTREE_UNUSED static inline T *AVLTREE_FN(name, emplace)(                      
  * @return A new zeroed allocated node                                                                                 \
  * Assumes allocator is never null, as the avltree gets it by value, it's impossible to be null                        \
  */                                                                                                                    \
-static inline struct avltree_node_##name *AVLTREE_FN(name, node_allocate)(struct Allocator *alloc) {                   \
+AVLTREE_LINKAGE struct avltree_node_##name *AVLTREE_FN(name, node_allocate)(struct Allocator *alloc) {                 \
     struct avltree_node_##name *new_node = AVLTREE_CAST(T)alloc->malloc(sizeof(*new_node), alloc->ctx);                \
     if (new_node) {                                                                                                    \
         memset(new_node, 0, sizeof(*new_node));                                                                        \
@@ -376,7 +407,7 @@ static inline struct avltree_node_##name *AVLTREE_FN(name, node_allocate)(struct
  * @return The height of the node, or zero if node is null                                                             \
  * This private function is needed to ensure it returns 0 in case of null and doesn't access height directly           \
  */                                                                                                                    \
-static inline int AVLTREE_FN(name, node_get_height)(struct avltree_node_##name *node) {                                \
+AVLTREE_LINKAGE int AVLTREE_FN(name, node_get_height)(struct avltree_node_##name *node) {                              \
     if (node == NULL) {                                                                                                \
         return 0;                                                                                                      \
     }                                                                                                                  \
@@ -389,7 +420,7 @@ static inline int AVLTREE_FN(name, node_get_height)(struct avltree_node_##name *
  * @param node Pointer to the node                                                                                     \
  * This private function is needed to ensure it returns in case of null and doesn't access height directly             \
  */                                                                                                                    \
-static inline void AVLTREE_FN(name, node_set_height)(struct avltree_node_##name *node) {                               \
+AVLTREE_LINKAGE void AVLTREE_FN(name, node_set_height)(struct avltree_node_##name *node) {                             \
     if (node == NULL) {                                                                                                \
         return;                                                                                                        \
     }                                                                                                                  \
@@ -408,7 +439,7 @@ static inline void AVLTREE_FN(name, node_set_height)(struct avltree_node_##name 
  * @return The balance factor                                                                                          \
  * This private function is needed to ensure it returns 0 in case of null and doesn't access node's fields directly    \
  */                                                                                                                    \
-static inline int AVLTREE_FN(name, node_get_balance_factor)(struct avltree_node_##name *node) {                        \
+AVLTREE_LINKAGE int AVLTREE_FN(name, node_get_balance_factor)(struct avltree_node_##name *node) {                      \
     if (node == NULL) {                                                                                                \
         return 0;                                                                                                      \
     }                                                                                                                  \
@@ -434,7 +465,7 @@ static inline int AVLTREE_FN(name, node_get_balance_factor)(struct avltree_node_
  * 1 = left_of_node.left        | 3 = node.left                                                                        \
  * 3 = left_of_node.right       | 6 = node.right                                                                       \
  */                                                                                                                    \
-static inline struct avltree_node_##name *AVLTREE_FN(name, right_rotation)(struct avltree_node_##name *node) {         \
+AVLTREE_LINKAGE struct avltree_node_##name *AVLTREE_FN(name, right_rotation)(struct avltree_node_##name *node) {       \
     struct avltree_node_##name *left_of_node = node->left; /* 2 the new root of subtree */                             \
     struct avltree_node_##name *right_of_left_node  = left_of_node->right; /* 3 right of the left of node */           \
     left_of_node->right = node; /* 4 goes to the right of 2 */                                                         \
@@ -470,7 +501,7 @@ static inline struct avltree_node_##name *AVLTREE_FN(name, right_rotation)(struc
  * 5 = rightOfNode.left         | 2 = node.left                                                                        \
  * 8 = rightOfNode.right        | 5 = node.right                                                                       \
  */                                                                                                                    \
-static inline struct avltree_node_##name *AVLTREE_FN(name, left_rotation)(struct avltree_node_##name *node) {          \
+AVLTREE_LINKAGE struct avltree_node_##name *AVLTREE_FN(name, left_rotation)(struct avltree_node_##name *node) {        \
     struct avltree_node_##name *right_of_node = node->right; /* 6 the new root of subtree */                           \
     struct avltree_node_##name *left_of_right_node  = right_of_node->left; /* 5 left of the right of node */           \
     right_of_node->left = node; /* 4 goes to the right of 6 */                                                         \
@@ -493,7 +524,7 @@ static inline struct avltree_node_##name *AVLTREE_FN(name, left_rotation)(struct
  * @param node Pointer to the node                                                                                     \
  * @return The balanced node, may be different than the original parameter                                             \
  */                                                                                                                    \
-static inline struct avltree_node_##name *AVLTREE_FN(name, rebalance)(struct avltree_node_##name *node) {              \
+AVLTREE_LINKAGE struct avltree_node_##name *AVLTREE_FN(name, rebalance)(struct avltree_node_##name *node) {            \
     int balance_factor = AVLTREE_FN(name, node_get_balance_factor)(node);                                              \
     /* Left Left case */                                                                                               \
     if (balance_factor > 1 && AVLTREE_FN(name, node_get_balance_factor)(node->left) >= 0) {                            \
@@ -526,7 +557,7 @@ static inline struct avltree_node_##name *AVLTREE_FN(name, rebalance)(struct avl
  * @param node Pointer to the node                                                                                     \
  * @return The minimum of the subtree or NULL if node is null                                                          \
  */                                                                                                                    \
-static inline struct avltree_node_##name *AVLTREE_FN(name, minimum)(struct avltree_node_##name *node) {                \
+AVLTREE_LINKAGE struct avltree_node_##name *AVLTREE_FN(name, minimum)(struct avltree_node_##name *node) {              \
     if (node == NULL) {                                                                                                \
         return NULL;                                                                                                   \
     }                                                                                                                  \
@@ -536,7 +567,7 @@ static inline struct avltree_node_##name *AVLTREE_FN(name, minimum)(struct avltr
     return node;                                                                                                       \
 }                                                                                                                      \
                                                                                                                        \
-static inline struct avltree_##name AVLTREE_FN(name, init)(                                                            \
+AVLTREE_LINKAGE struct avltree_##name AVLTREE_FN(name, init)(                                                          \
     const struct Allocator alloc,                                                                                      \
     int (*comparator_fn)(T *a, T *b)                                                                                   \
 ) {                                                                                                                    \
@@ -547,7 +578,7 @@ static inline struct avltree_##name AVLTREE_FN(name, init)(                     
     return avltree;                                                                                                    \
 }                                                                                                                      \
                                                                                                                        \
-static inline struct avltree_##name AVLTREE_FN(name, deep_clone)(                                                      \
+AVLTREE_LINKAGE struct avltree_##name AVLTREE_FN(name, deep_clone)(                                                    \
     const struct avltree_##name *self,                                                                                 \
     void (*deep_clone_fn)(T *dst, T *src, struct Allocator *alloc)                                                     \
 ) {                                                                                                                    \
@@ -557,7 +588,7 @@ static inline struct avltree_##name AVLTREE_FN(name, deep_clone)(               
     return clone;                                                                                                      \
 }                                                                                                                      \
                                                                                                                        \
-static inline void AVLTREE_FN(name, deinit)(struct avltree_##name *self) {                                             \
+AVLTREE_LINKAGE void AVLTREE_FN(name, deinit)(struct avltree_##name *self) {                                           \
     if (!self) {                                                                                                       \
         return;                                                                                                        \
     }                                                                                                                  \
@@ -611,7 +642,7 @@ static inline void AVLTREE_FN(name, deinit)(struct avltree_##name *self) {      
     memset(&self->alloc, 0, sizeof(self->alloc));                                                                      \
 }                                                                                                                      \
                                                                                                                        \
-static inline void AVLTREE_FN(name, clear)(struct avltree_##name *self) {                                              \
+AVLTREE_LINKAGE void AVLTREE_FN(name, clear)(struct avltree_##name *self) {                                            \
     if (!self || self->size == 0) {                                                                                    \
         return;                                                                                                        \
     }                                                                                                                  \
@@ -663,7 +694,7 @@ static inline void AVLTREE_FN(name, clear)(struct avltree_##name *self) {       
     self->size = 0;                                                                                                    \
 }                                                                                                                      \
                                                                                                                        \
-static inline enum avltree_error AVLTREE_FN(name, insert)(struct avltree_##name *self, T value) {                      \
+AVLTREE_LINKAGE enum avltree_error AVLTREE_FN(name, insert)(struct avltree_##name *self, T value) {                    \
     AVLTREE_ENSURE(self != NULL, AVLTREE_ERR_NULL, "insert(): self is null.");                                         \
     /* Search valid position */                                                                                        \
     struct avltree_node_##name *current = self->root;                                                                  \
@@ -719,7 +750,7 @@ static inline enum avltree_error AVLTREE_FN(name, insert)(struct avltree_##name 
     return AVLTREE_OK;                                                                                                 \
 }                                                                                                                      \
                                                                                                                        \
-static inline enum avltree_error AVLTREE_FN(name, remove)(struct avltree_##name *self, T value) {                      \
+AVLTREE_LINKAGE enum avltree_error AVLTREE_FN(name, remove)(struct avltree_##name *self, T value) {                    \
     AVLTREE_ENSURE(self != NULL, AVLTREE_ERR_NULL, "remove(): self is null.");                                         \
     /* Search value to remove position */                                                                              \
     struct avltree_node_##name *del_pos = self->root;                                                                  \
@@ -800,7 +831,7 @@ static inline enum avltree_error AVLTREE_FN(name, remove)(struct avltree_##name 
     return AVLTREE_OK;                                                                                                 \
 }                                                                                                                      \
                                                                                                                        \
-static inline T *AVLTREE_FN(name, emplace)(                                                                            \
+AVLTREE_LINKAGE T *AVLTREE_FN(name, emplace)(                                                                          \
     struct avltree_##name *self,                                                                                       \
     int (*construct_fn)(T *location, void *args, struct Allocator *alloc),                                             \
     void *args                                                                                                         \
