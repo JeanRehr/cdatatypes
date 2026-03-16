@@ -161,8 +161,39 @@ extern "C" {
 #endif // pair_noop_deinit
 
 /**
+ * @def PAIR_LINKAGE
+ * @brief Defines a macro to switch between static inline or another type of linkage before
+ *        including the header
+ * @details static inline is good for simple tests and quick prototypes, but when you want to define
+ *          an pair type to be used through multiple TUs, duplicates will have to be created.
+ *          So one can define PAIR_LINKAGE to, for example, extern, and then share an
+ *          implementation across multiple TUs, example:
+ * @code
+ * // shared_pair.h
+ * #define PAIR_LINKAGE extern
+ * #include "pair.h"
+ * // Declare the type and function prototypes (extern linkage)
+ * PAIR_TYPE(int, int, intp)
+ * PAIR_DECL(int, int, intp)
+ *
+ * // shared_pair.c
+ * #include "shared_pair.h"
+ *
+ * // Undefine PAIR_LINKAGE so the implementations get normal linkage
+ * // (not extern, not static inline)
+ * #undef PAIR_LINKAGE
+ * #define PAIR_LINKAGE
+ * #include "pair.h"
+ * PAIR_IMPL(int, int, intp, pair_noop_deinit, pair_noop_deinit)
+ * @endcode
+ */
+#ifndef PAIR_LINKAGE
+    #define PAIR_LINKAGE static inline
+#endif // PAIR_LINKAGE
+
+/**
  * @def PAIR_UNUSED
- * @brief Defines a macro to supress the warning for unused function because of static inline
+ * @brief Defines a macro to supress the warning for unused function because of PAIR_LINKAGE
  */
 #if defined(__cplusplus) && __cplusplus >= 201703L
     #define PAIR_UNUSED [[maybe_unused]]
@@ -346,20 +377,20 @@ struct pair_##name {                                                            
  * @details
  * The following functions  / Destructionare declared:
  * Construction
- * - static inline struct pair_##name PAIR_FN(name, init)(K first, V second);
- * - static inline struct pair_##name PAIR_FN(name, deep_clone)(struct pair_##name *self,
+ * - PAIR_LINKAGE struct pair_##name PAIR_FN(name, init)(K first, V second);
+ * - PAIR_LINKAGE struct pair_##name PAIR_FN(name, deep_clone)(struct pair_##name *self,
  *       void (*deep_clone_first_fn)(K *dst, K *src, struct Allocator *alloc),
  *       void (*deep_clone_second_fn)(V *dst, V *src, struct Allocator *alloc),
  *       struct Allocator *alloc);
- * - static inline struct pair_##name PAIR_FN(name, shallow_copy)(const struct pair_##name *self);
- * - static inline struct pair_##name PAIR_FN(name, steal)(struct pair_##name *self);
- * - static inline void PAIR_FN(name, deinit)(struct pair_##name *self, struct Allocator *alloc);
+ * - PAIR_LINKAGE struct pair_##name PAIR_FN(name, shallow_copy)(const struct pair_##name *self);
+ * - PAIR_LINKAGE struct pair_##name PAIR_FN(name, steal)(struct pair_##name *self);
+ * - PAIR_LINKAGE void PAIR_FN(name, deinit)(struct pair_##name *self, struct Allocator *alloc);
  *
  * Operations
- * - static inline int PAIR_FN(name, cmp)(struct pair_##name *a, struct pair_##name *b,
+ * - PAIR_LINKAGE int PAIR_FN(name, cmp)(struct pair_##name *a, struct pair_##name *b,
  *       int (*cmp_first)(K *a_first, K *b_first),
  *       int (*cmp_second)(V *a_second, V *b_second));
- * - static inline enum pair_error PAIR_FN(name, swap)(struct pair_##name *self, struct pair_##name *other);
+ * - PAIR_LINKAGE enum pair_error PAIR_FN(name, swap)(struct pair_##name *self, struct pair_##name *other);
  */
 #define PAIR_DECL(K, V, name)                                                                                          \
 /**                                                                                                                    \
@@ -369,7 +400,7 @@ struct pair_##name {                                                            
  * @return A pair with the given values                                                                                \
  * @details it does not allocate any memory for the pair itself, all members are values                                \
  */                                                                                                                    \
-PAIR_UNUSED static inline struct pair_##name PAIR_FN(name, init)(K first, V second);                                   \
+PAIR_UNUSED PAIR_LINKAGE struct pair_##name PAIR_FN(name, init)(K first, V second);                                    \
                                                                                                                        \
 /**                                                                                                                    \
  * @brief deep_clone: Deeply clones a pair                                                                             \
@@ -393,7 +424,7 @@ PAIR_UNUSED static inline struct pair_##name PAIR_FN(name, init)(K first, V seco
  *          a zero-initialized struct, if asserts are enabled then it crashes                                          \
  * @warning The return of this function should not be discarded, if doing so, memory may be leaked                     \
  */                                                                                                                    \
-PAIR_NODISCARD PAIR_UNUSED static inline struct pair_##name PAIR_FN(name, deep_clone)(                                 \
+PAIR_NODISCARD PAIR_UNUSED PAIR_LINKAGE struct pair_##name PAIR_FN(name, deep_clone)(                                  \
     struct pair_##name *self,                                                                                          \
     void (*deep_clone_first_fn)(K *dst, K *src, struct Allocator *alloc),                                              \
     void (*deep_clone_second_fn)(V *dst, V *src, struct Allocator *alloc),                                             \
@@ -414,7 +445,7 @@ PAIR_NODISCARD PAIR_UNUSED static inline struct pair_##name PAIR_FN(name, deep_c
  * @warning If self is NULL then it returns a zero-initialized struct,                                                 \
  *          if asserts are enabled then it crashes                                                                     \
  */                                                                                                                    \
-PAIR_UNUSED static inline struct pair_##name PAIR_FN(name, shallow_copy)(const struct pair_##name *self);              \
+PAIR_UNUSED PAIR_LINKAGE struct pair_##name PAIR_FN(name, shallow_copy)(const struct pair_##name *self);               \
                                                                                                                        \
 /**                                                                                                                    \
  * @brief steal: Steals the pair in the parameter, moving it to the lhs, then zeroes self                              \
@@ -426,7 +457,7 @@ PAIR_UNUSED static inline struct pair_##name PAIR_FN(name, shallow_copy)(const s
  *                                                                                                                     \
  * @warning The return of this function should not be discarded, if doing so, memory may be leaked                     \
  */                                                                                                                    \
-PAIR_NODISCARD PAIR_UNUSED static inline struct pair_##name PAIR_FN(name, steal)(struct pair_##name *self);            \
+PAIR_NODISCARD PAIR_UNUSED PAIR_LINKAGE struct pair_##name PAIR_FN(name, steal)(struct pair_##name *self);             \
                                                                                                                        \
 /**                                                                                                                    \
  * @brief deinit: Destroys and frees the values inside the pair                                                        \
@@ -443,7 +474,7 @@ PAIR_NODISCARD PAIR_UNUSED static inline struct pair_##name PAIR_FN(name, steal)
  * @note The self parameter will be left in a zeroed state and should not be used, to reuse it,                        \
  *       one must reinitialize its fields again                                                                        \
  */                                                                                                                    \
-PAIR_UNUSED static inline void PAIR_FN(name, deinit)(struct pair_##name *self, struct Allocator *alloc);               \
+PAIR_UNUSED PAIR_LINKAGE void PAIR_FN(name, deinit)(struct pair_##name *self, struct Allocator *alloc);                \
                                                                                                                        \
 /**                                                                                                                    \
  * @brief cmp: Lexicographically compare two pairs                                                                     \
@@ -469,7 +500,7 @@ PAIR_UNUSED static inline void PAIR_FN(name, deinit)(struct pair_##name *self, s
  * Any negative value means "less", any positive means "greater", zero means "equal".                                  \
  * The result should not be discarded (PAIR_NODISCARD) to avoid ignoring potential errors (PAIR_CMP_ERR).              \
  */                                                                                                                    \
-PAIR_NODISCARD PAIR_UNUSED static inline enum pair_cmp_result PAIR_FN(name, cmp)(                                      \
+PAIR_NODISCARD PAIR_UNUSED PAIR_LINKAGE enum pair_cmp_result PAIR_FN(name, cmp)(                                       \
     struct pair_##name *a,                                                                                             \
     struct pair_##name *b,                                                                                             \
     int (*cmp_first)(K *a_first, K *b_first),                                                                          \
@@ -482,7 +513,7 @@ PAIR_NODISCARD PAIR_UNUSED static inline enum pair_cmp_result PAIR_FN(name, cmp)
  * @param other Pointer to another pair to swap with                                                                   \
  * @return PAIR_ERR_NULL if any of the params are null, or PAIR_OK                                                     \
  */                                                                                                                    \
-PAIR_UNUSED static inline enum pair_error PAIR_FN(name, swap)(struct pair_##name *self, struct pair_##name *other);
+PAIR_UNUSED PAIR_LINKAGE enum pair_error PAIR_FN(name, swap)(struct pair_##name *self, struct pair_##name *other);
 
 /**
  * @def PAIR_IMPL(K, V, name, dtor_first, dtor_second)
@@ -500,17 +531,17 @@ PAIR_UNUSED static inline enum pair_error PAIR_FN(name, swap)(struct pair_##name
  *
  * @warning If the type K (dtor_first) or V (dtor_second) doesn't need to have a destructor, or one
  *          doesn't want to pass it and manually free, then a noop must be passed, like the already
- *          provided pair_noop_deinit nacro, or (void), or a macro/function that does nothing.
+ *          provided pair_noop_deinit macro, or (void), or a macro/function that does nothing.
  */
 #define PAIR_IMPL(K, V, name, dtor_first, dtor_second)                                                                 \
-static inline struct pair_##name PAIR_FN(name, init)(K first, V second) {                                              \
+PAIR_LINKAGE struct pair_##name PAIR_FN(name, init)(K first, V second) {                                               \
     struct pair_##name pair = { 0 };                                                                                   \
     pair.first = first;                                                                                                \
     pair.second = second;                                                                                              \
     return pair;                                                                                                       \
 }                                                                                                                      \
                                                                                                                        \
-static inline struct pair_##name PAIR_FN(name, deep_clone)(                                                            \
+PAIR_LINKAGE struct pair_##name PAIR_FN(name, deep_clone)(                                                             \
     struct pair_##name *self,                                                                                          \
     void (*deep_clone_first_fn)(K *dst, K *src, struct Allocator *alloc),                                              \
     void (*deep_clone_second_fn)(V *dst, V *src, struct Allocator *alloc),                                             \
@@ -525,14 +556,14 @@ static inline struct pair_##name PAIR_FN(name, deep_clone)(                     
     return clone;                                                                                                      \
 }                                                                                                                      \
                                                                                                                        \
-static inline struct pair_##name PAIR_FN(name, shallow_copy)(const struct pair_##name *self) {                         \
+PAIR_LINKAGE struct pair_##name PAIR_FN(name, shallow_copy)(const struct pair_##name *self) {                          \
     struct pair_##name clone = { 0 };                                                                                  \
     PAIR_ENSURE(self != NULL, clone, "shallow_copy(): pair is null.");                                                 \
     clone = *self;                                                                                                     \
     return clone;                                                                                                      \
 }                                                                                                                      \
                                                                                                                        \
-static inline struct pair_##name PAIR_FN(name, steal)(struct pair_##name *self) {                                      \
+PAIR_LINKAGE struct pair_##name PAIR_FN(name, steal)(struct pair_##name *self) {                                       \
     struct pair_##name steal = { 0 };                                                                                  \
     PAIR_ENSURE(self != NULL, steal, "steal(): pair is null.");                                                        \
     steal = *self;                                                                                                     \
@@ -540,7 +571,7 @@ static inline struct pair_##name PAIR_FN(name, steal)(struct pair_##name *self) 
     return steal;                                                                                                      \
 }                                                                                                                      \
                                                                                                                        \
-static inline void PAIR_FN(name, deinit)(struct pair_##name *self, struct Allocator *alloc) {                          \
+PAIR_LINKAGE void PAIR_FN(name, deinit)(struct pair_##name *self, struct Allocator *alloc) {                           \
     if (!self) {                                                                                                       \
         return;                                                                                                        \
     }                                                                                                                  \
@@ -550,7 +581,7 @@ static inline void PAIR_FN(name, deinit)(struct pair_##name *self, struct Alloca
     memset(self, 0, sizeof(*self));                                                                                    \
 }                                                                                                                      \
                                                                                                                        \
-static inline enum pair_cmp_result PAIR_FN(name, cmp)(                                                                 \
+PAIR_LINKAGE enum pair_cmp_result PAIR_FN(name, cmp)(                                                                  \
     struct pair_##name *a,                                                                                             \
     struct pair_##name *b,                                                                                             \
     int (*cmp_first)(K *a_first, K *b_first),                                                                          \
@@ -577,7 +608,7 @@ static inline enum pair_cmp_result PAIR_FN(name, cmp)(                          
     return PAIR_CMP_EQUAL;                                                                                             \
 }                                                                                                                      \
                                                                                                                        \
-static inline enum pair_error PAIR_FN(name, swap)(struct pair_##name *self, struct pair_##name *other) {               \
+PAIR_LINKAGE enum pair_error PAIR_FN(name, swap)(struct pair_##name *self, struct pair_##name *other) {                \
     PAIR_ENSURE(self != NULL, PAIR_ERR_NULL, "swap(): first argument is null.");                                       \
     PAIR_ENSURE(other != NULL, PAIR_ERR_NULL, "swap(): second argument is null.");                                     \
     struct pair_##name temp = *other;                                                                                  \
