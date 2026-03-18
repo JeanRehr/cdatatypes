@@ -24,26 +24,6 @@ project(cdatatypes LANGUAGES C)
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
-# Set sources and include directories
-include_directories(include)
-
-# Arraylist test and example sources
-set(ARRAYLIST_TEST_SRC arraylist/tests/test.c)
-set(ARRAYLIST_DYN_TEST_SRC arraylist/tests/test_dyn.c)
-set(ARRAYLIST_EXAMPLE_1_SRC arraylist/examples/example_1.c)
-set(ARRAYLIST_EXAMPLE_2_SRC arraylist/examples/example_2.c)
-set(ARRAYLIST_EXAMPLE_3_SRC arraylist/examples/example_3.c)
-set(ARRAYLIST_EXAMPLE_DYN1_SRC arraylist/examples/example_dyn1.c)
-set(ARRAYLIST_EXAMPLE_DYN2_SRC arraylist/examples/example_dyn2.c)
-set(ARRAYLIST_EXAMPLE_DYN3_SRC arraylist/examples/example_dyn3.c)
-
-# Pair test and example sources
-set(PAIR_TEST_SRC pair/tests/test.c)
-set(PAIR_EXAMPLE_1_SRC pair/examples/example1.c)
-
-# AVLTree test and example sources
-set(AVL_TEST_USE avltree/avlusage.c)
-
 # Build types
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release;Sanitizer" CACHE STRING "" FORCE)
 
@@ -106,7 +86,60 @@ endif()
 
 message(STATUS "Used build type: ${CMAKE_BUILD_TYPE}")
 
+# -------------------------------------------------------------------------------------------------
+# Set sources and include directories
+# -------------------------------------------------------------------------------------------------
+
+# general include
+include_directories(include)
+
+# -------------------------------------------------------------------------------------------------
+# Arraylist test and example sources
+# -------------------------------------------------------------------------------------------------
+
+# test sources
+set(ARRAYLIST_TEST_SRC arraylist/tests/test.c)
+set(ARRAYLIST_DYN_TEST_SRC arraylist/tests/test_dyn.c)
+
+# example sources
+set(ARRAYLIST_EXAMPLE_1_SRC arraylist/examples/example_1.c)
+set(ARRAYLIST_EXAMPLE_2_SRC arraylist/examples/example_2.c)
+set(ARRAYLIST_EXAMPLE_3_SRC arraylist/examples/example_3.c)
+set(ARRAYLIST_EXAMPLE_DYN1_SRC arraylist/examples/example_dyn1.c)
+set(ARRAYLIST_EXAMPLE_DYN2_SRC arraylist/examples/example_dyn2.c)
+set(ARRAYLIST_EXAMPLE_DYN3_SRC arraylist/examples/example_dyn3.c)
+
+# "complex" generic gui example using dynamic arraylist for runtime destruction of base pointers
+# Set directory
+set(GUI_EXAMPLE_DIR "arraylist/examples/example_dyn_generic_gui_demo")
+# All source files of the example:
+set(GUI_EXAMPLE_SOURCES
+    ${GUI_EXAMPLE_DIR}/src/main.c
+    ${GUI_EXAMPLE_DIR}/src/button.c
+    ${GUI_EXAMPLE_DIR}/src/textbox.c
+    ${GUI_EXAMPLE_DIR}/src/screen1.c
+    ${GUI_EXAMPLE_DIR}/src/screen2.c
+)
+
+# -------------------------------------------------------------------------------------------------
+# Pair test and example sources
+# -------------------------------------------------------------------------------------------------
+
+# test sources
+set(PAIR_TEST_SRC pair/tests/test.c)
+
+# example sources
+set(PAIR_EXAMPLE_1_SRC pair/examples/example1.c)
+
+# -------------------------------------------------------------------------------------------------
+# AVLTree test and example sources
+# -------------------------------------------------------------------------------------------------
+set(AVL_TEST_USE avltree/avlusage.c)
+
+# -------------------------------------------------------------------------------------------------
 # Executables
+# -------------------------------------------------------------------------------------------------
+
 # Arraylist executables
 add_executable(test_arraylist ${ARRAYLIST_TEST_SRC})
 add_executable(test_arraylist_dyn ${ARRAYLIST_DYN_TEST_SRC})
@@ -116,6 +149,7 @@ add_executable(example_arraylist3 ${ARRAYLIST_EXAMPLE_3_SRC})
 add_executable(example_arraylistdyn1 ${ARRAYLIST_EXAMPLE_DYN1_SRC})
 add_executable(example_arraylistdyn2 ${ARRAYLIST_EXAMPLE_DYN2_SRC})
 add_executable(example_arraylistdyn3 ${ARRAYLIST_EXAMPLE_DYN3_SRC})
+add_executable(example_arraylistdyn_gui_components ${GUI_EXAMPLE_SOURCES})
 
 # Arraylist Output directory
 set_target_properties(test_arraylist PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
@@ -126,6 +160,7 @@ set_target_properties(example_arraylist3 PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${C
 set_target_properties(example_arraylistdyn1 PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set_target_properties(example_arraylistdyn2 PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set_target_properties(example_arraylistdyn3 PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set_target_properties(example_arraylistdyn_gui_components PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 # Arraylist Include directory
 target_include_directories(test_arraylist PRIVATE "${PROJECT_SOURCE_DIR}/include")
@@ -136,6 +171,9 @@ target_include_directories(example_arraylist3 PRIVATE "${PROJECT_SOURCE_DIR}/inc
 target_include_directories(example_arraylistdyn1 PRIVATE "${PROJECT_SOURCE_DIR}/include")
 target_include_directories(example_arraylistdyn2 PRIVATE "${PROJECT_SOURCE_DIR}/include")
 target_include_directories(example_arraylistdyn3 PRIVATE "${PROJECT_SOURCE_DIR}/include")
+target_include_directories(example_arraylistdyn_gui_components PRIVATE "${PROJECT_SOURCE_DIR}/include")
+# Add the examples gui components own include directory (for its own internal headers) as well:
+target_include_directories(example_arraylistdyn_gui_components PRIVATE "${PROJECT_SOURCE_DIR}/${GUI_EXAMPLE_DIR}/include")
 
 # Pair executables
 add_executable(test_pair ${PAIR_TEST_SRC})
@@ -173,6 +211,7 @@ add_custom_target(
     COMMAND $<TARGET_FILE:example_arraylistdyn1>
     COMMAND $<TARGET_FILE:example_arraylistdyn2>
     COMMAND $<TARGET_FILE:example_arraylistdyn3>
+    COMMAND $<TARGET_FILE:example_arraylistdyn_gui_components>
     COMMAND $<TARGET_FILE:test_pair>
     COMMAND $<TARGET_FILE:example_pair1>
     COMMAND $<TARGET_FILE:avl_test_usage>
