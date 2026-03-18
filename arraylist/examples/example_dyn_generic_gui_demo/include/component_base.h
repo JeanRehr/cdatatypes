@@ -1,0 +1,4 @@
+#ifndef COMPONENT_BASE_H
+#define COMPONENT_BASE_H
+
+#endif // COMPONENT_BASE_H
