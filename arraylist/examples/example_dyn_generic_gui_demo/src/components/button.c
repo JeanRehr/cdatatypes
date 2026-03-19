@@ -30,7 +30,7 @@ static void button_render(struct component_base *self) {
     
     // Cast to button to access its fields and render it
     struct button *button = (struct button *)self;
-    printf("rendering button with ID: %d and title: %s\n", button->id, button->title);
+    printf("rendering button with ID: %d and title: %s\r\n", button->id, button->title);
 }
 
 static void button_deinit(struct component_base **self_ptr, struct Allocator *alloc) {
@@ -38,13 +38,13 @@ static void button_deinit(struct component_base **self_ptr, struct Allocator *al
         return;
     }
 
-    printf("button deinit ptr called\n");
+    printf("button deinit ptr called\r\n");
 
     struct component_base *self = *self_ptr;
 
     // We could cast this back to a struct button, for logging maybe:
     struct button *button = (struct button *)self;
-    printf("deinit button with ID: %d and title: %s\n", button->id, button->title);
+    printf("deinit button with ID: %d and title: %s\r\n", button->id, button->title);
 
     alloc->free(self, self->allocated_size, alloc->ctx);
     *self_ptr = NULL;

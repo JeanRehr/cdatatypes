@@ -30,7 +30,7 @@ static void textbox_render(struct component_base *self) {
 
     // Cast to textbox to access its fields and render it
     struct textbox *tb = (struct textbox *)self;
-    printf("rendering textbox with ID: %d and title: %s\n", tb->id, tb->title);
+    printf("rendering textbox with ID: %d and title: %s\r\n", tb->id, tb->title);
 
 }
 
@@ -39,13 +39,13 @@ static void textbox_deinit_ptr(struct component_base **self_ptr, struct Allocato
         return;
     }
 
-    printf("textbox deinit ptr called\n");
+    printf("textbox deinit ptr called\r\n");
 
     struct component_base *self = *self_ptr;
 
     // We could cast this back to a struct textbox, for logging maybe:
     struct textbox *tb = (struct textbox *)self;
-    printf("deinit textbox with ID: %d and title: %s\n", tb->id, tb->title);
+    printf("deinit textbox with ID: %d and title: %s\r\n", tb->id, tb->title);
 
     alloc->free(self, self->allocated_size, alloc->ctx);
 

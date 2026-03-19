@@ -41,15 +41,15 @@ static void screen1_render(struct screen_base *self) {
 
     // Cast from screen_base pointer to screen1 pointer to access its elements
     struct screen1 *screen1 = (struct screen1 *)self;
-    printf("rendering screen1 id %d\n", screen1->id);
+    printf("rendering screen1 id %d\r\n", screen1->id);
 
     for (size_t i = 0; i < self->components.size; ++i) {
         // Get each component in the arraylist
         struct component_base *comp = self->components.data[i];
         // Render with their concrete implementation
         comp->component_render(comp);
-        printf("rendering components of screen1\n");
     }
+    printf("rendered components of screen1\r\n");
 }
 
 static void screen1_deinit(struct screen_base **self_ptr, struct Allocator *alloc) {
@@ -60,7 +60,7 @@ static void screen1_deinit(struct screen_base **self_ptr, struct Allocator *allo
     // Cast to the concrete type to access its elements
     struct screen1 *self = (struct screen1 *)*self_ptr;
 
-    printf("cleaning up screen1 with ID: %d\n", self->id);
+    printf("cleaning up screen1 with ID: %d\r\n", self->id);
 
     // Cleanup of the arraylist of base component pointers
     dyn_components_deinit(&self->base.components);

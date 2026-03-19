@@ -5,32 +5,32 @@
 // Aborting on these functions would be better
 static void component_default_render(struct component_base *self) {
     if (!self) {
-        fprintf(stderr, "component_base is null on default render call\n");
+        fprintf(stderr, "component_base is null on default render call\r\n");
         return;
     }
     if (self->component_name) {
-        fprintf(stderr, "Render not implemented for ui component [%s]\n", self->component_name);
+        fprintf(stderr, "Render not implemented for ui component [%s]\r\n", self->component_name);
     } else {
         // This should never happen, how would this function be initialized to a function pointer without a name?
         // unless manually assigning it to a component_base field 
-        fprintf(stderr, "Render not implemented for ui component [undefined]\n");
+        fprintf(stderr, "Render not implemented for ui component [undefined]\r\n");
     }
 }
 
 static void component_default_deinit(struct component_base **self_ptr, struct Allocator *alloc) {
     if (!self_ptr || !*self_ptr) {
-        fprintf(stderr, "component_base is null on default deinit call\n");
+        fprintf(stderr, "component_base is null on default deinit call\r\n");
         return;
     }
 
     (void)alloc;
 
     if ((*self_ptr)->component_name) {
-        fprintf(stderr, "Deinit not implemented for ui component [%s]\n", (*self_ptr)->component_name);
+        fprintf(stderr, "Deinit not implemented for ui component [%s]\r\n", (*self_ptr)->component_name);
     } else {
         // This should never happen, how would this function be initialized to a function pointer without a name?
         // unless manually assigning it to a component_base field 
-        fprintf(stderr, "Deinit not implemented for ui component [undefined]\n");
+        fprintf(stderr, "Deinit not implemented for ui component [undefined]\r\n");
     }
 }
 
