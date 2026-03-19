@@ -36,8 +36,9 @@ The build system will search for `clang-cl`, then fallback to MSVC. To force MSV
 
 ## Using the Arraylist
 
-### To define an arraylist for a type:
+### Simple uses/prototype:
 
+This arraylist type/functions will only be able to be used in the myfile.c:
 ```c
 // myfile.h:
 #include "arraylist.h"
@@ -56,6 +57,46 @@ struct Allocator alloc = get_default_allocator();
 struct arraylist_mytype arr = mytype_init(alloc);
 // use arr
 mytype_deinit(&arr);
+```
+
+### More complex usage:
+
+For more complex usage, where the an arraylist type and functions are used throughout multiple files on a large codebase, the following has to be done:
+```c
+// my_arraylist_type.h:
+#ifndef MY_ARRAYLIST_TYPE_H
+#define MY_ARRAYLIST_TYPE_H
+
+#include "mytype.h"
+
+// The linkage has to be overrided to extern to allow it to be used throughout all codebase by just including this header
+#define ARRAYLIST_LINKAGE extern
+#include "arraylist.h"
+
+ARRAYLIST_TYPE_DYN(struct mytype, mytype)
+ARRAYLIST_DECL_DYN(struct mytype, mytype)
+
+// Every macro function declared and the struct type used will be expanded here
+
+#endif // MY_ARRAYLIST_TYPE_H
+/* ======================================= */
+// my_arraylist_type.c:
+#include "my_arraylist_type.h"
+
+// We have to undef ARRAYLIST_LINKAGE here so that there is no linkage,
+// and then define it to nothing so // Every macro function declared and the struct type used will be expanded here it has normal linkage
+#undef ARRAYLIST_LINKAGE
+#define ARRAYLIST_LINKAGE
+#include "arraylist.h"
+
+ARRAYLIST_IMPL_DYN(struct mytype, mytype, mytype_macro_dtor)
+
+// Every macro function implementation of the type used will be expanded here
+/* ======================================= */
+// On another file or main that uses this arraylist
+#include "my_arraylist_type.h"
+
+// use the arraylist
 ```
 
 Destructor functions are critical for correct memory handling of heap allocated fields inside structs, if your type doesn't allocate anything inside it, or it isn't a pointer type, no need for a destructor.
