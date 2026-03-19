@@ -8,7 +8,7 @@
 #define ARRAYLIST_LINKAGE
 #include "arraylist.h"
 
-ARRAYLIST_DECL_DYN(struct component_base *, components)
+ARRAYLIST_IMPL_DYN(struct component_base *, components)
 
 // Every macro implementation of the type used will be expanded here
 
