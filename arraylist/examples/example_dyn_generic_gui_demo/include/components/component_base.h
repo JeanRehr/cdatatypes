@@ -11,4 +11,7 @@ struct component_base {
     size_t allocated_size;
 };
 
+// Prevent runtime crash due to uninitialized function pointers
+void component_base_init_default(struct component_base *self, const char *component_name, size_t allocated_size);
+
 #endif // COMPONENT_BASE_H

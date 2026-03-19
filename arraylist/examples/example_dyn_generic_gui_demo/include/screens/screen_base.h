@@ -11,4 +11,7 @@ struct screen_base {
     size_t allocated_size;
 };
 
+// Prevent runtime crash due to uninitialized function pointers
+void screen_base_init_default(struct screen_base *self, const char *screen_name, size_t allocated_size);
+
 #endif // SCREEN_BASE_H

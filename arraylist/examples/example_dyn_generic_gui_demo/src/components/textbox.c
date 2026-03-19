@@ -10,10 +10,9 @@ struct textbox *textbox_init_ptr(const char *title, int id, struct Allocator *al
     struct textbox *self = alloc->malloc(sizeof(*self), alloc->ctx);
 
     // initialize base methods and fields
+    component_base_init_default(&self->base, "Textbox", sizeof(*self));
     self->base.component_render = textbox_render;
     self->base.component_deinit = textbox_deinit_ptr;
-    self->base.component_name = "Textbox";
-    self->base.allocated_size = sizeof(*self);
 
     // Specific struct fields
     self->title = title;

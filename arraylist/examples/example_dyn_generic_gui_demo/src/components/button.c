@@ -1,4 +1,5 @@
 #include "components/button.h"
+#include "components/component_base.h"
 
 #include <stdio.h>
 
@@ -11,10 +12,9 @@ struct button *button_init_ptr(const char *title, int id, struct Allocator *allo
     struct button *self = alloc->malloc(sizeof(*self), alloc->ctx);
 
     // Initialize methods and base fields
+    component_base_init_default(&self->base, "Button", sizeof(*self));
     self->base.component_render = button_render;
     self->base.component_deinit = button_deinit;
-    self->base.allocated_size = sizeof(*self);
-    self->base.component_name = "Button";
 
     // Specific button fields
     self->id = id;
