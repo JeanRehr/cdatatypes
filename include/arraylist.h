@@ -684,7 +684,7 @@ ARRAYLIST_UNUSED ARRAYLIST_LINKAGE T *ARRAYLIST_FN(name, end)(const struct array
  *                                                                                                                     \
  * @note Will call the object's destructor on objects if available                                                     \
  */                                                                                                                    \
-ARRAYLIST_UNUSED static void ARRAYLIST_FN(name, clear)(struct arraylist_##name *self);                                 \
+ARRAYLIST_UNUSED ARRAYLIST_LINKAGE void ARRAYLIST_FN(name, clear)(struct arraylist_##name *self);                      \
                                                                                                                        \
 /**                                                                                                                    \
  * @brief push_back: Adds a new element by value to the end of the arraylist                                           \
@@ -1722,7 +1722,7 @@ ARRAYLIST_UNUSED ARRAYLIST_LINKAGE T *ARRAYLIST_FN_DYN(name, end)(const struct a
  *                                                                                                                     \
  * @note Will call the object's destructor on objects if available                                                     \
  */                                                                                                                    \
-ARRAYLIST_UNUSED static void ARRAYLIST_FN_DYN(name, clear)(                                                            \
+ARRAYLIST_UNUSED ARRAYLIST_LINKAGE void ARRAYLIST_FN_DYN(name, clear)(                                                 \
     struct arraylist_dyn_##name *self                                                                                  \
 );                                                                                                                     \
                                                                                                                        \
