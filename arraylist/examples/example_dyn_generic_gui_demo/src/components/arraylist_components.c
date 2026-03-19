@@ -1,4 +1,4 @@
-#include "arraylist_components.h"
+#include "components/arraylist_components.h"
 
 /*
  * We have to undef ARRAYLIST_LINKAGE here so that there is no linkage, it has to be the normal linkage

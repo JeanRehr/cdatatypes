@@ -1,7 +1,7 @@
 #ifndef BUTTON_H
 #define BUTTON_H
 
-#include "component_base.h"
+#include "components/component_base.h"
 
 struct button {
     struct component_base base;

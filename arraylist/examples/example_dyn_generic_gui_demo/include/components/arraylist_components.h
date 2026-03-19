@@ -1,7 +1,7 @@
 #ifndef ARRAYLIST_COMPONENTS_H
 #define ARRAYLIST_COMPONENTS_H
 
-#include "component_base.h"
+#include "components/component_base.h"
 
 /*
  * We are defining here an arraylist of pointer base interfaces of components, the linkage has to be

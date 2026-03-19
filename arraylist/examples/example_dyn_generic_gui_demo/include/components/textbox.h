@@ -1,7 +1,7 @@
 #ifndef TEXBOX_H
 #define TEXBOX_H
 
-#include "component_base.h"
+#include "components/component_base.h"
 
 struct textbox {
     struct component_base base;

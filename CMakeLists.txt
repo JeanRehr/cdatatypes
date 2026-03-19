@@ -115,10 +115,10 @@ set(GUI_EXAMPLE_DIR "arraylist/examples/example_dyn_generic_gui_demo")
 # All source files of the example:
 set(GUI_EXAMPLE_SOURCES
     ${GUI_EXAMPLE_DIR}/src/main.c
-    ${GUI_EXAMPLE_DIR}/src/button.c
-    ${GUI_EXAMPLE_DIR}/src/textbox.c
-    ${GUI_EXAMPLE_DIR}/src/screen1.c
-    ${GUI_EXAMPLE_DIR}/src/screen2.c
+    ${GUI_EXAMPLE_DIR}/src/components/button.c
+    ${GUI_EXAMPLE_DIR}/src/components/textbox.c
+    ${GUI_EXAMPLE_DIR}/src/screens/screen1.c
+    ${GUI_EXAMPLE_DIR}/src/screens/screen2.c
 )
 
 # -------------------------------------------------------------------------------------------------
