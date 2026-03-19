@@ -39,10 +39,14 @@ static void button_deinit(struct component_base **self_ptr, struct Allocator *al
         return;
     }
 
-    // Cast to single pointer for ease of use/syntax
+    printf("button deinit ptr called\n");
+
     struct component_base *self = *self_ptr;
+
+    // We could cast this back to a struct button, for logging maybe:
+    struct button *button = (struct button *)self;
+    printf("deinit button with ID: %d and title: %s\n", button->id, button->title);
 
     alloc->free(self, self->allocated_size, alloc->ctx);
     *self_ptr = NULL;
-    printf("button deinit ptr called\n");
 }

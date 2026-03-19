@@ -40,10 +40,15 @@ static void textbox_deinit_ptr(struct component_base **self_ptr, struct Allocato
         return;
     }
 
+    printf("textbox deinit ptr called\n");
+
     struct component_base *self = *self_ptr;
+
+    // We could cast this back to a struct textbox, for logging maybe:
+    struct textbox *tb = (struct textbox *)self;
+    printf("deinit textbox with ID: %d and title: %s\n", tb->id, tb->title);
 
     alloc->free(self, self->allocated_size, alloc->ctx);
 
     *self_ptr = NULL;
-    printf("textbox deinit ptr called\n");
 }
