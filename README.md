@@ -68,6 +68,8 @@ Unit tests on [arraylist/tests](arraylist/tests) directory.
 
 Examples are on [arraylist/examples](arraylist/examples) directory.
 
+An example use-case specific for the DYN version (runtime destructor) can be found on [arraylist/examples/example_dyn_generic_gui_demo/](arraylist/examples/example_dyn_generic_gui_demo/).
+
 ### Performance:
 
 The `arraylist` implementation provides performance nearly identical (sometimes beating) to C++ STL `std::vector<unique_ptr<T>>`.
