@@ -27,6 +27,8 @@ int main(void) {
     struct screen2 *s2 = screen2_init_ptr(2, &alloc);
     *dyn_screens_emplace_back(&screens) = &s2->base;
 
+    size_t loop_num = 0;
+
     // "rendering" loop
     while (!kbhit()) {
         printf("Press any key to exit the loop.\r\n");
@@ -52,6 +54,8 @@ int main(void) {
             // Right now, it is rendering all screens one at a time.
             printf("\r\n");
         }
+
+        printf("Loop number %zu\r\n", loop_num++);
 
         sleep(1);
     }
