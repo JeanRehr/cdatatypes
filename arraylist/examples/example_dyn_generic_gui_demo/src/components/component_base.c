@@ -12,7 +12,7 @@ static void component_default_render(struct component_base *self) {
         fprintf(stderr, "Render not implemented for ui component [%s]\r\n", self->component_name);
     } else {
         // This should never happen, how would this function be initialized to a function pointer without a name?
-        // unless manually assigning it to a component_base field 
+        // unless manually assigning it to a component_base field
         fprintf(stderr, "Render not implemented for ui component [undefined]\r\n");
     }
 }
@@ -29,7 +29,7 @@ static void component_default_deinit(struct component_base **self_ptr, struct Al
         fprintf(stderr, "Deinit not implemented for ui component [%s]\r\n", (*self_ptr)->component_name);
     } else {
         // This should never happen, how would this function be initialized to a function pointer without a name?
-        // unless manually assigning it to a component_base field 
+        // unless manually assigning it to a component_base field
         fprintf(stderr, "Deinit not implemented for ui component [undefined]\r\n");
     }
 }

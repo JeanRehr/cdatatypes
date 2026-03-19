@@ -22,7 +22,7 @@ struct textbox *textbox_init_ptr(const char *title, int id, struct Allocator *al
     return self;
 }
 
-// Private implementation details 
+// Private implementation details
 static void textbox_render(struct component_base *self) {
     if (!self) {
         return;
@@ -31,7 +31,6 @@ static void textbox_render(struct component_base *self) {
     // Cast to textbox to access its fields and render it
     struct textbox *tb = (struct textbox *)self;
     printf("rendering textbox with ID: %d and title: %s\r\n", tb->id, tb->title);
-
 }
 
 static void textbox_deinit_ptr(struct component_base **self_ptr, struct Allocator *alloc) {

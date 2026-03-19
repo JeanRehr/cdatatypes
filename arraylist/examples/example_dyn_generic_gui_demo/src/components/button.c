@@ -22,12 +22,12 @@ struct button *button_init_ptr(const char *title, int id, struct Allocator *allo
     return self;
 }
 
-// Private implementation details 
+// Private implementation details
 static void button_render(struct component_base *self) {
     if (!self) {
         return;
     }
-    
+
     // Cast to button to access its fields and render it
     struct button *button = (struct button *)self;
     printf("rendering button with ID: %d and title: %s\r\n", button->id, button->title);

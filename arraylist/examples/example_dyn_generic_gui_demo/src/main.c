@@ -4,9 +4,9 @@
 // returns non-zero because of raw mode terminal, the terminal doesn't automatically converts \n to \r\n
 #include "simulate_rendering.h" // Cross-platform sleep, getch, and kbhit
 
+#include "screens/arraylist_screens.h"
 #include "screens/screen1.h"
 #include "screens/screen2.h"
-#include "screens/arraylist_screens.h"
 
 int main(void) {
     // General allocator
@@ -28,7 +28,7 @@ int main(void) {
     *dyn_screens_emplace_back(&screens) = &s2->base;
 
     // "rendering" loop
-    while(!kbhit()) {
+    while (!kbhit()) {
         printf("Press any key to exit the loop.\r\n");
 
         // Cycle through screens
@@ -39,7 +39,7 @@ int main(void) {
             // Or access the buffer directly (no bounds checking)
             struct screen_base *screen = screens.data[i];
 
-            // Function pointer call dispatches to the correct implementation of the concrete screen type at index i 
+            // Function pointer call dispatches to the correct implementation of the concrete screen type at index i
             screen->screen_render(screen);
 
             // May call it directly as well

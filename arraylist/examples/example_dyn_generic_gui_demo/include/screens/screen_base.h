@@ -8,7 +8,8 @@
 struct screen_base {
     void (*screen_render)(struct screen_base *self);
     void (*screen_deinit)(struct screen_base **self_ptr, struct Allocator *alloc);
-    struct arraylist_dyn_components components; // As every screen will have components, storing it on the abstract base class makes sense
+    // As every screen will have components, storing it on the abstract base class makes sense
+    struct arraylist_dyn_components components;
     const char *screen_name;
     size_t allocated_size;
 };

@@ -12,7 +12,7 @@ static void screen_default_render(struct screen_base *self) {
         fprintf(stderr, "Render not implemented for ui screen [%s]\n", self->screen_name);
     } else {
         // This should never happen, how would this function be initialized to a function pointer without a name?
-        // unless manually assigning it to a screen_base field 
+        // unless manually assigning it to a screen_base field
         fprintf(stderr, "Render not implemented for ui screen [undefined]\n");
     }
 }
@@ -29,7 +29,7 @@ static void screen_default_deinit(struct screen_base **self_ptr, struct Allocato
         fprintf(stderr, "Deinit not implemented for ui screen [%s]\n", (*self_ptr)->screen_name);
     } else {
         // This should never happen, how would this function be initialized to a function pointer without a name?
-        // unless manually assigning it to a screen_base field 
+        // unless manually assigning it to a screen_base field
         fprintf(stderr, "Deinit not implemented for ui screen [undefined]\n");
     }
 }
