@@ -1,4 +1,5 @@
 #include "components/textbox.h"
+
 #include <stdio.h>
 
 /* Base methods/functionality */
