@@ -10,7 +10,7 @@
 
 ARRAYLIST_IMPL_DYN(struct screen_base *, screens)
 
-// Every macro implementation of the type used will be expanded here
+// Every macro function implementation of the type used will be expanded here
 
 // Destructor function that frees screen_base pointers
 // This should be used in the init of arraylist of screen_base pointers

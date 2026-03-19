@@ -18,7 +18,7 @@
 ARRAYLIST_TYPE_DYN(struct component_base *, components)
 ARRAYLIST_DECL_DYN(struct component_base *, components)
 
-// Every macro declared and the type used will be expanded here
+// Every macro function declared and the struct type used will be expanded here
 
 // Function that essentially dispatches to the correct implementation given the component
 void component_base_ptr_dtor(struct component_base **base_ptr, struct Allocator *alloc);

@@ -18,7 +18,7 @@
 ARRAYLIST_TYPE_DYN(struct screen_base *, screens)
 ARRAYLIST_DECL_DYN(struct screen_base *, screens)
 
-// Every macro declared and the type used will be expanded here
+// Every macro function declared and the struct type used will be expanded here
 
 // Function that essentially dispatches to the correct implementation given the screen
 void screen_base_ptr_dtor(struct screen_base **base_ptr, struct Allocator *alloc);
