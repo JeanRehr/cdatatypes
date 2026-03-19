@@ -12,13 +12,15 @@
 #include "arraylist.h"
 
 // As there is no way to know ahead of time which component we are looking at (textbox, button, etc)
-// The destructor has to be a function pointer
+// The Arraylist must be dynamic version (destructor has to be a function pointer)
+
+// Arraylist of component_base pointers
 ARRAYLIST_TYPE_DYN(struct component_base *, components)
 ARRAYLIST_DECL_DYN(struct component_base *, components)
 
 // Every macro declared and the type used will be expanded here
 
 // Function that essentially dispatches to the correct implementation given the component
-void screen_base_ptr_dtor(struct component_base **base_ptr, struct Allocator *alloc);
+void component_base_ptr_dtor(struct component_base **base_ptr, struct Allocator *alloc);
 
 #endif // ARRAYLIST_COMPONENTS_H
