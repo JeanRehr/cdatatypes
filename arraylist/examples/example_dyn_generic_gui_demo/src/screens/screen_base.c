@@ -37,6 +37,7 @@ static void screen_default_deinit(struct screen_base **self_ptr, struct Allocato
 void screen_base_init_default(struct screen_base *self, const char *component_name, size_t allocated_size) {
     self->screen_render = screen_default_render;
     self->screen_deinit = screen_default_deinit;
+    // Should self->components be initialized here? I don't think so as there is no Allocator struct to be used
     self->screen_name = component_name;
     self->allocated_size = allocated_size;
 }
