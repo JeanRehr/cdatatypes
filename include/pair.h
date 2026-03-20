@@ -420,7 +420,7 @@ PAIR_UNUSED PAIR_LINKAGE struct pair_##name PAIR_FN(name, init)(K first, V secon
  *       themselves, or contain heap allocated mem, then the function pointers must allocate/copy                      \
  *       these fields as needed, if K or V are pointers, then allocate K or V itself as well                           \
  *                                                                                                                     \
- * @warning If self is NULL, or deep_clone_first_fn, or deep_clone_second_fn if NULL then it returns                   \
+ * @warning If self is NULL, or deep_clone_first_fn, or deep_clone_second_fn is NULL then it returns                   \
  *          a zero-initialized struct, if asserts are enabled then it crashes                                          \
  * @warning The return of this function should not be discarded, if doing so, memory may be leaked                     \
  */                                                                                                                    \
