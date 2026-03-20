@@ -123,6 +123,8 @@ To add a new screen type:
 3. Add to the screens arraylist
 4. It will automatically integrate with the render loop.
 
+With this one may add generic behavior that is common on every component or screen, like TAB pressing goes to focus on the next component.
+
 I have made this to demonstrate the usefulness of the ARRAYLIST_DYN type, while also demonstrating that:
 
 1. Function pointers enable polymorphism in C, like virtual functions in C++
