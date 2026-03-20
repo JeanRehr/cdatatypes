@@ -123,6 +123,12 @@ To add a new screen type:
 3. Add to the screens arraylist
 4. It will automatically integrate with the render loop.
 
+To add new base functionality/behavior:
+1. Add a function pointer to the component or screen base struct.
+2. Implement a stub for it in the default constructor of base.
+3. Implement it as private (static) in each component and screen.
+4. Call it through base pointers through the arraylists.
+
 With this one may add generic behavior that is common on every component or screen, like TAB pressing goes to focus on the next component.
 
 I have made this to demonstrate the usefulness of the ARRAYLIST_DYN type, while also demonstrating that:
