@@ -61,7 +61,7 @@ mytype_deinit(&arr);
 
 ### More complex usage:
 
-For more complex usage, where the an arraylist type and functions are used throughout multiple files on a large codebase, the following has to be done:
+For more complex usage, where an arraylist type and functions are used throughout multiple files on a large codebase, the following has to be done:
 ```c
 // my_arraylist_type.h:
 #ifndef MY_ARRAYLIST_TYPE_H
@@ -69,7 +69,8 @@ For more complex usage, where the an arraylist type and functions are used throu
 
 #include "mytype.h"
 
-// The linkage has to be overrided to extern to allow it to be used throughout all codebase by just including this header
+// The linkage has to be overrided to extern to allow it to be used
+// throughout all codebase by just including this header
 #define ARRAYLIST_LINKAGE extern
 #include "arraylist.h"
 
@@ -84,7 +85,7 @@ ARRAYLIST_DECL_DYN(struct mytype, mytype)
 #include "my_arraylist_type.h"
 
 // We have to undef ARRAYLIST_LINKAGE here so that there is no linkage,
-// and then define it to nothing so // Every macro function declared and the struct type used will be expanded here it has normal linkage
+// and then define it to nothing so it has normal linkage
 #undef ARRAYLIST_LINKAGE
 #define ARRAYLIST_LINKAGE
 #include "arraylist.h"
