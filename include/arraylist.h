@@ -247,8 +247,8 @@ extern "C" {
  * // shared_list.c
  * #include "shared_list.h"
  *
- * // Undefine ARRAYLIST_LINKAGE so the implementations get normal linkage
- * // (not extern, not static inline)
+ * // Undefine ARRAYLIST_LINKAGE and then define to nothing so the implementations get
+ * // normal linkage (not extern, not static inline)
  * #undef ARRAYLIST_LINKAGE
  * #define ARRAYLIST_LINKAGE
  * #include "arraylist.h"
@@ -263,11 +263,11 @@ extern "C" {
  * @def ARRAYLIST_UNUSED
  * @brief Defines a macro to supress the warning for unused function because of static inline
  */
-#if defined(__cplusplus) && __cplusplus >= 201703L
-    #define ARRAYLIST_UNUSED [[maybe_unused]]
-#elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L
+#if ARRAYLIST_USE_BRACKET_ATTR && (__has_c_attribute(maybe_unused) || __has_cpp_attribute(maybe_unused))
+    // C23+ or C++17+
     #define ARRAYLIST_UNUSED [[maybe_unused]]
 #elif defined(__GNUC__) || defined(__clang__)
+    // Legacy GCC or Clang compilers
     #define ARRAYLIST_UNUSED __attribute__((unused))
 #else
     #define ARRAYLIST_UNUSED
@@ -278,35 +278,38 @@ extern "C" {
  * @brief Defines a macro to warn of discarded unused results when they matter
  *        (possible leak of memory is involved)
  */
-#if defined(__cplusplus) && __cplusplus >= 201703L
-    #define ARRAYLIST_NODISCARD [[nodiscard]]
-#elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L
+#if ARRAYLIST_USE_BRACKET_ATTR && (__has_c_attribute(nodiscard) || __has_cpp_attribute(nodiscard))
+    // C23+ or C++17+
     #define ARRAYLIST_NODISCARD [[nodiscard]]
 #elif defined(__GNUC__) || defined(__clang__)
+    // Legacy GCC or Clang compilers
     #define ARRAYLIST_NODISCARD __attribute__((warn_unused_result))
-#elif defined(_MSC_VER) && _MSC_VER >= 1700
-    #if defined(_SAL_VERSION_SOURCE) && _SAL_VERSION_SOURCE >= 2
-        #ifndef _Check_return_
-            #include <sal.h>
-        #endif // _Check_return_ from sal.h
-        #define ARRAYLIST_NODISCARD _Check_return_
-    #else
-        #define ARRAYLIST_NODISCARD
-    #endif // _SAL_VERSION_SOURCE && _SAL_VERSION_SOURCE >= 2
+#elif defined(_MSC_VER)
+    // Legacy MSVC
+    #include <sal.h>
+    #define ARRAYLIST_NODISCARD _Check_return_
 #else
     #define ARRAYLIST_NODISCARD
 #endif // ARRAYLIST_NODISCARD definition
 
 /**
- * @def ARRAYLIST_UNLIKELY(x)
+ * @def ARRAYLIST_HINT_UNLIKELY
+ * @def ARRAYLIST_NOT_EXPECT
  * @brief Branch prediction hint, used in the ARRAYLIST_ENSURE macro, as it usually
- *        just always passes, C23 [[likely]] cannot be applied in this case
+ *        just always passes
  */
-#if defined(__GNUC__) || defined(__clang__)
-    #define ARRAYLIST_UNLIKELY(x) __builtin_expect(!!(x), 0)
+#if ARRAYLIST_USE_BRACKET_ATTR && (__has_c_attribute(unlikely) || __has_cpp_attribute(unlikely))
+    // C23+ or C++17+
+    #define ARRAYLIST_HINT_UNLIKELY [[unlikely]]
+    #define ARRAYLIST_NOT_EXPECT(x) (x)
+#elif defined(__GNUC__) || defined(__clang__)
+    // Legacy GCC or Clang compilers
+    #define ARRAYLIST_HINT_UNLIKELY
+    #define ARRAYLIST_NOT_EXPECT(x) __builtin_expect(!!(x), 0)
 #else
-    #define ARRAYLIST_UNLIKELY(x) (x)
-#endif // ARRAYLIST_UNLIKELY definition
+    #define ARRAYLIST_HINT_UNLIKELY
+    #define ARRAYLIST_NOT_EXPECT(x) (x)
+#endif // ARRAYLIST_NOT_EXPECT definition
 
 /**
  * @def ARRAYLIST_USE_ASSERT
@@ -323,7 +326,7 @@ extern "C" {
     #include <stdlib.h> // For abort()
     #define ARRAYLIST_ENSURE(cond, ret, msg)                                                                           \
         do {                                                                                                           \
-            if (ARRAYLIST_UNLIKELY(!(cond))) {                                                                         \
+            if (ARRAYLIST_NOT_EXPECT(!(cond))) ARRAYLIST_HINT_UNLIKELY {                                               \
                 assert(0 && (msg));                                                                                    \
                 abort();                                                                                               \
             }                                                                                                          \
@@ -331,7 +334,7 @@ extern "C" {
 
     #define ARRAYLIST_ENSURE_PTR(cond, msg)                                                                            \
         do {                                                                                                           \
-            if (ARRAYLIST_UNLIKELY(!(cond))) {                                                                         \
+            if (ARRAYLIST_NOT_EXPECT(!(cond))) ARRAYLIST_HINT_UNLIKELY {                                               \
                 assert(0 && (msg));                                                                                    \
                 abort();                                                                                               \
             }                                                                                                          \
@@ -339,14 +342,14 @@ extern "C" {
 #else
     #define ARRAYLIST_ENSURE(cond, ret, msg)                                                                           \
         do {                                                                                                           \
-            if (ARRAYLIST_UNLIKELY(!(cond))) {                                                                         \
+            if (ARRAYLIST_NOT_EXPECT(!(cond))) ARRAYLIST_HINT_UNLIKELY {                                               \
                 return (ret);                                                                                          \
             }                                                                                                          \
         } while (0)
 
     #define ARRAYLIST_ENSURE_PTR(cond, msg)                                                                            \
         do {                                                                                                           \
-            if (ARRAYLIST_UNLIKELY(!(cond))) {                                                                         \
+            if (ARRAYLIST_NOT_EXPECT(!(cond))) ARRAYLIST_HINT_UNLIKELY {                                               \
                 return NULL;                                                                                           \
             }                                                                                                          \
         } while (0)

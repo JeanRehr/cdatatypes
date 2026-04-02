@@ -208,8 +208,8 @@ extern "C" {
  * // shared_pair.c
  * #include "shared_pair.h"
  *
- * // Undefine PAIR_LINKAGE so the implementations get normal linkage
- * // (not extern, not static inline)
+ * // Undefine PAIR_LINKAGE and then define to nothing so the implementations get
+ * // normal linkage (not extern, not static inline)
  * #undef PAIR_LINKAGE
  * #define PAIR_LINKAGE
  * #include "pair.h"
@@ -220,15 +220,11 @@ extern "C" {
     #define PAIR_LINKAGE static inline
 #endif // PAIR_LINKAGE
 
-/**
- * @def PAIR_UNUSED
- * @brief Defines a macro to supress the warning for unused function because of PAIR_LINKAGE
- */
-#if defined(__cplusplus) && __cplusplus >= 201703L
-    #define PAIR_UNUSED [[maybe_unused]]
-#elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L
+#if PAIR_USE_BRACKET_ATTR && (__has_c_attribute(maybe_unused) || __has_cpp_attribute(maybe_unused))
+    // C23+ or C++17+
     #define PAIR_UNUSED [[maybe_unused]]
 #elif defined(__GNUC__) || defined(__clang__)
+    // Legacy GCC or Clang compilers
     #define PAIR_UNUSED __attribute__((unused))
 #else
     #define PAIR_UNUSED
@@ -239,35 +235,38 @@ extern "C" {
  * @brief Defines a macro to warn of discarded unused results when they matter
  *        (possible leak of memory is involved)
  */
-#if defined(__cplusplus) && __cplusplus >= 201703L
-    #define PAIR_NODISCARD [[nodiscard]]
-#elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L
+#if PAIR_USE_BRACKET_ATTR && (__has_c_attribute(nodiscard) || __has_cpp_attribute(nodiscard))
+    // C23+ or C++17+
     #define PAIR_NODISCARD [[nodiscard]]
 #elif defined(__GNUC__) || defined(__clang__)
+    // Legacy GCC or Clang compilers
     #define PAIR_NODISCARD __attribute__((warn_unused_result))
-#elif defined(_MSC_VER) && _MSC_VER >= 1700
-    #if defined(_SAL_VERSION_SOURCE) && _SAL_VERSION_SOURCE >= 2
-        #ifndef _Check_return_
-            #include <sal.h>
-        #endif // _Check_return_ from sal.h
-        #define PAIR_NODISCARD _Check_return_
-    #else
-        #define PAIR_NODISCARD
-    #endif // _SAL_VERSION_SOURCE && _SAL_VERSION_SOURCE >= 2
+#elif defined(_MSC_VER)
+    // Legacy MSVC
+    #include <sal.h>
+    #define PAIR_NODISCARD _Check_return_
 #else
     #define PAIR_NODISCARD
 #endif // PAIR_NODISCARD definition
 
 /**
- * @def PAIR_UNLIKELY(x)
+ * @def PAIR_HINT_UNLIKELY
+ * @def PAIR_NOT_EXPECT
  * @brief Branch prediction hint, used in the PAIR_ENSURE macro, as it usually
- *        just always passes, C23 [[likely]] cannot be applied in this case
+ *        just always passes
  */
-#if defined(__GNUC__) || defined(__clang__)
-    #define PAIR_UNLIKELY(x) __builtin_expect(!!(x), 0)
+#if PAIR_USE_BRACKET_ATTR && (__has_c_attribute(unlikely) || __has_cpp_attribute(unlikely))
+    // C23+ or C++17+
+    #define PAIR_HINT_UNLIKELY [[unlikely]]
+    #define PAIR_NOT_EXPECT(x) (x)
+#elif defined(__GNUC__) || defined(__clang__)
+    // Legacy GCC or Clang compilers
+    #define PAIR_HINT_UNLIKELY
+    #define PAIR_NOT_EXPECT(x) __builtin_expect(!!(x), 0)
 #else
-    #define PAIR_UNLIKELY(x) (x)
-#endif // PAIR_UNLIKELY definition
+    #define PAIR_HINT_UNLIKELY
+    #define PAIR_NOT_EXPECT(x) (x)
+#endif // PAIR_NOT_EXPECT definition
 
 /**
  * @def PAIR_USE_ASSERT
@@ -284,7 +283,7 @@ extern "C" {
     #include <stdlib.h> // For abort()
     #define PAIR_ENSURE(cond, ret, msg)                                                                                \
         do {                                                                                                           \
-            if (PAIR_UNLIKELY(!(cond))) {                                                                              \
+            if (PAIR_NOT_EXPECT(!(cond))) PAIR_HINT_UNLIKELY {                                                         \
                 assert(0 && (msg));                                                                                    \
                 abort();                                                                                               \
             }                                                                                                          \
@@ -292,7 +291,7 @@ extern "C" {
 
     #define PAIR_ENSURE_VOID(cond, msg)                                                                                \
         do {                                                                                                           \
-            if (PAIR_UNLIKELY(!(cond))) {                                                                              \
+            if (PAIR_NOT_EXPECT(!(cond))) PAIR_HINT_UNLIKELY {                                                         \
                 assert(0 && (msg));                                                                                    \
                 abort();                                                                                               \
             }                                                                                                          \
@@ -300,14 +299,14 @@ extern "C" {
 #else
     #define PAIR_ENSURE(cond, ret, msg)                                                                                \
         do {                                                                                                           \
-            if (PAIR_UNLIKELY(!(cond))) {                                                                              \
+            if (PAIR_NOT_EXPECT(!(cond))) PAIR_HINT_UNLIKELY {                                                         \
                 return (ret);                                                                                          \
             }                                                                                                          \
         } while (0)
 
     #define PAIR_ENSURE_VOID(cond, msg)                                                                                \
         do {                                                                                                           \
-            if (PAIR_UNLIKELY(!(cond))) {                                                                              \
+            if (PAIR_NOT_EXPECT(!(cond))) PAIR_HINT_UNLIKELY {                                                         \
                 return;                                                                                                \
             }                                                                                                          \
         } while (0)

@@ -74,8 +74,8 @@ extern "C" {
  * // shared_set.c
  * #include "shared_set.h"
  *
- * // Undefine AVLTREE_LINKAGE so the implementations get normal linkage
- * // (not extern, not static inline)
+ * // Undefine AVLTREE_LINKAGE and then define to nothing so the implementations get
+ * // normal linkage (not extern, not static inline)
  * #undef AVLTREE_LINKAGE
  * #define AVLTREE_LINKAGE
  * #include "avltree.h"
@@ -90,11 +90,11 @@ extern "C" {
  * @def AVLTREE_UNUSED
  * @brief Defines a macro to supress the warning for unused function because of AVLTREE_LINKAGE
  */
-#if defined(__cplusplus) && __cplusplus >= 201703L
-    #define AVLTREE_UNUSED [[maybe_unused]]
-#elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L
+#if AVLTREE_USE_BRACKET_ATTR && (__has_c_attribute(maybe_unused) || __has_cpp_attribute(maybe_unused))
+    // C23+ or C++17+ or an older compiler that supports it
     #define AVLTREE_UNUSED [[maybe_unused]]
 #elif defined(__GNUC__) || defined(__clang__)
+    // Legacy GCC or Clang compilers
     #define AVLTREE_UNUSED __attribute__((unused))
 #else
     #define AVLTREE_UNUSED
@@ -105,35 +105,38 @@ extern "C" {
  * @brief Defines a macro to warn of discarded unused results when they matter
  *        (possible leak of memory is involved)
  */
-#if defined(__cplusplus) && __cplusplus >= 201703L
-    #define AVLTREE_NODISCARD [[nodiscard]]
-#elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L
+#if AVLTREE_USE_BRACKET_ATTR && (__has_c_attribute(nodiscard) || __has_cpp_attribute(nodiscard))
+    // C23+ or C++17+ or an older compiler that supports it
     #define AVLTREE_NODISCARD [[nodiscard]]
 #elif defined(__GNUC__) || defined(__clang__)
+    // Legacy GCC or Clang compilers
     #define AVLTREE_NODISCARD __attribute__((warn_unused_result))
-#elif defined(_MSC_VER) && _MSC_VER >= 1700
-    #if defined(_SAL_VERSION_SOURCE) && _SAL_VERSION_SOURCE >= 2
-        #ifndef _Check_return_
-            #include <sal.h>
-        #endif // _Check_return_ from sal.h
-        #define AVLTREE_NODISCARD _Check_return_
-    #else
-        #define AVLTREE_NODISCARD
-    #endif // _SAL_VERSION_SOURCE && _SAL_VERSION_SOURCE >= 2
+#elif defined(_MSC_VER)
+    // Legacy MSVC
+    #include <sal.h>
+    #define AVLTREE_NODISCARD _Check_return_
 #else
     #define AVLTREE_NODISCARD
 #endif // AVLTREE_NODISCARD definition
 
 /**
- * @def AVLTREE_UNLIKELY(x)
+ * @def AVLTREE_HINT_UNLIKELY
+ * @def AVLTREE_NOT_EXPECT
  * @brief Branch prediction hint, used in the AVLTREE_ENSURE macro, as it usually
- *        just always passes, C23 [[likely]] cannot be applied in this case
+ *        just always passes
  */
-#if defined(__GNUC__) || defined(__clang__)
-    #define AVLTREE_UNLIKELY(x) __builtin_expect(!!(x), 0)
+#if AVLTREE_USE_BRACKET_ATTR && (__has_c_attribute(unlikely) || __has_cpp_attribute(unlikely))
+    // C23+ or C++17+ or an older compiler that supports it
+    #define AVLTREE_HINT_UNLIKELY [[unlikely]]
+    #define AVLTREE_NOT_EXPECT(x) (x)
+#elif defined(__GNUC__) || defined(__clang__)
+    // Legacy GCC or Clang compilers
+    #define AVLTREE_HINT_UNLIKELY
+    #define AVLTREE_NOT_EXPECT(x) __builtin_expect(!!(x), 0)
 #else
-    #define AVLTREE_UNLIKELY(x) (x)
-#endif // AVLTREE_UNLIKELY definition
+    #define AVLTREE_HINT_UNLIKELY
+    #define AVLTREE_NOT_EXPECT(x) (x)
+#endif // AVLTREE_NOT_EXPECT definition
 
 /**
  * @def AVLTREE_USE_ASSERT
@@ -150,7 +153,7 @@ extern "C" {
     #include <stdlib.h> // For abort()
     #define AVLTREE_ENSURE(cond, ret, msg)                                                                             \
         do {                                                                                                           \
-            if (AVLTREE_UNLIKELY(!(cond))) {                                                                           \
+            if (AVLTREE_NOT_EXPECT(!(cond))) AVLTREE_HINT_UNLIKELY {                                                   \
                 assert(0 && (msg));                                                                                    \
                 abort();                                                                                               \
             }                                                                                                          \
@@ -158,7 +161,7 @@ extern "C" {
 
     #define AVLTREE_ENSURE_PTR(cond, msg)                                                                              \
         do {                                                                                                           \
-            if (AVLTREE_UNLIKELY(!(cond))) {                                                                           \
+            if (AVLTREE_NOT_EXPECT(!(cond))) AVLTREE_HINT_UNLIKELY {                                                   \
                 assert(0 && (msg));                                                                                    \
                 abort();                                                                                               \
             }                                                                                                          \
@@ -166,14 +169,14 @@ extern "C" {
 #else
     #define AVLTREE_ENSURE(cond, ret, msg)                                                                             \
         do {                                                                                                           \
-            if (AVLTREE_UNLIKELY(!(cond))) {                                                                           \
+            if (AVLTREE_NOT_EXPECT(!(cond))) AVLTREE_HINT_UNLIKELY {                                                   \
                 return (ret);                                                                                          \
             }                                                                                                          \
         } while (0)
 
     #define AVLTREE_ENSURE_PTR(cond, msg)                                                                              \
         do {                                                                                                           \
-            if (AVLTREE_UNLIKELY(!(cond))) {                                                                           \
+            if (AVLTREE_NOT_EXPECT(!(cond))) AVLTREE_HINT_UNLIKELY {                                                   \
                 return NULL;                                                                                           \
             }                                                                                                          \
         } while (0)
