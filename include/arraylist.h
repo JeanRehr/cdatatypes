@@ -793,14 +793,14 @@ ARRAYLIST_UNUSED ARRAYLIST_LINKAGE enum arraylist_error ARRAYLIST_FN(name, remov
 );                                                                                                                     \
                                                                                                                        \
 /**                                                                                                                    \
- * @brief remove_from_to: Removes elements from index until to inclusive                                               \
+ * @brief remove_from_to: Removes elements from index until to, inclusive                                              \
  * @param self Pointer to the arraylist                                                                                \
  * @param from Starting position to remove                                                                             \
- * @param to Ending position inclusive                                                                                 \
+ * @param to Ending position, inclusive                                                                                \
  * @return ARRAYLIST_ERR_NULL in case of NULL being passed, ARRAYLIST_ERR_OOB, if from > to,                           \
  *         to >= self.size, or from >= self.size, or ARRAYLIST_OK                                                      \
  *                                                                                                                     \
- * Will call destructor if available                                                                                   \
+ * @note Calls destructor if available                                                                                 \
  */                                                                                                                    \
 ARRAYLIST_UNUSED ARRAYLIST_LINKAGE enum arraylist_error ARRAYLIST_FN(name, remove_from_to)(                            \
     struct arraylist_##name *self,                                                                                     \
@@ -1835,14 +1835,14 @@ ARRAYLIST_UNUSED ARRAYLIST_LINKAGE enum arraylist_error ARRAYLIST_FN_DYN(name, r
 );                                                                                                                     \
                                                                                                                        \
 /**                                                                                                                    \
- * @brief remove_from_to: Removes elements from index until to inclusive                                               \
+ * @brief remove_from_to: Removes elements from index until to, inclusive                                              \
  * @param self Pointer to the arraylist                                                                                \
  * @param from Starting position to remove                                                                             \
- * @param to Ending position inclusive                                                                                 \
+ * @param to Ending position, inclusive                                                                                \
  * @return ARRAYLIST_ERR_NULL in case of NULL being passed, ARRAYLIST_ERR_OOB, if from > to,                           \
  *         to >= self.size, or from >= self.size, or ARRAYLIST_OK                                                      \
  *                                                                                                                     \
- * Will call destructor if available                                                                                   \
+ * @note Calls destructor if available                                                                                 \
  */                                                                                                                    \
 ARRAYLIST_UNUSED ARRAYLIST_LINKAGE enum arraylist_error ARRAYLIST_FN_DYN(name, remove_from_to)(                        \
     struct arraylist_dyn_##name *self,                                                                                 \
