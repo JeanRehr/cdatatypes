@@ -191,6 +191,35 @@ extern "C" {
 #define ARRAYLIST_INITIAL_CAP 1
 
 /**
+ * @def __has_c_attribute
+ * @brief Fallback macros for C compilers that do not support the testing for features
+ */
+#ifndef __has_c_attribute
+    #define __has_c_attribute(x) 0
+#endif // __has_c_attribute
+
+/**
+ * @def __has_cpp_attribute
+ * @brief Fallback macros for C++ compilers that do not support the testing for features
+ */
+#ifndef __has_cpp_attribute
+    #define __has_cpp_attribute(x) 0
+#endif // __has_cpp_attribute
+
+/**
+ * @def ARRAYLIST_USE_BRACKET_ATTR
+ * @brief This checks for the Standard [[]] support (C23+ or C++11+)
+ * @details Mainly used because, if compiling with pedantic or Wall, then warnings will be issued if syntax [[]]
+ *          attribute is supported on pre C23 but still used, [[]] will be considered compiler extension and
+ *          not Standard C compliant.
+ */
+#if (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L) || (defined(__cplusplus) && __cplusplus >= 201103L)
+    #define ARRAYLIST_USE_BRACKET_ATTR 1
+#else
+    #define ARRAYLIST_USE_BRACKET_ATTR 0
+#endif // ARRAYLIST_USE_BRACKET_ATTR
+
+/**
  * @def arraylist_noop_deinit
  * @brief Defines a no-op destructor macro for usage in scalar types or types
  *        that does not need a destructor
