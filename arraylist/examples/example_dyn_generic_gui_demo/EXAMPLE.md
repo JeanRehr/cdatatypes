@@ -14,13 +14,13 @@ It has:
 
 ## Runtime Destructor Benefits
 
-This example highlights why ARRAYLIST_DYN is essential for polymorphic collections:
-- Store different screen types (screen1, screen2, etc.) in a single arraylist
+This example demonstrates why ARRAYLIST_DYN is necessary for polymorphic collections
+- It can store different screen types (screen1, screen2, etc.) in a single arraylist
 - Each screen type has different sizes and cleanup requirements
 - Each component's destructor is determined at runtime, not compile-time
-- Nested cleanup: screens contain arraylists of components, all cleaned up automatically
+- Screens contain arraylists of components, all cleaned up automatically
 
-There is an arraylist of polymorphic screens, and in each screen there is an arraylist of polymorphic components.
+So there is an arraylist of polymorphic screens, and in each screen there is an arraylist of polymorphic components.
 
 Base Types:
 - screen_base - Base interface for all screens
